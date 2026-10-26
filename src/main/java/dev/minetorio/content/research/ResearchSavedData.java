@@ -5,10 +5,12 @@ import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.research.LabLogic;
 import dev.minetorio.core.research.ResearchState;
 import dev.minetorio.core.research.Technology;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -37,6 +39,8 @@ public final class ResearchSavedData extends SavedData {
     public static final String NAME = "minetorio_research";
     /** Least ticks between two syncs caused only by unit progress. */
     public static final int PROGRESS_SYNC_TICKS = 20;
+    /** Least ticks between two research switches by the same player. */
+    public static final int SWITCH_COOLDOWN_TICKS = 10;
     private static final String KEY_RESEARCHED = "researched";
     private static final String KEY_CURRENT = "current";
     private static final String KEY_PROGRESS = "progress";
@@ -47,6 +51,8 @@ public final class ResearchSavedData extends SavedData {
     private MinecraftServer server;
     private boolean progressSyncPending;
     private int lastSyncTick = Integer.MIN_VALUE / 2;
+    /** Server tick of each player's last research switch; not saved. */
+    private final Map<UUID, Integer> lastSwitchTick = new HashMap<>();
 
     private ResearchSavedData() {}
 
@@ -97,17 +103,26 @@ public final class ResearchSavedData extends SavedData {
         }
     }
 
-    public enum SelectResult { OK, SPECTATOR, UNKNOWN, UNAVAILABLE }
+    public enum SelectResult { OK, SPECTATOR, UNKNOWN, UNAVAILABLE, TOO_SOON }
 
     /**
      * A player's choice of the technology to research (from {@link SelectResearchPayload}):
      * accepted if it is the current one already or {@link ResearchState#canResearch can be
-     * researched}; spectators may not choose.
+     * researched}; spectators may not choose, and a player may switch the research at most once per
+     * {@value #SWITCH_COOLDOWN_TICKS} ticks.
      */
     public static SelectResult select(ServerPlayer player, String techId) {
         if (player.isSpectator()) return SelectResult.SPECTATOR;
         if (Phase1Data.techTree().get(techId).isEmpty()) return SelectResult.UNKNOWN;
-        return get(player.server).select(techId) ? SelectResult.OK : SelectResult.UNAVAILABLE;
+        ResearchSavedData data = get(player.server);
+        if (data.state.current().map(t -> t.id().equals(techId)).orElse(false)) return SelectResult.OK;
+        if (!data.state.canResearch(techId)) return SelectResult.UNAVAILABLE;
+        int now = player.server.getTickCount();
+        Integer last = data.lastSwitchTick.get(player.getUUID());
+        if (last != null && now - last < SWITCH_COOLDOWN_TICKS) return SelectResult.TOO_SOON;
+        data.lastSwitchTick.put(player.getUUID(), now);
+        data.select(techId);
+        return SelectResult.OK;
     }
 
     /** Makes {@code techId} current if allowed (see {@link #select(ServerPlayer, String)}); returns whether it is current now. */
@@ -165,14 +180,18 @@ public final class ResearchSavedData extends SavedData {
 
     // --- persistence -----------------------------------------------------------------------------------
 
+    private static boolean isKnown(String techId) { return Phase1Data.techTree().get(techId).isPresent(); }
+
     public static ResearchSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         ResearchSavedData d = new ResearchSavedData();
         Set<String> researched = new LinkedHashSet<>();
         ListTag list = tag.getList(KEY_RESEARCHED, Tag.TAG_STRING);
-        for (int i = 0; i < list.size(); i++) researched.add(list.getString(i));
+        for (int i = 0; i < list.size(); i++) {
+            if (isKnown(list.getString(i))) researched.add(list.getString(i));
+        }
         String current = tag.contains(KEY_CURRENT, Tag.TAG_STRING) ? tag.getString(KEY_CURRENT) : null;
         Map<String, Integer> progress = CoreNbt.readCounts(tag.getCompound(KEY_PROGRESS));
-        progress.values().removeIf(v -> v <= 0);
+        progress.entrySet().removeIf(e -> e.getValue() <= 0 || !isKnown(e.getKey()) || researched.contains(e.getKey()));
         loadInto(d.state, researched, current, progress);
         return d;
     }

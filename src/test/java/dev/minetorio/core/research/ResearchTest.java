@@ -125,8 +125,9 @@ class ResearchTest {
         l.insertPack(R, 2, true);
         for (int i = 0; i < 100; i++) l.tick(s, 1.0);
         s.setCurrent("logistics");
-        l.tick(s, 1.0); // aborts without refund, starts anew for logistics (15 s = 300 ticks)
-        assertTrue(l.packs().isEmpty());
+        l.tick(s, 1.0); // aborts with refund (R23), starts anew for logistics (15 s = 300 ticks)
+        assertEquals(Map.of(R, 1), l.packs());
+        assertEquals(Map.of(R, 1), l.unitPacks());
         for (int i = 0; i < 298; i++) l.tick(s, 1.0);
         assertEquals(0, s.unitsDone());
         l.tick(s, 1.0);
@@ -171,7 +172,7 @@ class ResearchTest {
         assertTrue(l.isWorking());
         assertEquals("automation", l.unitTech());
         LabLogic back = lab();
-        back.load(l.packs(), l.unitTech(), l.progress());
+        back.load(l.packs(), l.unitTech(), l.unitPacks(), l.progress());
         assertEquals(l.packs(), back.packs());
         assertTrue(back.isWorking());
         assertEquals(Units.kw(60), back.powerDemand());
@@ -182,9 +183,54 @@ class ResearchTest {
         assertEquals(Map.of(R, 2), back.packs());
 
         LabLogic idle = lab();
-        idle.load(Map.of(R, 5, "minetorio:iron_plate", 3, G, 0), null, 0.7);
+        idle.load(Map.of(R, 5, "minetorio:iron_plate", 3, G, 0), null, Map.of(G, 1), 0.7);
         assertFalse(idle.isWorking());
-        assertEquals(Map.of(R, 5), idle.packs()); // unknown items and empty counts dropped
+        assertEquals(Map.of(R, 5, G, 1), idle.packs()); // unknown items and empty counts dropped; idle unit packs stored
         assertEquals(0, idle.progress());
+    }
+
+    private static int total(LabLogic l) {
+        int n = 0;
+        for (int v : l.packs().values()) n += v;
+        for (int v : l.unitPacks().values()) n += v;
+        return n;
+    }
+
+    @Test void switchingResearchMidUnitKeepsPackTotal() {
+        ResearchState s = state();
+        s.load(Set.of("automation", "logistic_science_pack"), "automation_2", Map.of());
+        LabLogic l = lab();
+        l.insertPack(R, 3, false);
+        l.insertPack(G, 2, false);
+        for (int i = 0; i < 50; i++) l.tick(s, 1.0);
+        assertEquals(Map.of(R, 1, G, 1), l.unitPacks());
+        assertEquals(5, total(l));
+        for (String tech : List.of("logistics", "automation_2", "fast_inserter", "automation_2")) {
+            s.setCurrent(tech);
+            l.tick(s, 1.0);
+            assertEquals(5, total(l), "after switching to " + tech);
+        }
+        LabLogic copy = lab(); // abort after a reload refunds too
+        copy.load(l.packs(), l.unitTech(), l.unitPacks(), l.progress());
+        s.setCurrent("logistics");
+        copy.tick(s, 0.0);
+        assertEquals(5, total(copy));
+    }
+
+    @Test void techCompletedElsewhereRefundsUnit() {
+        ResearchState s = state();
+        s.load(Set.of(), "automation", Map.of("automation", 9));
+        LabLogic a = lab();
+        LabLogic b = lab();
+        a.insertPack(R, 1, true);
+        for (int i = 0; i < 100; i++) a.tick(s, 1.0);
+        b.insertPack(R, 1, true);
+        for (int i = 0; i < 100; i++) { a.tick(s, 1.0); b.tick(s, 1.0); }
+        assertTrue(s.isResearched("automation"));
+        assertTrue(a.packs().isEmpty());
+        b.tick(s, 1.0); // no current: b's unit is aborted and refunded
+        assertFalse(b.isWorking());
+        assertEquals(Map.of(R, 1), b.packs());
+        assertTrue(b.unitPacks().isEmpty());
     }
 }

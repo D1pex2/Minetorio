@@ -21,14 +21,18 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -55,6 +59,32 @@ public class ResearchGameTest {
     private static final BlockPos LAB_2 = new BlockPos(2, 1, 8);
     /** Pole whose supply area (z 4..8) covers a cell of both labs. */
     private static final BlockPos POLE = new BlockPos(3, 1, 6);
+
+    /** Puts the world's research back to the start state after each research batch. */
+    @AfterBatch(batch = "research_single_lab")
+    public static void after0(ServerLevel level) { clear(level); }
+
+    @AfterBatch(batch = "research_two_labs")
+    public static void after1(ServerLevel level) { clear(level); }
+
+    @AfterBatch(batch = "research_locks")
+    public static void after2(ServerLevel level) { clear(level); }
+
+    @AfterBatch(batch = "research_persist")
+    public static void after3(ServerLevel level) { clear(level); }
+
+    @AfterBatch(batch = "research_select")
+    public static void after4(ServerLevel level) { clear(level); }
+
+    @AfterBatch(batch = "research_refund")
+    public static void after5(ServerLevel level) { clear(level); }
+
+    @AfterBatch(batch = "research_break")
+    public static void after6(ServerLevel level) { clear(level); }
+
+    private static void clear(ServerLevel level) {
+        ResearchSavedData.get(level.getServer()).restore(Set.of(), null, Map.of());
+    }
 
     static ResearchSavedData clearedResearch(GameTestHelper h) {
         ResearchSavedData data = ResearchSavedData.get(h.getLevel().getServer());
@@ -162,7 +192,6 @@ public class ResearchGameTest {
         h.assertTrue(ResearchSavedData.load(tag, registries).state().current().isEmpty(), "unknown tech loaded as current");
         // the world's instance is the one in the Overworld's data storage
         h.assertTrue(ResearchSavedData.get(h.getLevel().getServer()) == data, "not one state per world");
-        data.restore(Set.of(), null, Map.of());
         h.succeed();
     }
 
@@ -186,9 +215,23 @@ public class ResearchGameTest {
         h.assertTrue(data.state().current().map(t -> t.id().equals("automation")).orElse(false), "current " + data.state().current());
         data.restore(Set.of("automation"), null, Map.of());
         h.assertTrue(ResearchSavedData.select(p, "automation") == ResearchSavedData.SelectResult.UNAVAILABLE, "researched accepted");
-        h.assertTrue(ResearchSavedData.select(p, "fast_inserter") == ResearchSavedData.SelectResult.OK, "unlocked tech refused");
+        // a player may switch at most once per SWITCH_COOLDOWN_TICKS
+        h.assertTrue(ResearchSavedData.select(p, "fast_inserter") == ResearchSavedData.SelectResult.TOO_SOON, "switch not rate-limited");
+        h.assertTrue(data.state().current().isEmpty(), "current " + data.state().current());
+        FakePlayer other = player(h, new BlockPos(4, 1, 7));
+        h.assertTrue(ResearchSavedData.select(other, "logistics") == ResearchSavedData.SelectResult.OK, "other player limited");
 
-        // codecs
+        // codecs: the capped codecs refuse oversized data written by an uncapped encoder (a modified client)
+        ByteBuf longId = Unpooled.buffer();
+        ByteBufCodecs.STRING_UTF8.encode(longId, "x".repeat(ResearchSyncPayload.MAX_ID_LENGTH + 1));
+        h.assertTrue(!decodes(SelectResearchPayload.STREAM_CODEC, longId), "server decoded an over-long tech id");
+        Set<String> tooMany = new HashSet<>();
+        for (int i = 0; i <= ResearchSyncPayload.MAX_TECHS; i++) tooMany.add("t" + i);
+        ByteBuf bigSet = Unpooled.buffer();
+        ByteBufCodecs.<ByteBuf, String, Set<String>>collection(HashSet::new, ByteBufCodecs.STRING_UTF8).encode(bigSet, tooMany);
+        ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).encode(bigSet, Optional.empty());
+        ByteBufCodecs.VAR_INT.encode(bigSet, 0);
+        h.assertTrue(!decodes(ResearchSyncPayload.STREAM_CODEC, bigSet), "decoded an oversized researched set");
         h.assertTrue(!roundTrips(SelectResearchPayload.STREAM_CODEC, new SelectResearchPayload("x".repeat(ResearchSyncPayload.MAX_ID_LENGTH + 1))),
                 "over-long tech id accepted");
         ResearchSyncPayload sync = new ResearchSyncPayload(Set.of("automation"), "fast_inserter", Map.of("fast_inserter", 4));
@@ -198,7 +241,6 @@ public class ResearchGameTest {
         Set<String> many = new HashSet<>();
         for (int i = 0; i <= ResearchSyncPayload.MAX_TECHS; i++) many.add("t" + i);
         h.assertTrue(!roundTrips(ResearchSyncPayload.STREAM_CODEC, new ResearchSyncPayload(many, null, Map.of())), "oversized set accepted");
-        data.restore(Set.of(), null, Map.of());
         h.succeed();
     }
 
@@ -206,6 +248,15 @@ public class ResearchGameTest {
         ByteBuf buf = Unpooled.buffer();
         codec.encode(buf, value);
         return codec.decode(buf);
+    }
+
+    private static boolean decodes(StreamCodec<ByteBuf, ?> codec, ByteBuf buf) {
+        try {
+            codec.decode(buf);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private static <T> boolean roundTrips(StreamCodec<ByteBuf, T> codec, T value) {
@@ -252,16 +303,60 @@ public class ResearchGameTest {
         h.succeed();
     }
 
+    /**
+     * Two labs out of step on one technology: when one completes it, the other's unit in progress is
+     * aborted and its packs go back to the lab (R23).
+     */
+    @GameTest(template = "empty16", batch = "research_refund", timeoutTicks = 400)
+    public static void completionElsewhereRefundsPacks(GameTestHelper h) {
+        ResearchSavedData data = clearedResearch(h);
+        data.restore(Set.of(), "automation", Map.of("automation", 9));
+        LabBlockEntity a = lab(h, LAB);
+        LabBlockEntity b = lab(h, LAB_2);
+        TestPower.powerAt(h, POLE);
+        a.lab().insertPack(R, 1, false);
+        h.runAtTickTime(100, () -> {
+            h.assertTrue(a.lab().isWorking(), "first lab idle");
+            b.lab().insertPack(R, 1, false);
+        });
+        h.runAtTickTime(150, () -> h.assertTrue(b.lab().unitPacks().equals(Map.of(R, 1)), "second lab unit " + b.lab().unitPacks()));
+        h.runAtTickTime(300, () -> {
+            h.assertTrue(data.state().isResearched("automation"), "automation not researched");
+            h.assertTrue(a.lab().packs().isEmpty() && a.lab().unitPacks().isEmpty(), "first lab kept " + a.lab().packs());
+            h.assertTrue(!b.lab().isWorking() && b.lab().unitPacks().isEmpty(), "second lab still working");
+            h.assertTrue(b.lab().packs().equals(Map.of(R, 1)), "second lab packs " + b.lab().packs());
+            h.succeed();
+        });
+    }
+
+    /** Breaking a lab mid-unit drops the stored packs and those of the unit in progress. */
+    @GameTest(template = "empty16", batch = "research_break", timeoutTicks = 200)
+    public static void breakingLabMidUnitDropsAllPacks(GameTestHelper h) {
+        ResearchSavedData data = clearedResearch(h);
+        h.assertTrue(data.select("automation"), "automation not selectable");
+        LabBlockEntity lab = lab(h, LAB);
+        TestPower.powerAt(h, POLE);
+        lab.lab().insertPack(R, 3, false);
+        h.runAtTickTime(50, () -> {
+            h.assertTrue(lab.lab().unitPacks().equals(Map.of(R, 1)) && lab.lab().packs().equals(Map.of(R, 2)),
+                    "lab " + lab.lab().packs() + " unit " + lab.lab().unitPacks());
+            h.getLevel().destroyBlock(h.absolutePos(new BlockPos(4, 2, 4)), true);
+            h.assertTrue(dropped(h, ModItems.AUTOMATION_SCIENCE_PACK.get()) == 3, "R dropped " + dropped(h, ModItems.AUTOMATION_SCIENCE_PACK.get()));
+            h.succeed();
+        });
+    }
+
     /** Stored packs and the unit in progress survive save/load. */
     @GameTest(template = "empty16")
     public static void labNbtRoundTrip(GameTestHelper h) {
         LabBlockEntity be = lab(h, LAB);
-        be.lab().load(Map.of(R, 3, G, 1), "automation", 0.25);
+        be.lab().load(Map.of(R, 3, G, 1), "automation", Map.of(R, 1), 0.25);
         var registries = h.getLevel().registryAccess();
         LabBlockEntity copy = new LabBlockEntity(be.getBlockPos(), be.getBlockState());
         copy.loadWithComponents(be.saveWithoutMetadata(registries), registries);
         h.assertTrue(copy.lab().packs().equals(Map.of(R, 3, G, 1)), "packs " + copy.lab().packs());
         h.assertTrue("automation".equals(copy.lab().unitTech()) && copy.lab().progress() == 0.25, "unit lost");
+        h.assertTrue(copy.lab().unitPacks().equals(Map.of(R, 1)), "unit packs " + copy.lab().unitPacks());
         h.succeed();
     }
 }

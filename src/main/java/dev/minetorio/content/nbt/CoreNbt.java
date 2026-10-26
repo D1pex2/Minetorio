@@ -182,6 +182,7 @@ public final class CoreNbt {
         tag.put("packs", writeCounts(lab.packs()));
         if (lab.unitTech() != null) {
             tag.putString("unit_tech", lab.unitTech());
+            tag.put("unit_packs", writeCounts(lab.unitPacks()));
             tag.putDouble("progress", lab.progress());
         }
         return tag;
@@ -189,6 +190,6 @@ public final class CoreNbt {
 
     public static void loadLabInto(LabLogic lab, CompoundTag tag) {
         String unit = tag.contains("unit_tech", Tag.TAG_STRING) ? tag.getString("unit_tech") : null;
-        lab.load(readCounts(tag.getCompound("packs")), unit, tag.getDouble("progress"));
+        lab.load(readCounts(tag.getCompound("packs")), unit, readCounts(tag.getCompound("unit_packs")), tag.getDouble("progress"));
     }
 }

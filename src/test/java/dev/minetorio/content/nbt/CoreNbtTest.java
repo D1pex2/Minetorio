@@ -212,6 +212,7 @@ class CoreNbtTest {
         CoreNbt.loadLabInto(back, CoreNbt.writeLab(lab));
         assertEquals(lab.packs(), back.packs());
         assertEquals(lab.unitTech(), back.unitTech());
+        assertEquals(Map.of("minetorio:automation_science_pack", 1), back.unitPacks());
         assertEquals(lab.progress(), back.progress());
         assertTrue(back.isWorking());
 

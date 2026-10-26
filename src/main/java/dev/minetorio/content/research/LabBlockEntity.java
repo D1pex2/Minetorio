@@ -14,6 +14,7 @@ import dev.minetorio.core.inserter.DropTarget;
 import dev.minetorio.core.inserter.PickupSource;
 import dev.minetorio.core.research.LabLogic;
 import dev.minetorio.core.research.Technology;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +42,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * <p><b>Packs.</b> Only automation and logistic science packs without data components enter.
  * Inserters ({@link #asTarget}) and the {@link #itemHandler()} capability insert as automated (up
  * to 2 of each pack); right-click with packs inserts by hand (up to 64). Nothing can be taken out;
- * breaking the lab drops the stored packs (the unit in progress is lost).
+ * breaking the lab drops the stored packs and those of the unit in progress.
  *
  * <p><b>Client sync.</b> Only {@link #isWorking()} (researched with power recently) is synced; the
  * client lights and turns the dome while it is set. It turns on at once and off after
@@ -233,11 +234,13 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
         power.onRemoved();
     }
 
-    /** The stored packs (the unit in progress is lost). */
+    /** The stored packs and those held by the unit in progress. */
     @Override
     protected void dropContents(Level level, BlockPos pos) {
-        MachineItems.drop(level, pos, Map.copyOf(lab.packs()));
-        lab.load(Map.of(), null, 0);
+        Map<String, Integer> all = new LinkedHashMap<>(lab.packs());
+        lab.unitPacks().forEach((k, v) -> all.merge(k, v, Integer::sum));
+        MachineItems.drop(level, pos, all);
+        lab.load(Map.of(), null, Map.of(), 0);
     }
 
     @Override
