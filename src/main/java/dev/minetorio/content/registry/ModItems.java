@@ -2,6 +2,7 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.deposit.ScannerItem;
+import java.util.List;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -57,6 +58,18 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> BOILER = ITEMS.registerSimpleBlockItem(ModBlocks.BOILER);
     public static final DeferredItem<BlockItem> STEAM_ENGINE = ITEMS.registerSimpleBlockItem(ModBlocks.STEAM_ENGINE);
     public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE);
+
+    /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
+    public static final List<String> IDS = List.of(
+            "iron_ore", "copper_ore", "iron_plate", "copper_plate", "stone_brick", "iron_gear_wheel", "copper_cable",
+            "electronic_circuit", "automation_science_pack", "logistic_science_pack",
+            "stone_furnace", "burner_mining_drill", "electric_mining_drill", "assembling_machine_1", "assembling_machine_2", "lab",
+            "scanner",
+            "transport_belt", "fast_transport_belt", "express_transport_belt",
+            "underground_belt", "fast_underground_belt", "express_underground_belt",
+            "splitter", "fast_splitter", "express_splitter",
+            "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter",
+            "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole");
 
     private ModItems() {}
 
