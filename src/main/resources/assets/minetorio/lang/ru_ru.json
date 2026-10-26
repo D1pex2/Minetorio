@@ -24,5 +24,7 @@
   "minetorio.underground.entrance": "Вход подземной ленты — поставь выход в 1–%s блоках впереди, глядя в ту же сторону",
   "minetorio.underground.connected": "Подземная лента соединена (%s бл.)",
   "minetorio.underground.tooltip.1": "Ставь вход, глядя вдоль ленты,",
-  "minetorio.underground.tooltip.2": "затем выход в 1–%s блоках впереди, глядя в ту же сторону."
+  "minetorio.underground.tooltip.2": "затем выход в 1–%s блоках впереди, глядя в ту же сторону.",
+  "minetorio.fast_replace.range": "Не хватает дальности для этого уровня",
+  "minetorio.fast_replace.need_two": "Нужно 2 подземные ленты"
 }

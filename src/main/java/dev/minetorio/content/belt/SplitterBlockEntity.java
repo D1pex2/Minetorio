@@ -155,6 +155,31 @@ public class SplitterBlockEntity extends MultiblockControllerBlockEntity impleme
         return null;
     }
 
+    /** Removes and returns all lanes, in {@link #allLanes} order, for a fast-replace. */
+    public List<BeltLane> takeLanes() {
+        List<BeltLane> taken = allLanes();
+        for (int c = 0; c < 2; c++) {
+            for (int s = 0; s < 2; s++) {
+                in[c][s] = new BeltLane(HALF);
+                out[c][s] = new BeltLane(HALF);
+            }
+        }
+        return taken;
+    }
+
+    /** Puts lanes from {@link #takeLanes} of a replaced splitter onto this one. */
+    public void restoreLanes(List<BeltLane> lanes) {
+        int i = 0;
+        for (int c = 0; c < 2; c++) {
+            for (int s = 0; s < 2; s++) {
+                in[c][s] = LaneStacks.resize(lanes.get(i++), HALF, false, level, worldPosition);
+                out[c][s] = LaneStacks.resize(lanes.get(i++), HALF, false, level, worldPosition);
+            }
+        }
+        tracker.requestSync();
+        setChanged();
+    }
+
     @Override
     protected void dropContents(Level level, BlockPos pos) {
         for (BeltLane lane : allLanes()) LaneStacks.drop(level, pos, lane);

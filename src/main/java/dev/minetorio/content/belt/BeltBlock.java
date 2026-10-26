@@ -8,9 +8,13 @@ import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
+import dev.minetorio.core.belt.BeltLane;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -24,6 +28,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -100,6 +105,29 @@ public class BeltBlock extends BaseEntityBlock {
     protected BlockState updateShape(BlockState state, Direction dir, BlockState neighbor, LevelAccessor level,
                                      BlockPos pos, BlockPos neighborPos) {
         return dir.getAxis().isHorizontal() ? withShape(level, pos, state) : state;
+    }
+
+    /**
+     * Fast-replace: right-clicking with a belt of another tier swaps this belt in place, keeping
+     * facing and lane contents; the old belt item goes back to the player (not in creative).
+     */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                              InteractionHand hand, BlockHitResult hit) {
+        BeltBlock next = FastReplace.target(stack, this, BeltBlock.class, player);
+        if (next == null || !FastReplace.canPay(player, stack, 1)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
+        if (!(level.getBlockEntity(pos) instanceof BeltBlockEntity old)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        BeltLane[] lanes = old.takeLanes();
+        BlockState placed = withShape(level, pos, next.defaultBlockState().setValue(FACING, state.getValue(FACING)));
+        level.setBlock(pos, placed, Block.UPDATE_ALL);
+        if (level.getBlockEntity(pos) instanceof BeltBlockEntity be) {
+            be.restoreLanes(lanes[0], lanes[1]);
+        } else {
+            for (BeltLane lane : lanes) LaneStacks.drop(level, pos, lane);
+        }
+        FastReplace.finish(level, pos, placed, player, stack, this, 1);
+        return ItemInteractionResult.CONSUME;
     }
 
     @Override

@@ -1,6 +1,7 @@
 package dev.minetorio.content.belt;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.BeltTier;
 import dev.minetorio.core.belt.UndergroundLink;
 import java.util.ArrayList;
@@ -12,6 +13,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -31,6 +34,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -155,6 +159,49 @@ public class UndergroundBeltBlock extends BaseEntityBlock {
         super.appendHoverText(stack, ctx, lines, flag);
         lines.add(Component.translatable("minetorio.underground.tooltip.1").withStyle(ChatFormatting.GRAY));
         lines.add(Component.translatable("minetorio.underground.tooltip.2", maxDistance()).withStyle(ChatFormatting.GRAY));
+    }
+
+    /**
+     * Fast-replace with another tier. A paired piece swaps both pieces (needs 2 items and enough
+     * range for the current distance), an unpaired one swaps alone; pairing and contents are kept.
+     */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                              InteractionHand hand, BlockHitResult hit) {
+        UndergroundBeltBlock next = FastReplace.target(stack, this, UndergroundBeltBlock.class, player);
+        if (next == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
+        if (!(level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        BlockPos partnerPos = be.partnerPos();
+        UndergroundBeltBlockEntity partner = partnerPos != null
+                && level.getBlockEntity(partnerPos) instanceof UndergroundBeltBlockEntity p && pos.equals(p.partnerPos()) ? p : null;
+        int pieces = partner != null ? 2 : 1;
+        if (partner != null && be.distance() > next.maxDistance()) {
+            FastReplace.refuse(player, "minetorio.fast_replace.range");
+            return ItemInteractionResult.CONSUME;
+        }
+        if (!FastReplace.canPay(player, stack, pieces)) {
+            FastReplace.refuse(player, "minetorio.fast_replace.need_two");
+            return ItemInteractionResult.CONSUME;
+        }
+        int distance = be.distance();
+        BlockState placed = replacePiece(level, pos, state, be, next, distance);
+        if (partner != null) replacePiece(level, partnerPos, level.getBlockState(partnerPos), partner, next, distance);
+        FastReplace.finish(level, pos, placed, player, stack, this, pieces);
+        return ItemInteractionResult.CONSUME;
+    }
+
+    private static BlockState replacePiece(Level level, BlockPos pos, BlockState state, UndergroundBeltBlockEntity old,
+                                           UndergroundBeltBlock next, int distance) {
+        BeltLane[] lanes = old.takeForReplace();
+        BlockState placed = next.defaultBlockState().setValue(FACING, state.getValue(FACING)).setValue(TYPE, state.getValue(TYPE));
+        level.setBlock(pos, placed, Block.UPDATE_ALL);
+        if (level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be) {
+            be.restore(lanes[0], lanes[1], distance);
+        } else {
+            for (BeltLane lane : lanes) LaneStacks.drop(level, pos, lane);
+        }
+        return placed;
     }
 
     @Override

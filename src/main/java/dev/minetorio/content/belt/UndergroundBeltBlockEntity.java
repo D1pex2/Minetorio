@@ -112,9 +112,35 @@ public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode 
         setChanged();
     }
 
+    /** Set while this piece is being fast-replaced: its removal must neither drop nor unlink. */
+    private boolean replacing;
+
+    /** Removes and returns both lanes {left, right} for a fast-replace; removal then keeps the pair. */
+    public BeltLane[] takeForReplace() {
+        replacing = true;
+        BeltLane[] taken = {left, right};
+        left = new BeltLane(left.length());
+        right = new BeltLane(right.length());
+        return taken;
+    }
+
+    /** Takes over a replaced piece's pairing distance and lanes. */
+    public void restore(BeltLane l, BeltLane r, int d) {
+        fresh = false;
+        distance = d;
+        double len = laneLength();
+        left = LaneStacks.resize(l, len, false, level, worldPosition);
+        right = LaneStacks.resize(r, len, false, level, worldPosition);
+        if (level != null) {
+            BeltTicker.of(level).markDirty();
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+        setChanged();
+    }
+
     /** Drops the lane items and unpairs the partner (block removal, server side). */
     public void dropItemsAndUnlink() {
-        if (level == null) return;
+        if (level == null || replacing) return;
         LaneStacks.drop(level, worldPosition, left);
         LaneStacks.drop(level, worldPosition, right);
         left = new BeltLane(left.length());

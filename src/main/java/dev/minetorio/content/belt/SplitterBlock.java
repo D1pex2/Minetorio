@@ -3,16 +3,23 @@ package dev.minetorio.content.belt;
 import com.mojang.serialization.MapCodec;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.BeltTier;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -57,6 +64,30 @@ public class SplitterBlock extends MultiblockControllerBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new SplitterBlockEntity(pos, state);
+    }
+
+    /**
+     * Fast-replace with another tier: the whole 2x1 splitter is swapped in place (same facing and
+     * footprint), lane contents kept. Works from either column (parts delegate here).
+     */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                              InteractionHand hand, BlockHitResult hit) {
+        SplitterBlock next = FastReplace.target(stack, this, SplitterBlock.class, player);
+        if (next == null || !FastReplace.canPay(player, stack, 1)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
+        if (!(level.getBlockEntity(pos) instanceof SplitterBlockEntity old)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        List<BeltLane> lanes = old.takeLanes();
+        BlockState placed = next.defaultBlockState().setValue(FACING, state.getValue(FACING));
+        // The old controller's removal dismantles its (now empty) structure; the new one re-places the part.
+        level.setBlock(pos, placed, Block.UPDATE_ALL);
+        if (level.getBlockEntity(pos) instanceof SplitterBlockEntity be) {
+            be.restoreLanes(lanes);
+        } else {
+            for (BeltLane lane : lanes) LaneStacks.drop(level, pos, lane);
+        }
+        FastReplace.finish(level, pos, placed, player, stack, this, 1);
+        return ItemInteractionResult.CONSUME;
     }
 
     @Override

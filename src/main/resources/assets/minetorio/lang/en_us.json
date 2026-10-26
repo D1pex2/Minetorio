@@ -24,5 +24,7 @@
   "minetorio.underground.entrance": "Underground entrance — place the exit 1–%s blocks ahead, facing the same way",
   "minetorio.underground.connected": "Underground belt connected (%s blocks)",
   "minetorio.underground.tooltip.1": "Place the entrance looking along the belt,",
-  "minetorio.underground.tooltip.2": "then the exit 1–%s blocks ahead, facing the same way."
+  "minetorio.underground.tooltip.2": "then the exit 1–%s blocks ahead, facing the same way.",
+  "minetorio.fast_replace.range": "Not enough range for this tier",
+  "minetorio.fast_replace.need_two": "Need 2 underground belts"
 }

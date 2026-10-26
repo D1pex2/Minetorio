@@ -193,6 +193,23 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
         }
     }
 
+    /** Removes and returns both lanes {left, right} (fast-replace); this belt is left empty. */
+    public BeltLane[] takeLanes() {
+        BeltLane[] taken = {left, right};
+        left = new BeltLane(left.length());
+        right = new BeltLane(right.length());
+        return taken;
+    }
+
+    /** Puts lanes taken from a replaced belt onto this one; what no longer fits is dropped here. */
+    public void restoreLanes(BeltLane l, BeltLane r) {
+        BeltShape s = shape();
+        left = LaneStacks.resize(l, laneLength(s, LaneSide.LEFT), true, level, worldPosition);
+        right = LaneStacks.resize(r, laneLength(s, LaneSide.RIGHT), true, level, worldPosition);
+        tracker.requestSync();
+        setChanged();
+    }
+
     /** Drops every item on the lanes (server side) and empties them. */
     public void dropItems() {
         if (level == null) return;
