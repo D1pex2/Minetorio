@@ -88,12 +88,24 @@ public class UndergroundBeltBlock extends BaseEntityBlock {
         return state.getValue(TYPE) == Type.INPUT ? INPUT_SHAPES[i] : OUTPUT_SHAPES[i];
     }
 
+    /**
+     * Placing looking along the travel direction: an exit if an unpaired entrance of this tier facing
+     * the same way lies behind (within range), otherwise an entrance facing the look direction.
+     * Placing while looking back at an unpaired entrance ahead that points toward the player also
+     * makes its exit (facing like the entrance), so the exit can be placed from either side.
+     */
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        Direction facing = ctx.getHorizontalDirection();
-        boolean exit = findPartner(ctx.getLevel(), ctx.getClickedPos(), facing, Type.OUTPUT).isPresent();
-        return defaultBlockState().setValue(FACING, facing).setValue(TYPE, exit ? Type.OUTPUT : Type.INPUT);
+        Direction look = ctx.getHorizontalDirection();
+        BlockState input = defaultBlockState().setValue(FACING, look).setValue(TYPE, Type.INPUT);
+        if (findPartner(ctx.getLevel(), ctx.getClickedPos(), look, Type.OUTPUT).isPresent()) {
+            return input.setValue(TYPE, Type.OUTPUT);
+        }
+        if (findPartner(ctx.getLevel(), ctx.getClickedPos(), look.getOpposite(), Type.OUTPUT).isPresent()) {
+            return input.setValue(FACING, look.getOpposite()).setValue(TYPE, Type.OUTPUT);
+        }
+        return input;
     }
 
     /**

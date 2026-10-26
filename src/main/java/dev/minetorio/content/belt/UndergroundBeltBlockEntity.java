@@ -176,7 +176,8 @@ public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode 
         BlockPos p = partnerPos();
         if (p == null) return null;
         return BeltTicker.of(level).at(p) instanceof UndergroundBeltBlockEntity exit
-                && exit.type() == UndergroundBeltBlock.Type.OUTPUT ? exit.lane(side).asSink() : null;
+                && exit.type() == UndergroundBeltBlock.Type.OUTPUT
+                && worldPosition.equals(exit.partnerPos()) ? exit.lane(side).asSink() : null;
     }
 
     @Override

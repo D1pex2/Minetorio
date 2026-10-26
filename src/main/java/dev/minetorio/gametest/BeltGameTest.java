@@ -3,6 +3,7 @@ package dev.minetorio.gametest;
 import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.LaneSide;
+import dev.minetorio.content.belt.LaneStacks;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
 import dev.minetorio.content.registry.ModItems;
@@ -10,17 +11,22 @@ import dev.minetorio.core.belt.LaneItem;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -194,6 +200,8 @@ public class BeltGameTest {
     public static void splitterAlternates(GameTestHelper h) {
         place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(5, 1, 6), Direction.NORTH);
         place(h, ModItems.SPLITTER.get(), new BlockPos(5, 1, 5), Direction.NORTH); // columns x=5 (left), x=6 (right)
+        h.assertTrue(h.getBlockState(new BlockPos(5, 1, 5)).is(dev.minetorio.content.registry.ModBlocks.SPLITTER.get()), "controller at the clicked spot");
+        h.assertTrue(h.getBlockState(new BlockPos(6, 1, 5)).is(dev.minetorio.content.registry.ModBlocks.MULTIBLOCK_PART.get()), "part to the right");
         BlockPos leftChest = new BlockPos(5, 1, 4);
         BlockPos rightChest = new BlockPos(6, 1, 4);
         h.setBlock(leftChest, Blocks.CHEST);
@@ -270,20 +278,80 @@ public class BeltGameTest {
         h.succeed();
     }
 
-    /** Factorio: things on the ground ride the belt. */
+    /** Entities standing on a belt ride it at belt speed (an armor stand: no AI of its own). */
     @GameTest(template = "empty16")
-    public static void itemEntityRidesBelt(GameTestHelper h) {
-        h.setBlock(new BlockPos(1, 0, 3), Blocks.STONE);
+    public static void entityRidesBelt(GameTestHelper h) {
         row(h, ModItems.TRANSPORT_BELT.get(), 1, 8, 3);
-        ItemEntity e = h.spawnItem(Items.COAL, new Vec3(1.5, 1.2, 3.5));
-        e.setDeltaMovement(Vec3.ZERO);
-        double x0 = e.getX();
+        ArmorStand stand = h.spawn(EntityType.ARMOR_STAND, new Vec3(1.5, 1.2, 3.5));
+        double x0 = stand.getX();
+        double z0 = stand.getZ();
         h.runAtTickTime(60, () -> {
-            double moved = e.getX() - x0;
+            double moved = stand.getX() - x0;
             // 60 ticks at 0.09375 = 5.6 blocks at full speed; allow the ramp-up.
-            h.assertTrue(moved > 4.0 && moved < 6.0, "item moved " + moved + " blocks");
-            h.assertTrue(Math.abs(e.getZ() - h.absoluteVec(new Vec3(1.5, 1.2, 3.5)).z) < 0.01, "drifted sideways");
+            h.assertTrue(moved > 4.0 && moved < 6.0, "moved " + moved + " blocks");
+            h.assertTrue(Math.abs(stand.getZ() - z0) < 0.01, "drifted sideways");
             h.succeed();
         });
+    }
+
+    /** R21: an item stack dropped on a belt is taken onto the lanes item by item and delivered. */
+    @GameTest(template = "empty16", timeoutTicks = 200)
+    public static void droppedStackIsAbsorbed(GameTestHelper h) {
+        row(h, ModItems.TRANSPORT_BELT.get(), 1, 6, 3);
+        BlockPos chest = new BlockPos(7, 1, 3);
+        h.setBlock(chest, Blocks.CHEST);
+        Vec3 at = h.absoluteVec(new Vec3(1.5, 1.2, 3.5));
+        ItemEntity e = new ItemEntity(h.getLevel(), at.x, at.y, at.z, new ItemStack(ModItems.IRON_PLATE.get(), 3));
+        e.setDeltaMovement(Vec3.ZERO);
+        h.getLevel().addFreshEntity(e);
+        h.runAtTickTime(40, () -> {
+            h.assertTrue(dropped(h, ModItems.IRON_PLATE.get()) == 0, "still on the ground: " + dropped(h, ModItems.IRON_PLATE.get()));
+            int onBelts = 0;
+            for (int x = 1; x <= 6; x++) {
+                BeltBlockEntity b = belt(h, new BlockPos(x, 1, 3));
+                onBelts += b.lane(LaneSide.LEFT).items().size() + b.lane(LaneSide.RIGHT).items().size();
+            }
+            h.assertTrue(onBelts + count(h, chest, ModItems.IRON_PLATE.get()) == 3, "on belts " + onBelts);
+        });
+        h.succeedWhen(() -> {
+            h.assertTrue(h.getTick() > 40, "wait for the absorption check");
+            h.assertTrue(count(h, chest, ModItems.IRON_PLATE.get()) == 3, "chest has " + count(h, chest, ModItems.IRON_PLATE.get()));
+        });
+    }
+
+    /** Enchantments, custom name and damage survive belt travel (lane keys carry data components). */
+    @GameTest(template = "empty16")
+    public static void componentsSurviveBelt(GameTestHelper h) {
+        row(h, ModItems.TRANSPORT_BELT.get(), 1, 3, 3);
+        BlockPos chest = new BlockPos(4, 1, 3);
+        h.setBlock(chest, Blocks.CHEST);
+        var registries = h.getLevel().registryAccess();
+        ItemStack sword = new ItemStack(Items.DIAMOND_SWORD);
+        sword.enchant(registries.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SHARPNESS), 3);
+        sword.set(DataComponents.CUSTOM_NAME, Component.literal("Belt Rider"));
+        sword.setDamageValue(17);
+        String key = LaneStacks.key(sword, registries);
+        h.assertTrue(key.startsWith("minecraft:diamond_sword#") && LaneItem.baseId(key).equals("minecraft:diamond_sword"), "key " + key);
+        belt(h, new BlockPos(1, 1, 3)).lane(LaneSide.LEFT).insertAt(key, 0);
+        h.succeedWhen(() -> {
+            IItemHandler handler = h.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, h.absolutePos(chest), null);
+            ItemStack got = handler.getStackInSlot(0);
+            h.assertTrue(!got.isEmpty(), "not delivered yet");
+            h.assertTrue(ItemStack.isSameItemSameComponents(sword, got), "components changed: " + got.getComponentsPatch());
+            h.assertTrue(got.getDamageValue() == 17 && got.getHoverName().getString().equals("Belt Rider"), "damage/name");
+        });
+    }
+
+    /** The exit can also be placed while looking back at the entrance; it then faces like the entrance. */
+    @GameTest(template = "empty16")
+    public static void undergroundExitPlacedLookingBack(GameTestHelper h) {
+        place(h, ModItems.UNDERGROUND_BELT.get(), new BlockPos(2, 1, 3), Direction.EAST);
+        place(h, ModItems.UNDERGROUND_BELT.get(), new BlockPos(5, 1, 3), Direction.WEST);
+        var exit = h.getBlockState(new BlockPos(5, 1, 3));
+        h.assertTrue(exit.getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.OUTPUT, "not an exit");
+        h.assertTrue(exit.getValue(UndergroundBeltBlock.FACING) == Direction.EAST, "exit faces " + exit.getValue(UndergroundBeltBlock.FACING));
+        UndergroundBeltBlockEntity in = (UndergroundBeltBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(2, 1, 3)));
+        h.assertTrue(in.distance() == 3, "distance " + in.distance());
+        h.succeed();
     }
 }

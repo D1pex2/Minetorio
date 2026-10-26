@@ -19,8 +19,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * Splitter (all tiers): a 2×1 multiblock ({@link MultiblockShape#SPLITTER}) across the travel
- * direction {@link #FACING}. The controller is the left column, the part the right column. Each
- * column is a belt plate with half of the splitter's crossbar.
+ * direction {@link #FACING}. Placed looking along the travel direction, the clicked position becomes
+ * the left column (controller) and the block to its right the right column (part). Each column is a
+ * belt plate under a low housing (8 px) that spans both columns across their middle.
  */
 public class SplitterBlock extends MultiblockControllerBlock {
     private static final VoxelShape[] LEFT_SHAPES = new VoxelShape[4];
@@ -29,8 +30,10 @@ public class SplitterBlock extends MultiblockControllerBlock {
     static {
         for (Direction d : Direction.Plane.HORIZONTAL) {
             VoxelShape plate = Block.box(0, 0, 0, 16, 2, 16);
-            LEFT_SHAPES[d.get2DDataValue()] = Shapes.or(plate, BeltGeometry.box(d, 2, 2, 6, 16, 10, 10));
-            RIGHT_SHAPES[d.get2DDataValue()] = Shapes.or(plate, BeltGeometry.box(d, 0, 2, 6, 14, 10, 10));
+            // Low housing (8 px total) across the middle of both columns; belt open in front and behind.
+            VoxelShape column = Shapes.or(plate, BeltGeometry.box(d, 0, 2, 5, 16, 8, 11));
+            LEFT_SHAPES[d.get2DDataValue()] = column;
+            RIGHT_SHAPES[d.get2DDataValue()] = column;
         }
     }
 

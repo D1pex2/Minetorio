@@ -24,16 +24,20 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  * downstream-first: a node is ticked after every node it hands items into. The order is a
  * post-order DFS over "hands into" edges, rebuilt whenever a node is added, removed or re-linked;
  * cycles are broken at an arbitrary point (one hand-off per loop then loses its sub-tick overflow).
+ * Nodes in chunks that do not tick (e.g. border chunks) are skipped, like block entities.
  */
 public final class BeltTicker {
     private static final Map<Level, BeltTicker> TICKERS = Collections.synchronizedMap(new WeakHashMap<>());
 
     private final Set<BeltNode> nodes = new LinkedHashSet<>();
     private final Map<BlockPos, BeltNode> byPos = new HashMap<>();
+    private final Level level;
     private List<BeltNode> order = List.of();
     private boolean dirty;
 
-    private BeltTicker() {}
+    private BeltTicker(Level level) {
+        this.level = level;
+    }
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(BeltTicker::onLevelTick);
@@ -41,7 +45,7 @@ public final class BeltTicker {
     }
 
     public static BeltTicker of(Level level) {
-        return TICKERS.computeIfAbsent(level, l -> new BeltTicker());
+        return TICKERS.computeIfAbsent(level, BeltTicker::new);
     }
 
     private static void onLevelTick(LevelTickEvent.Post event) {
@@ -61,7 +65,7 @@ public final class BeltTicker {
 
     public void remove(BeltNode node) {
         if (!nodes.remove(node)) return;
-        byPos.values().removeIf(n -> n == node);
+        for (BlockPos p : node.occupied()) byPos.remove(p, node);
         dirty = true;
     }
 
@@ -79,11 +83,15 @@ public final class BeltTicker {
 
     private void tick() {
         if (dirty) rebuild();
-        for (BeltNode n : order) {
-            if (!n.isRemoved()) n.tickBelt();
+        int n = order.size();
+        boolean[] live = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            BeltNode node = order.get(i);
+            live[i] = !node.isRemoved() && level.shouldTickBlocksAt(node.occupied().get(0));
+            if (live[i]) node.tickBelt();
         }
-        for (BeltNode n : order) {
-            if (!n.isRemoved()) n.afterBeltTick();
+        for (int i = 0; i < n; i++) {
+            if (live[i]) order.get(i).afterBeltTick();
         }
     }
 

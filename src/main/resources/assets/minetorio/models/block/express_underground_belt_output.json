@@ -2,6 +2,7 @@
   "parent": "minetorio:block/template_underground_output",
   "textures": {
     "belt": "minetorio:block/express_transport_belt",
-    "frame": "minetorio:block/express_underground_belt"
+    "frame": "minetorio:block/express_underground_belt",
+    "tunnel": "minecraft:block/black_concrete"
   }
 }

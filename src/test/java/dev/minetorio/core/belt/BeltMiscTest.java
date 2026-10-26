@@ -14,6 +14,11 @@ class BeltMiscTest {
         assertEquals(BeltShape.STRAIGHT, BeltShape.of(false, false, false));
     }
 
+    @Test void baseIdStripsComponentData() {
+        assertEquals("minetorio:iron_plate", LaneItem.baseId("minetorio:iron_plate"));
+        assertEquals("minecraft:diamond_sword", LaneItem.baseId("minecraft:diamond_sword#{\"minecraft:damage\":17}"));
+    }
+
     @Test void laneLengths() {
         assertEquals(1.0, BeltShape.STRAIGHT.laneLength(true));
         assertEquals(1.0, BeltShape.STRAIGHT.laneLength(false));

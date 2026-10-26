@@ -15,6 +15,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -133,6 +135,47 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
         BeltLane target = lane(near);
         double mid = target.length() / 2;
         return (item, overflow) -> target.insertAt(item, Math.min(mid + overflow, target.length()));
+    }
+
+    /**
+     * Takes one item of {@code entity}'s stack onto the lane nearest to it, at the lane position
+     * under it, if the lane has room there; otherwise the other lane, then one spacing behind or
+     * ahead (server side). Discards the entity when its stack is used up.
+     *
+     * @return whether an item was taken
+     */
+    public boolean absorb(ItemEntity entity) {
+        if (level == null || level.isClientSide()) return false;
+        ItemStack stack = entity.getItem();
+        if (stack.isEmpty()) return false;
+        Direction f = facing();
+        Direction r = f.getClockWise();
+        double lx = entity.getX() - worldPosition.getX() - 0.5;
+        double lz = entity.getZ() - worldPosition.getZ() - 0.5;
+        double along = lx * f.getStepX() + lz * f.getStepZ();
+        double right = lx * r.getStepX() + lz * r.getStepZ();
+        LaneSide near = right < 0 ? LaneSide.LEFT : LaneSide.RIGHT;
+        String key = LaneStacks.key(stack, level.registryAccess());
+        // The rest of the stack rides along on top of the item it just left, so fall back to the
+        // other lane and then to one item spacing behind/ahead.
+        boolean taken = false;
+        for (double shift : new double[] {0, -BeltLane.SPACING, BeltLane.SPACING}) {
+            for (LaneSide side : new LaneSide[] {near, near.opposite()}) {
+                BeltLane lane = lane(side);
+                double pos = Math.max(0, Math.min(lane.length(), (along + 0.5) * lane.length() + shift));
+                if (lane.insertAt(key, pos)) {
+                    taken = true;
+                    break;
+                }
+            }
+            if (taken) break;
+        }
+        if (!taken) return false;
+        ItemStack rest = stack.copy();
+        rest.shrink(1);
+        if (rest.isEmpty()) entity.discard();
+        else entity.setItem(rest);
+        return true;
     }
 
     // --- shape changes, drops --------------------------------------------------------------------

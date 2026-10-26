@@ -44,7 +44,7 @@ public final class BeltGeometry {
         IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, q, travel.getOpposite());
         if (handler == null) return null;
         return (item, overflow) -> {
-            ItemStack stack = LaneStacks.stack(item);
+            ItemStack stack = LaneStacks.stack(item, level.registryAccess());
             return !stack.isEmpty() && ItemHandlerHelper.insertItem(handler, stack, false).isEmpty();
         };
     }

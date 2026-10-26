@@ -114,22 +114,39 @@ public class BeltBlock extends BaseEntityBlock {
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
+    /**
+     * Item entities on the belt are taken onto the lane nearest to them, one item per contact while
+     * the lane has room (R21); whatever is left of the stack, and every other entity, rides along.
+     */
     @Override
     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+        if (!level.isClientSide() && entity instanceof ItemEntity item && isStandingOn(pos, entity)
+                && level.getBlockEntity(pos) instanceof BeltBlockEntity be) {
+            be.absorb(item);
+            if (item.isRemoved()) return;
+        }
         pushEntity(level, pos, state, entity, state.getValue(FACING), tier.speed());
+    }
+
+    /** Whether {@code entity} stands on top of the belt cell at {@code pos}. */
+    static boolean isStandingOn(BlockPos pos, Entity entity) {
+        return entity.onGround() && entity.getY() - pos.getY() <= 0.5
+                && BlockPos.containing(entity.getX(), entity.getY(), entity.getZ()).equals(pos);
     }
 
     /**
      * Makes an entity standing on the belt cell at {@code pos} ride at {@code speed} blocks/tick in
-     * {@code travel}, on top of its own motion. Ground friction f multiplies the velocity after each
-     * move, so adding speed·(1−f)/f per tick converges to exactly {@code speed}. Players are moved
-     * by their own client (the server never pushes them) and are not pushed while sneaking.
+     * {@code travel}, on top of its own motion. Ground friction f (of the block the entity's movement
+     * code uses: {@link Entity#getBlockPosBelowThatAffectsMyMovement}, under the thin belt) multiplies
+     * the velocity after each move, so adding speed·(1−f)/f per tick converges to exactly
+     * {@code speed}. Players are moved by their own client (the server never pushes them) and are not
+     * pushed while sneaking.
      */
     public static void pushEntity(Level level, BlockPos pos, BlockState state, Entity entity, Direction travel, double speed) {
-        if (!entity.onGround() || entity.getY() - pos.getY() > 0.5) return;
-        if (!BlockPos.containing(entity.getX(), entity.getY(), entity.getZ()).equals(pos)) return;
+        if (!isStandingOn(pos, entity)) return;
         if (entity instanceof Player player && (!level.isClientSide() || player.isShiftKeyDown())) return;
-        double f = state.getFriction(level, pos, entity) * (entity instanceof ItemEntity ? 0.98 : 0.91);
+        BlockPos below = entity.getBlockPosBelowThatAffectsMyMovement();
+        double f = level.getBlockState(below).getFriction(level, below, entity) * (entity instanceof ItemEntity ? 0.98 : 0.91);
         double dv = speed * (1 - f) / f;
         Vec3 dm = entity.getDeltaMovement();
         entity.setDeltaMovement(dm.x + travel.getStepX() * dv, dm.y, dm.z + travel.getStepZ() * dv);
