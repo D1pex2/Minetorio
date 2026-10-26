@@ -30,9 +30,10 @@ public final class SteamPlant {
 
         public void tick() {
             double steamFree = steam.capacity() - steam.amount();
-            if (water.amount() <= 0 || steamFree <= 0) return;
-            double f = burner.draw();
-            double c = Math.min(WATER_PER_FULL_BOILER_TICK * f, Math.min(water.amount(), steamFree));
+            double want = Math.min(WATER_PER_FULL_BOILER_TICK, Math.min(water.amount(), steamFree));
+            if (want <= 0) return;
+            double f = burner.draw(Math.round(want * JOULES_PER_STEAM));
+            double c = want * f;
             if (c <= 0) return;
             steam.insert("steam", water.extract(c));
         }

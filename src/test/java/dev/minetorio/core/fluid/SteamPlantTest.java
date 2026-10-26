@@ -70,4 +70,44 @@ class SteamPlantTest {
         assertEquals(0, boiler.steam().amount());
         assertEquals(100, boiler.water().amount());
     }
+
+    private static int ticksCoalLasts(boolean withEngine) {
+        Burner burner = new Burner(Units.kw(1800), Phase1Data.fuelValues());
+        burner.insertFuel("minecraft:coal", 64, false); // large stock: the 200-unit steam buffer fills first
+        SteamPlant.Boiler boiler = new SteamPlant.Boiler(burner);
+        SteamPlant.Engine engine = new SteamPlant.Engine();
+        for (int t = 1; t < 10000; t++) {
+            boiler.water().insert("water", SteamPlant.OFFSHORE_WATER_PER_TICK);
+            boiler.tick();
+            if (withEngine) {
+                FluidFlow.flow(boiler.steam(), engine.steam());
+                engine.produce(Units.kw(900));
+            } else {
+                boiler.steam().extract(100);
+            }
+            if (burner.remainingJ() == 0 && burner.fuel().isEmpty()) return t;
+        }
+        return 10000;
+    }
+
+    @Test void boilerBurnsLessAtPartialLoad() {
+        int full = ticksCoalLasts(false);
+        int half = ticksCoalLasts(true);
+        assertTrue(full >= 2830 && full <= 2850, "full " + full);
+        assertTrue(half >= 1.9 * full, "half " + half + " full " + full);
+    }
+
+    @Test void idleBoilerBurnsNothing() {
+        Burner burner = new Burner(Units.kw(1800), Phase1Data.fuelValues());
+        burner.insertFuel("minecraft:coal", 2, false);
+        SteamPlant.Boiler boiler = new SteamPlant.Boiler(burner);
+        for (int i = 0; i < 100; i++) boiler.tick();
+        assertEquals(0, burner.remainingJ());
+        assertEquals(2, burner.fuel().get("minecraft:coal"));
+        boiler.steam().insert("steam", 200);
+        boiler.water().insert("water", 100);
+        for (int i = 0; i < 100; i++) boiler.tick();
+        assertEquals(0, burner.remainingJ());
+        assertEquals(2, burner.fuel().get("minecraft:coal"));
+    }
 }

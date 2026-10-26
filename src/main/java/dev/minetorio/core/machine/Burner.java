@@ -29,9 +29,12 @@ public final class Burner {
     }
 
     /** Fraction (0..1) of this tick's energy demand that was obtained, burning fuel as needed. */
-    public double draw() {
-        long need = powerPerTickJ;
-        if (need <= 0) return 1.0;
+    public double draw() { return powerPerTickJ <= 0 ? 1.0 : draw(powerPerTickJ); }
+
+    /** Burns only up to {@code requestJ} this tick; returns the fraction of it delivered (0 and nothing burnt if requestJ <= 0). */
+    public double draw(long requestJ) {
+        long need = requestJ;
+        if (need <= 0) return 0.0;
         long got = 0;
         while (got < need) {
             if (remainingJ <= 0 && !burnNext()) break;

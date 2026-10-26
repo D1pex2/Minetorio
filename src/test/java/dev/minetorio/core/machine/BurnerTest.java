@@ -29,4 +29,17 @@ class BurnerTest {
     }
 
     @Test void rejectsNonFuel() { assertEquals(0, burner().insertFuel("minecraft:stone", 3, false)); }
+
+    @Test void partialDrawBurnsOnlyRequested() {
+        long power = Units.kw(1800);
+        Burner full = new Burner(power, Phase1Data.fuelValues());
+        Burner half = new Burner(power, Phase1Data.fuelValues());
+        full.insertFuel("minecraft:coal", 1, false);
+        half.insertFuel("minecraft:coal", 1, false);
+        int fullTicks = 0, halfTicks = 0;
+        while (full.draw() >= 1.0) fullTicks++;
+        while (half.draw(power / 2) >= 1.0) halfTicks++;
+        assertTrue(halfTicks >= 2 * fullTicks, halfTicks + " vs " + fullTicks);
+        assertEquals(0.0, half.draw(0));
+    }
 }
