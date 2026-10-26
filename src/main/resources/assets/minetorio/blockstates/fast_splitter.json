@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/fast_splitter"
+    },
+    "facing=east": {
+      "model": "minetorio:block/fast_splitter",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "minetorio:block/fast_splitter",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "minetorio:block/fast_splitter",
+      "y": 270
+    }
+  }
+}

@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
@@ -20,10 +21,14 @@ import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Invisible full-cube filler of a multiblock machine. Shared by all machines; has no item form.
- * Interaction, mining speed, picking and drops delegate to the controller; removing a part
+ * Invisible filler of a multiblock machine. Shared by all machines; has no item form.
+ * Shape (full cube by default), entity contact, interaction, mining speed, picking and drops
+ * delegate to the controller; removing a part
  * dismantles the whole machine (see {@link MultiblockControllerBlock#dismantle}).
  */
 public class MultiblockPartBlock extends BaseEntityBlock {
@@ -60,6 +65,21 @@ public class MultiblockPartBlock extends BaseEntityBlock {
         if (controller == null) return null;
         BlockState state = level.getBlockState(controller);
         return state.getBlock() instanceof MultiblockControllerBlock ? state : null;
+    }
+
+    /** The controller decides each part's shape ({@link MultiblockControllerBlock#partShape}); full block if unlinked. */
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
+        BlockPos c = controllerPos(level, pos);
+        BlockState cs = controllerState(level, c);
+        return cs == null ? Shapes.block() : ((MultiblockControllerBlock) cs.getBlock()).partShape(cs, pos.subtract(c));
+    }
+
+    @Override
+    protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+        BlockPos c = controllerPos(level, pos);
+        BlockState cs = controllerState(level, c);
+        if (cs != null) ((MultiblockControllerBlock) cs.getBlock()).partEntityInside(cs, level, pos, entity);
     }
 
     @Override

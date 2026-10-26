@@ -11,5 +11,14 @@
   "item.minetorio.automation_science_pack": "Automation Science Pack",
   "item.minetorio.logistic_science_pack": "Logistic Science Pack",
   "block.minetorio.stone_furnace": "Stone Furnace",
-  "block.minetorio.multiblock_part": "Machine Part"
+  "block.minetorio.multiblock_part": "Machine Part",
+  "block.minetorio.transport_belt": "Transport Belt",
+  "block.minetorio.fast_transport_belt": "Fast Transport Belt",
+  "block.minetorio.express_transport_belt": "Express Transport Belt",
+  "block.minetorio.underground_belt": "Underground Belt",
+  "block.minetorio.fast_underground_belt": "Fast Underground Belt",
+  "block.minetorio.express_underground_belt": "Express Underground Belt",
+  "block.minetorio.splitter": "Splitter",
+  "block.minetorio.fast_splitter": "Fast Splitter",
+  "block.minetorio.express_splitter": "Express Splitter"
 }

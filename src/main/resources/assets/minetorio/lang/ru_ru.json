@@ -11,5 +11,14 @@
   "item.minetorio.automation_science_pack": "Исследовательский пакет автоматизации",
   "item.minetorio.logistic_science_pack": "Логистический исследовательский пакет",
   "block.minetorio.stone_furnace": "Каменная печь",
-  "block.minetorio.multiblock_part": "Часть машины"
+  "block.minetorio.multiblock_part": "Часть машины",
+  "block.minetorio.transport_belt": "Транспортный конвейер",
+  "block.minetorio.fast_transport_belt": "Скоростной транспортный конвейер",
+  "block.minetorio.express_transport_belt": "Экспресс-конвейер",
+  "block.minetorio.underground_belt": "Подземный конвейер",
+  "block.minetorio.fast_underground_belt": "Скоростной подземный конвейер",
+  "block.minetorio.express_underground_belt": "Экспресс подземный конвейер",
+  "block.minetorio.splitter": "Разделитель",
+  "block.minetorio.fast_splitter": "Скоростной разделитель",
+  "block.minetorio.express_splitter": "Экспресс-разделитель"
 }

@@ -25,6 +25,17 @@ public final class ModItems {
     // Machines (block items; the item id equals the block id)
     public static final DeferredItem<BlockItem> STONE_FURNACE = ITEMS.registerSimpleBlockItem(ModBlocks.STONE_FURNACE);
 
+    // Belts (express_* have no recipe: creative tab only)
+    public static final DeferredItem<BlockItem> TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.TRANSPORT_BELT);
+    public static final DeferredItem<BlockItem> FAST_TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_TRANSPORT_BELT);
+    public static final DeferredItem<BlockItem> EXPRESS_TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_TRANSPORT_BELT);
+    public static final DeferredItem<BlockItem> UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.UNDERGROUND_BELT);
+    public static final DeferredItem<BlockItem> FAST_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_UNDERGROUND_BELT);
+    public static final DeferredItem<BlockItem> EXPRESS_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_UNDERGROUND_BELT);
+    public static final DeferredItem<BlockItem> SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.SPLITTER);
+    public static final DeferredItem<BlockItem> FAST_SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_SPLITTER);
+    public static final DeferredItem<BlockItem> EXPRESS_SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_SPLITTER);
+
     private ModItems() {}
 
     public static void register(IEventBus modBus) {

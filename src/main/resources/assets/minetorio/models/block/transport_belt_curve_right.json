@@ -1,0 +1,7 @@
+{
+  "parent": "minetorio:block/template_belt_curve_right",
+  "textures": {
+    "belt": "minetorio:block/transport_belt",
+    "curve": "minetorio:block/transport_belt_curve"
+  }
+}

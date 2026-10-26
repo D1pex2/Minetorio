@@ -1,0 +1,6 @@
+{
+  "parent": "minetorio:block/template_belt_straight",
+  "textures": {
+    "belt": "minetorio:block/fast_transport_belt"
+  }
+}

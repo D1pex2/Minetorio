@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,type=input": {
+      "model": "minetorio:block/express_underground_belt_input"
+    },
+    "facing=north,type=output": {
+      "model": "minetorio:block/express_underground_belt_output"
+    },
+    "facing=east,type=input": {
+      "model": "minetorio:block/express_underground_belt_input",
+      "y": 90
+    },
+    "facing=east,type=output": {
+      "model": "minetorio:block/express_underground_belt_output",
+      "y": 90
+    },
+    "facing=south,type=input": {
+      "model": "minetorio:block/express_underground_belt_input",
+      "y": 180
+    },
+    "facing=south,type=output": {
+      "model": "minetorio:block/express_underground_belt_output",
+      "y": 180
+    },
+    "facing=west,type=input": {
+      "model": "minetorio:block/express_underground_belt_input",
+      "y": 270
+    },
+    "facing=west,type=output": {
+      "model": "minetorio:block/express_underground_belt_output",
+      "y": 270
+    }
+  }
+}

@@ -5,6 +5,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -15,6 +16,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * Controller block of a multiblock machine: sits at the origin of {@link #shape()} (see
@@ -46,6 +48,17 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
     public List<BlockPos> footprint(BlockPos origin, BlockState state) {
         return shape().footprint(origin, state.getValue(FACING));
     }
+
+    /**
+     * Shape of the part at {@code partOffset} (part position minus controller position) of the
+     * machine whose controller is {@code controllerState}. Default: a full block.
+     */
+    public VoxelShape partShape(BlockState controllerState, BlockPos partOffset) {
+        return Shapes.block();
+    }
+
+    /** Called when an entity is inside the part at {@code partPos}. Default: nothing. */
+    public void partEntityInside(BlockState controllerState, Level level, BlockPos partPos, Entity entity) {}
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {

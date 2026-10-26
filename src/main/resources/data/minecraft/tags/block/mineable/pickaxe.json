@@ -1,5 +1,14 @@
 {
   "values": [
-    "minetorio:stone_furnace"
+    "minetorio:stone_furnace",
+    "minetorio:transport_belt",
+    "minetorio:underground_belt",
+    "minetorio:splitter",
+    "minetorio:fast_transport_belt",
+    "minetorio:fast_underground_belt",
+    "minetorio:fast_splitter",
+    "minetorio:express_transport_belt",
+    "minetorio:express_underground_belt",
+    "minetorio:express_splitter"
   ]
 }

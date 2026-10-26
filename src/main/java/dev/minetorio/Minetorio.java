@@ -1,5 +1,6 @@
 package dev.minetorio;
 
+import dev.minetorio.content.belt.BeltTicker;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.content.registry.ModCapabilities;
@@ -18,5 +19,6 @@ public class Minetorio {
         ModBlockEntities.register(modBus);
         ModCreativeTab.register(modBus);
         ModCapabilities.register(modBus);
+        BeltTicker.register();
     }
 }

@@ -1,8 +1,12 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.belt.BeltBlock;
+import dev.minetorio.content.belt.SplitterBlock;
+import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
+import dev.minetorio.core.belt.BeltTier;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -14,14 +18,47 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(Minetorio.MODID);
 
-    /** Shared invisible filler of every multiblock; mining speed is delegated to the controller. */
+    /**
+     * Shared invisible filler of every multiblock; mining speed is delegated to the controller.
+     * Its shape depends on the controller (block entity), so it must not be cached per state.
+     */
     public static final DeferredBlock<MultiblockPartBlock> MULTIBLOCK_PART = BLOCKS.registerBlock("multiblock_part",
-            MultiblockPartBlock::new, machine(MapColor.NONE).noLootTable());
+            MultiblockPartBlock::new, machine(MapColor.NONE).noLootTable().dynamicShape());
 
     public static final DeferredBlock<StoneFurnaceBlock> STONE_FURNACE = BLOCKS.registerBlock("stone_furnace",
             StoneFurnaceBlock::new, machine(MapColor.STONE));
 
+    // Belts
+    public static final DeferredBlock<BeltBlock> TRANSPORT_BELT = BLOCKS.registerBlock("transport_belt",
+            p -> new BeltBlock(BeltTier.YELLOW, p), belt(MapColor.COLOR_YELLOW));
+    public static final DeferredBlock<BeltBlock> FAST_TRANSPORT_BELT = BLOCKS.registerBlock("fast_transport_belt",
+            p -> new BeltBlock(BeltTier.RED, p), belt(MapColor.COLOR_RED));
+    public static final DeferredBlock<BeltBlock> EXPRESS_TRANSPORT_BELT = BLOCKS.registerBlock("express_transport_belt",
+            p -> new BeltBlock(BeltTier.BLUE, p), belt(MapColor.COLOR_BLUE));
+    public static final DeferredBlock<UndergroundBeltBlock> UNDERGROUND_BELT = BLOCKS.registerBlock("underground_belt",
+            p -> new UndergroundBeltBlock(BeltTier.YELLOW, p), belt(MapColor.COLOR_YELLOW));
+    public static final DeferredBlock<UndergroundBeltBlock> FAST_UNDERGROUND_BELT = BLOCKS.registerBlock("fast_underground_belt",
+            p -> new UndergroundBeltBlock(BeltTier.RED, p), belt(MapColor.COLOR_RED));
+    public static final DeferredBlock<UndergroundBeltBlock> EXPRESS_UNDERGROUND_BELT = BLOCKS.registerBlock("express_underground_belt",
+            p -> new UndergroundBeltBlock(BeltTier.BLUE, p), belt(MapColor.COLOR_BLUE));
+    public static final DeferredBlock<SplitterBlock> SPLITTER = BLOCKS.registerBlock("splitter",
+            p -> new SplitterBlock(BeltTier.YELLOW, p), belt(MapColor.COLOR_YELLOW));
+    public static final DeferredBlock<SplitterBlock> FAST_SPLITTER = BLOCKS.registerBlock("fast_splitter",
+            p -> new SplitterBlock(BeltTier.RED, p), belt(MapColor.COLOR_RED));
+    public static final DeferredBlock<SplitterBlock> EXPRESS_SPLITTER = BLOCKS.registerBlock("express_splitter",
+            p -> new SplitterBlock(BeltTier.BLUE, p), belt(MapColor.COLOR_BLUE));
+
     private ModBlocks() {}
+
+    /** Properties shared by belts, underground belts and splitters: low, metal, quick to mine. */
+    private static BlockBehaviour.Properties belt(MapColor color) {
+        return BlockBehaviour.Properties.of()
+                .mapColor(color)
+                .strength(1.0f)
+                .sound(SoundType.METAL)
+                .noOcclusion()
+                .pushReaction(PushReaction.BLOCK);
+    }
 
     /** Properties shared by machine controllers and parts: stone-like, see-through to light, immovable. */
     private static BlockBehaviour.Properties machine(MapColor color) {

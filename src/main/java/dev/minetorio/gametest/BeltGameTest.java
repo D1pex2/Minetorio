@@ -1,0 +1,289 @@
+package dev.minetorio.gametest;
+
+import dev.minetorio.content.belt.BeltBlock;
+import dev.minetorio.content.belt.BeltBlockEntity;
+import dev.minetorio.content.belt.LaneSide;
+import dev.minetorio.content.belt.UndergroundBeltBlock;
+import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
+import dev.minetorio.content.registry.ModItems;
+import dev.minetorio.core.belt.LaneItem;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.items.IItemHandler;
+
+@GameTestHolder("minetorio")
+@PrefixGameTestTemplate(false)
+public class BeltGameTest {
+    private static final String PLATE = "minetorio:iron_plate";
+
+    // --- helpers ---------------------------------------------------------------------------------
+
+    /** Places {@code item} like a player looking {@code facing} would. */
+    static void place(GameTestHelper h, Item item, BlockPos rel, Direction facing) {
+        BlockPos abs = h.absolutePos(rel);
+        ItemStack stack = new ItemStack(item);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
+        BlockPlaceContext ctx = new BlockPlaceContext(h.getLevel(), null, InteractionHand.MAIN_HAND, stack, hit) {
+            @Override
+            public Direction getHorizontalDirection() {
+                return facing;
+            }
+        };
+        h.assertTrue(((BlockItem) item).place(ctx).consumesAction(), "could not place " + item + " at " + rel);
+    }
+
+    static BeltBlockEntity belt(GameTestHelper h, BlockPos rel) {
+        return (BeltBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(rel));
+    }
+
+    static int count(GameTestHelper h, BlockPos chest, Item item) {
+        IItemHandler handler = h.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, h.absolutePos(chest), null);
+        int n = 0;
+        for (int i = 0; i < handler.getSlots(); i++) {
+            if (handler.getStackInSlot(i).is(item)) n += handler.getStackInSlot(i).getCount();
+        }
+        return n;
+    }
+
+    static int dropped(GameTestHelper h, Item item) {
+        int n = 0;
+        for (ItemEntity e : h.getEntities(EntityType.ITEM)) {
+            if (e.getItem().is(item)) n += e.getItem().getCount();
+        }
+        return n;
+    }
+
+    /** Row of belts along +x at z, y=1, from x0 to x1 inclusive. */
+    static void row(GameTestHelper h, Item belt, int x0, int x1, int z) {
+        for (int x = x0; x <= x1; x++) place(h, belt, new BlockPos(x, 1, z), Direction.EAST);
+    }
+
+    static void travel(GameTestHelper h, Item beltItem, long earliest, long latest) {
+        row(h, beltItem, 1, 10, 2);
+        BlockPos chest = new BlockPos(11, 1, 2);
+        h.setBlock(chest, Blocks.CHEST);
+        h.assertTrue(belt(h, new BlockPos(1, 1, 2)).lane(LaneSide.LEFT).insertAt(PLATE, 0), "insert failed");
+        h.onEachTick(() -> {
+            if (count(h, chest, ModItems.IRON_PLATE.get()) > 0) {
+                long t = h.getTick();
+                if (t < earliest || t > latest) h.fail("arrived at tick " + t + ", expected " + earliest + ".." + latest);
+                h.succeed();
+            }
+        });
+    }
+
+    // --- tests -----------------------------------------------------------------------------------
+
+    /** ceil(10 / 0.09375) + 5 = 112. */
+    @GameTest(template = "empty16", timeoutTicks = 140)
+    public static void yellowItemTravelsTenBelts(GameTestHelper h) {
+        travel(h, ModItems.TRANSPORT_BELT.get(), 100, 112);
+    }
+
+    /** ceil(10 / 0.1875) + 5 = 59. */
+    @GameTest(template = "empty16", timeoutTicks = 100)
+    public static void redFasterThanYellow(GameTestHelper h) {
+        travel(h, ModItems.FAST_TRANSPORT_BELT.get(), 50, 59);
+    }
+
+    /**
+     * A compressed lane across 10 chained belts delivers 7.5 items/s: hand-offs keep the sub-tick
+     * overflow when belts tick downstream-first. Front item at 0.75 → item k arrives when
+     * 0.25 + 0.25k ≤ 0.09375t, so 37 items by tick 100 (36 with a tick of registration lag).
+     */
+    @GameTest(template = "empty16", timeoutTicks = 140)
+    public static void chainedThroughputIsFull(GameTestHelper h) {
+        row(h, ModItems.TRANSPORT_BELT.get(), 1, 10, 2);
+        BlockPos chest = new BlockPos(11, 1, 2);
+        h.setBlock(chest, Blocks.CHEST);
+        for (int x = 1; x <= 10; x++) {
+            for (double p = 0; p < 1; p += 0.25) h.assertTrue(belt(h, new BlockPos(x, 1, 2)).lane(LaneSide.RIGHT).insertAt(PLATE, p), "fill");
+        }
+        h.runAtTickTime(101, () -> {
+            int n = count(h, chest, ModItems.IRON_PLATE.get());
+            h.assertTrue(n >= 36 && n <= 38, "delivered " + n + " by tick 101, expected 36..38");
+            h.succeed();
+        });
+    }
+
+    @GameTest(template = "empty16")
+    public static void sideLoadFillsNearLane(GameTestHelper h) {
+        Item yellow = ModItems.TRANSPORT_BELT.get();
+        row(h, yellow, 4, 6, 5);                            // B, ends in the open: items queue up
+        place(h, yellow, new BlockPos(5, 1, 4), Direction.SOUTH); // A, feeds B's north (left) side
+        BeltBlockEntity a = belt(h, new BlockPos(5, 1, 4));
+        h.assertTrue(belt(h, new BlockPos(5, 1, 5)).shape() == dev.minetorio.core.belt.BeltShape.STRAIGHT, "B must stay straight");
+        a.lane(LaneSide.LEFT).insertAt(PLATE, 0.5);
+        a.lane(LaneSide.LEFT).insertAt(PLATE, 0);
+        a.lane(LaneSide.RIGHT).insertAt(PLATE, 0.5);
+        a.lane(LaneSide.RIGHT).insertAt(PLATE, 0);
+        h.succeedWhen(() -> {
+            int near = 0;
+            int far = 0;
+            for (int x = 4; x <= 6; x++) {
+                near += belt(h, new BlockPos(x, 1, 5)).lane(LaneSide.LEFT).items().size();
+                far += belt(h, new BlockPos(x, 1, 5)).lane(LaneSide.RIGHT).items().size();
+            }
+            h.assertTrue(far == 0, "far lane got " + far + " items");
+            h.assertTrue(near == 4, "near lane has " + near + " items");
+            h.assertTrue(a.lane(LaneSide.LEFT).isEmpty() && a.lane(LaneSide.RIGHT).isEmpty(), "A not empty");
+        });
+    }
+
+    @GameTest(template = "empty16")
+    public static void curveFormsAutomatically(GameTestHelper h) {
+        Item yellow = ModItems.TRANSPORT_BELT.get();
+        // Feeder first, then the belt: shape at placement.
+        place(h, yellow, new BlockPos(4, 1, 5), Direction.EAST);
+        place(h, yellow, new BlockPos(5, 1, 5), Direction.NORTH);
+        h.assertTrue(h.getBlockState(new BlockPos(5, 1, 5)).getValue(BeltBlock.SHAPE) == BeltBlock.Shape.CURVE_LEFT,
+                "expected curve_left, got " + h.getBlockState(new BlockPos(5, 1, 5)).getValue(BeltBlock.SHAPE));
+        // Belt first, then the feeder from the right: shape updates.
+        place(h, yellow, new BlockPos(10, 1, 5), Direction.NORTH);
+        place(h, yellow, new BlockPos(11, 1, 5), Direction.WEST);
+        h.assertTrue(h.getBlockState(new BlockPos(10, 1, 5)).getValue(BeltBlock.SHAPE) == BeltBlock.Shape.CURVE_RIGHT,
+                "expected curve_right");
+        // Something behind straightens it again.
+        place(h, yellow, new BlockPos(10, 1, 6), Direction.NORTH);
+        h.assertTrue(h.getBlockState(new BlockPos(10, 1, 5)).getValue(BeltBlock.SHAPE) == BeltBlock.Shape.STRAIGHT,
+                "expected straight with a back input");
+        // Items follow the curve into a chest.
+        BlockPos chest = new BlockPos(5, 1, 4);
+        h.setBlock(chest, Blocks.CHEST);
+        belt(h, new BlockPos(4, 1, 5)).lane(LaneSide.LEFT).insertAt(PLATE, 0);
+        belt(h, new BlockPos(4, 1, 5)).lane(LaneSide.RIGHT).insertAt(PLATE, 0);
+        h.succeedWhen(() -> h.assertTrue(count(h, chest, ModItems.IRON_PLATE.get()) == 2, "not through the curve yet"));
+    }
+
+    @GameTest(template = "empty16")
+    public static void undergroundCarriesItems(GameTestHelper h) {
+        place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(1, 1, 3), Direction.EAST);
+        place(h, ModItems.UNDERGROUND_BELT.get(), new BlockPos(2, 1, 3), Direction.EAST);
+        for (int x = 3; x <= 6; x++) h.setBlock(new BlockPos(x, 1, 3), Blocks.STONE);
+        place(h, ModItems.UNDERGROUND_BELT.get(), new BlockPos(7, 1, 3), Direction.EAST);
+        BlockPos chest = new BlockPos(8, 1, 3);
+        h.setBlock(chest, Blocks.CHEST);
+        h.assertTrue(h.getBlockState(new BlockPos(2, 1, 3)).getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.INPUT, "entrance");
+        h.assertTrue(h.getBlockState(new BlockPos(7, 1, 3)).getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.OUTPUT, "exit");
+        UndergroundBeltBlockEntity in = (UndergroundBeltBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(2, 1, 3)));
+        h.assertTrue(in.distance() == 5 && in.lane(LaneSide.LEFT).length() == 5, "entrance not paired at 5: " + in.distance());
+        belt(h, new BlockPos(1, 1, 3)).lane(LaneSide.LEFT).insertAt(PLATE, 0);
+        belt(h, new BlockPos(1, 1, 3)).lane(LaneSide.RIGHT).insertAt(PLATE, 0);
+        h.succeedWhen(() -> h.assertTrue(count(h, chest, ModItems.IRON_PLATE.get()) == 2, "not through yet"));
+    }
+
+    @GameTest(template = "empty16")
+    public static void splitterAlternates(GameTestHelper h) {
+        place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(5, 1, 6), Direction.NORTH);
+        place(h, ModItems.SPLITTER.get(), new BlockPos(5, 1, 5), Direction.NORTH); // columns x=5 (left), x=6 (right)
+        BlockPos leftChest = new BlockPos(5, 1, 4);
+        BlockPos rightChest = new BlockPos(6, 1, 4);
+        h.setBlock(leftChest, Blocks.CHEST);
+        h.setBlock(rightChest, Blocks.CHEST);
+        BeltBlockEntity feeder = belt(h, new BlockPos(5, 1, 6));
+        for (double p = 0; p < 1; p += 0.25) feeder.lane(LaneSide.LEFT).insertAt(PLATE, p);
+        h.succeedWhen(() -> {
+            int l = count(h, leftChest, ModItems.IRON_PLATE.get());
+            int r = count(h, rightChest, ModItems.IRON_PLATE.get());
+            h.assertTrue(l == 2 && r == 2, "left " + l + ", right " + r);
+        });
+    }
+
+    @GameTest(template = "empty16")
+    public static void fullChestStopsBelt(GameTestHelper h) {
+        row(h, ModItems.TRANSPORT_BELT.get(), 2, 4, 3);
+        BlockPos chest = new BlockPos(5, 1, 3);
+        h.setBlock(chest, Blocks.CHEST);
+        IItemHandler handler = h.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, h.absolutePos(chest), null);
+        for (int i = 0; i < handler.getSlots(); i++) handler.insertItem(i, new ItemStack(Items.STONE, 64), false);
+        belt(h, new BlockPos(2, 1, 3)).lane(LaneSide.LEFT).insertAt(PLATE, 0.5);
+        belt(h, new BlockPos(2, 1, 3)).lane(LaneSide.LEFT).insertAt(PLATE, 0);
+        belt(h, new BlockPos(3, 1, 3)).lane(LaneSide.RIGHT).insertAt(PLATE, 0);
+        h.runAtTickTime(80, () -> {
+            int onBelts = 0;
+            for (int x = 2; x <= 4; x++) {
+                BeltBlockEntity b = belt(h, new BlockPos(x, 1, 3));
+                onBelts += b.lane(LaneSide.LEFT).items().size() + b.lane(LaneSide.RIGHT).items().size();
+            }
+            h.assertTrue(onBelts == 3, "items on belts: " + onBelts);
+            BeltBlockEntity last = belt(h, new BlockPos(4, 1, 3));
+            h.assertTrue(last.lane(LaneSide.LEFT).items().size() == 2, "left lane should queue at the end");
+            h.assertTrue(last.lane(LaneSide.LEFT).items().get(0).pos() == 1.0, "front item waits at the lane end");
+            h.assertTrue(count(h, chest, ModItems.IRON_PLATE.get()) == 0, "chest took a plate");
+            h.assertTrue(dropped(h, ModItems.IRON_PLATE.get()) == 0, "plate dropped");
+            h.succeed();
+        });
+    }
+
+    @GameTest(template = "empty16")
+    public static void beltNbtRoundTrip(GameTestHelper h) {
+        BlockPos rel = new BlockPos(3, 1, 3);
+        place(h, ModItems.TRANSPORT_BELT.get(), rel, Direction.EAST);
+        BeltBlockEntity be = belt(h, rel);
+        be.lane(LaneSide.LEFT).insertAt(PLATE, 0.1);
+        be.lane(LaneSide.LEFT).insertAt("minetorio:copper_plate", 0.6);
+        be.lane(LaneSide.RIGHT).insertAt("minecraft:coal", 0.35);
+        var registries = h.getLevel().registryAccess();
+        CompoundTag tag = be.saveWithFullMetadata(registries);
+        BeltBlockEntity copy = new BeltBlockEntity(be.getBlockPos(), be.getBlockState());
+        copy.loadWithComponents(tag, registries);
+        for (LaneSide side : LaneSide.values()) {
+            List<LaneItem> a = be.lane(side).items();
+            List<LaneItem> b = copy.lane(side).items();
+            h.assertTrue(a.equals(b), side + ": " + a + " != " + b);
+            h.assertTrue(be.lane(side).length() == copy.lane(side).length(), "length");
+        }
+        h.assertTrue(copy.lane(LaneSide.LEFT).items().size() == 2 && copy.lane(LaneSide.RIGHT).items().size() == 1, "count");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty16")
+    public static void breakingBeltDropsItems(GameTestHelper h) {
+        BlockPos rel = new BlockPos(3, 1, 3);
+        place(h, ModItems.TRANSPORT_BELT.get(), rel, Direction.EAST);
+        BeltBlockEntity be = belt(h, rel);
+        be.lane(LaneSide.LEFT).insertAt(PLATE, 0.1);
+        be.lane(LaneSide.LEFT).insertAt(PLATE, 0.6);
+        be.lane(LaneSide.RIGHT).insertAt(PLATE, 0.35);
+        h.getLevel().destroyBlock(h.absolutePos(rel), true);
+        h.assertTrue(h.getBlockState(rel).isAir(), "belt still there");
+        h.assertTrue(dropped(h, ModItems.TRANSPORT_BELT.get()) == 1, "belts dropped: " + dropped(h, ModItems.TRANSPORT_BELT.get()));
+        h.assertTrue(dropped(h, ModItems.IRON_PLATE.get()) == 3, "plates dropped: " + dropped(h, ModItems.IRON_PLATE.get()));
+        h.succeed();
+    }
+
+    /** Factorio: things on the ground ride the belt. */
+    @GameTest(template = "empty16")
+    public static void itemEntityRidesBelt(GameTestHelper h) {
+        h.setBlock(new BlockPos(1, 0, 3), Blocks.STONE);
+        row(h, ModItems.TRANSPORT_BELT.get(), 1, 8, 3);
+        ItemEntity e = h.spawnItem(Items.COAL, new Vec3(1.5, 1.2, 3.5));
+        e.setDeltaMovement(Vec3.ZERO);
+        double x0 = e.getX();
+        h.runAtTickTime(60, () -> {
+            double moved = e.getX() - x0;
+            // 60 ticks at 0.09375 = 5.6 blocks at full speed; allow the ramp-up.
+            h.assertTrue(moved > 4.0 && moved < 6.0, "item moved " + moved + " blocks");
+            h.assertTrue(Math.abs(e.getZ() - h.absoluteVec(new Vec3(1.5, 1.2, 3.5)).z) < 0.01, "drifted sideways");
+            h.succeed();
+        });
+    }
+}

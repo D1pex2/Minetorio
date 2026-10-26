@@ -1,0 +1,7 @@
+{
+  "parent": "minetorio:block/template_splitter",
+  "textures": {
+    "belt": "minetorio:block/fast_transport_belt",
+    "frame": "minetorio:block/fast_splitter"
+  }
+}

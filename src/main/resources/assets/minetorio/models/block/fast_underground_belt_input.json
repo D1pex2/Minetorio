@@ -1,0 +1,7 @@
+{
+  "parent": "minetorio:block/template_underground_input",
+  "textures": {
+    "belt": "minetorio:block/fast_transport_belt",
+    "frame": "minetorio:block/fast_underground_belt"
+  }
+}
