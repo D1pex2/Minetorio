@@ -26,5 +26,9 @@
   "minetorio.underground.tooltip.1": "Place the entrance looking along the belt,",
   "minetorio.underground.tooltip.2": "then the exit 1–%s blocks ahead, facing the same way.",
   "minetorio.fast_replace.range": "Not enough range for this tier",
-  "minetorio.fast_replace.need_two": "Need 2 underground belts"
+  "minetorio.fast_replace.need_two": "Need 2 underground belts",
+  "block.minetorio.burner_inserter": "Burner Inserter",
+  "block.minetorio.inserter": "Inserter",
+  "block.minetorio.long_handed_inserter": "Long-Handed Inserter",
+  "block.minetorio.fast_inserter": "Fast Inserter"
 }

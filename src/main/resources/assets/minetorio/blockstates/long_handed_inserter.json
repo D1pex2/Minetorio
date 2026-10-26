@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/long_handed_inserter"
+    },
+    "facing=east": {
+      "model": "minetorio:block/long_handed_inserter",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "minetorio:block/long_handed_inserter",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "minetorio:block/long_handed_inserter",
+      "y": 270
+    }
+  }
+}

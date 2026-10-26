@@ -4,9 +4,11 @@ import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.SplitterBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
+import dev.minetorio.content.inserter.InserterBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.core.belt.BeltTier;
+import dev.minetorio.core.inserter.InserterType;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -48,9 +50,19 @@ public final class ModBlocks {
     public static final DeferredBlock<SplitterBlock> EXPRESS_SPLITTER = BLOCKS.registerBlock("express_splitter",
             p -> new SplitterBlock(BeltTier.BLUE, p), belt(MapColor.COLOR_BLUE));
 
+    // Inserters
+    public static final DeferredBlock<InserterBlock> BURNER_INSERTER = BLOCKS.registerBlock("burner_inserter",
+            p -> new InserterBlock(InserterType.BURNER, p), belt(MapColor.COLOR_BROWN));
+    public static final DeferredBlock<InserterBlock> INSERTER = BLOCKS.registerBlock("inserter",
+            p -> new InserterBlock(InserterType.BASIC, p), belt(MapColor.COLOR_YELLOW));
+    public static final DeferredBlock<InserterBlock> LONG_HANDED_INSERTER = BLOCKS.registerBlock("long_handed_inserter",
+            p -> new InserterBlock(InserterType.LONG, p), belt(MapColor.COLOR_RED));
+    public static final DeferredBlock<InserterBlock> FAST_INSERTER = BLOCKS.registerBlock("fast_inserter",
+            p -> new InserterBlock(InserterType.FAST, p), belt(MapColor.COLOR_BLUE));
+
     private ModBlocks() {}
 
-    /** Properties shared by belts, underground belts and splitters: low, metal, quick to mine. */
+    /** Properties shared by belts, underground belts, splitters and inserters: low, metal, quick to mine. */
     private static BlockBehaviour.Properties belt(MapColor color) {
         return BlockBehaviour.Properties.of()
                 .mapColor(color)

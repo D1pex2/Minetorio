@@ -42,4 +42,22 @@ class BurnerTest {
         assertTrue(halfTicks >= 2 * fullTicks, halfTicks + " vs " + fullTicks);
         assertEquals(0.0, half.draw(0));
     }
+
+    @Test void loadRestoresFuelAndBurningEnergy() {
+        Burner b = burner();
+        b.insertFuel("minecraft:coal", 3, false);
+        for (int i = 0; i < 10; i++) b.draw();
+        Burner copy = burner();
+        copy.load(b.fuel(), b.remainingJ());
+        assertEquals(b.fuel(), copy.fuel());
+        assertEquals(b.remainingJ(), copy.remainingJ());
+        for (int i = 0; i < 2000; i++) assertEquals(b.draw(), copy.draw(), "tick " + i);
+    }
+
+    @Test void loadSkipsUnknownFuelAndBadCounts() {
+        Burner b = burner();
+        b.load(java.util.Map.of("minecraft:stone", 3, "minecraft:coal", 0), -5);
+        assertTrue(b.fuel().isEmpty());
+        assertEquals(0L, b.remainingJ());
+    }
 }

@@ -36,6 +36,12 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> FAST_SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_SPLITTER);
     public static final DeferredItem<BlockItem> EXPRESS_SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_SPLITTER);
 
+    // Inserters
+    public static final DeferredItem<BlockItem> BURNER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_INSERTER);
+    public static final DeferredItem<BlockItem> INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.INSERTER);
+    public static final DeferredItem<BlockItem> LONG_HANDED_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.LONG_HANDED_INSERTER);
+    public static final DeferredItem<BlockItem> FAST_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_INSERTER);
+
     private ModItems() {}
 
     public static void register(IEventBus modBus) {

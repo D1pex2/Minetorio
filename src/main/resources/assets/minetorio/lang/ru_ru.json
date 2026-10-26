@@ -26,5 +26,9 @@
   "minetorio.underground.tooltip.1": "Ставь вход, глядя вдоль ленты,",
   "minetorio.underground.tooltip.2": "затем выход в 1–%s блоках впереди, глядя в ту же сторону.",
   "minetorio.fast_replace.range": "Не хватает дальности для этого уровня",
-  "minetorio.fast_replace.need_two": "Нужно 2 подземные ленты"
+  "minetorio.fast_replace.need_two": "Нужно 2 подземные ленты",
+  "block.minetorio.burner_inserter": "Твердотопливный манипулятор",
+  "block.minetorio.inserter": "Манипулятор",
+  "block.minetorio.long_handed_inserter": "Длинный манипулятор",
+  "block.minetorio.fast_inserter": "Быстрый манипулятор"
 }

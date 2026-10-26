@@ -1,0 +1,7 @@
+{
+  "parent": "minetorio:block/template_inserter",
+  "textures": {
+    "base": "minecraft:block/brown_concrete",
+    "metal": "minecraft:block/iron_block"
+  }
+}

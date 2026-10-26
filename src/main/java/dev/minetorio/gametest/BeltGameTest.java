@@ -319,6 +319,29 @@ public class BeltGameTest {
         });
     }
 
+    /** R22: an item whose stack key would exceed 32 KB is not absorbed; it stays an entity. */
+    @GameTest(template = "empty16")
+    public static void hugeItemNotAbsorbed(GameTestHelper h) {
+        row(h, ModItems.TRANSPORT_BELT.get(), 1, 3, 3);
+        ItemStack huge = new ItemStack(ModItems.IRON_PLATE.get());
+        huge.set(DataComponents.CUSTOM_NAME, Component.literal("x".repeat(40_000)));
+        h.assertTrue(LaneStacks.toLane(huge, h.getLevel().registryAccess()).isEmpty(), "huge key accepted");
+        h.assertTrue(LaneStacks.toLane(new ItemStack(ModItems.IRON_PLATE.get()), h.getLevel().registryAccess())
+                .equals(java.util.Optional.of(PLATE)), "plain key");
+        Vec3 at = h.absoluteVec(new Vec3(1.5, 1.2, 3.5));
+        ItemEntity e = new ItemEntity(h.getLevel(), at.x, at.y, at.z, huge);
+        e.setDeltaMovement(Vec3.ZERO);
+        h.getLevel().addFreshEntity(e);
+        h.runAtTickTime(30, () -> {
+            h.assertTrue(!e.isRemoved() && e.getItem().getCount() == 1, "entity was absorbed");
+            for (int x = 1; x <= 3; x++) {
+                BeltBlockEntity b = belt(h, new BlockPos(x, 1, 3));
+                h.assertTrue(b.lane(LaneSide.LEFT).isEmpty() && b.lane(LaneSide.RIGHT).isEmpty(), "lane got the huge item");
+            }
+            h.succeed();
+        });
+    }
+
     /** Enchantments, custom name and damage survive belt travel (lane keys carry data components). */
     @GameTest(template = "empty16")
     public static void componentsSurviveBelt(GameTestHelper h) {

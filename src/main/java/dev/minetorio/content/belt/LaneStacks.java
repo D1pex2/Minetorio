@@ -3,6 +3,8 @@ package dev.minetorio.content.belt;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.LaneItem;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentPatch;
@@ -36,6 +38,22 @@ public final class LaneStacks {
                 .result()
                 .map(tag -> id + "#" + tag)
                 .orElse(id);
+    }
+
+    /** Longest stack key (UTF-8 bytes) allowed on a lane or in an inserter's hand (R22). */
+    public static final int MAX_KEY_BYTES = 32 * 1024;
+
+    /**
+     * The key under which one item of {@code stack} may enter a lane or an inserter's hand, or
+     * empty if the stack is empty or its key would exceed {@link #MAX_KEY_BYTES} (e.g. a full
+     * shulker box): NBT strings are limited to 64 KB, so such items stay where they are.
+     * Every item entering the lane world must go through here.
+     */
+    public static Optional<String> toLane(ItemStack stack, HolderLookup.Provider registries) {
+        if (stack.isEmpty()) return Optional.empty();
+        String key = key(stack, registries);
+        if (key.length() > MAX_KEY_BYTES / 3 && key.getBytes(StandardCharsets.UTF_8).length > MAX_KEY_BYTES) return Optional.empty();
+        return Optional.of(key);
     }
 
     /** A one-item stack for {@code key}, or EMPTY if the item is unknown. Unreadable extra data is ignored. */

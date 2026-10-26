@@ -58,4 +58,13 @@ public final class Burner {
     public long remainingJ() { return remainingJ; }
 
     public Map<String, Integer> fuel() { return Map.copyOf(fuel); }
+
+    /** Restores saved state ({@link #fuel()}, {@link #remainingJ()}); unknown fuels and counts &lt;= 0 are skipped. */
+    public void load(Map<String, Integer> savedFuel, long savedRemainingJ) {
+        fuel.clear();
+        savedFuel.forEach((item, count) -> {
+            if (count != null && count > 0 && fuelValues.containsKey(item)) fuel.put(item, Math.min(count, STACK_LIMIT));
+        });
+        remainingJ = Math.max(0, savedRemainingJ);
+    }
 }

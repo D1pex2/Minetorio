@@ -9,6 +9,10 @@
     "minetorio:fast_splitter",
     "minetorio:express_transport_belt",
     "minetorio:express_underground_belt",
-    "minetorio:express_splitter"
+    "minetorio:express_splitter",
+    "minetorio:burner_inserter",
+    "minetorio:inserter",
+    "minetorio:long_handed_inserter",
+    "minetorio:fast_inserter"
   ]
 }

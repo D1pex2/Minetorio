@@ -4,6 +4,7 @@ import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.SplitterBlockEntity;
 import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
+import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
 import net.minecraft.core.registries.Registries;
@@ -38,6 +39,11 @@ public final class ModBlockEntities {
             BLOCK_ENTITIES.register("splitter", () -> BlockEntityType.Builder
                     .of(SplitterBlockEntity::new, ModBlocks.SPLITTER.get(), ModBlocks.FAST_SPLITTER.get(),
                             ModBlocks.EXPRESS_SPLITTER.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InserterBlockEntity>> INSERTER =
+            BLOCK_ENTITIES.register("inserter", () -> BlockEntityType.Builder
+                    .of(InserterBlockEntity::new, ModBlocks.BURNER_INSERTER.get(), ModBlocks.INSERTER.get(),
+                            ModBlocks.LONG_HANDED_INSERTER.get(), ModBlocks.FAST_INSERTER.get()).build(null));
 
     private ModBlockEntities() {}
 

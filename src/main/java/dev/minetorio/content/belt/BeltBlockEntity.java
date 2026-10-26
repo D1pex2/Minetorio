@@ -147,7 +147,6 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
     public boolean absorb(ItemEntity entity) {
         if (level == null || level.isClientSide()) return false;
         ItemStack stack = entity.getItem();
-        if (stack.isEmpty()) return false;
         Direction f = facing();
         Direction r = f.getClockWise();
         double lx = entity.getX() - worldPosition.getX() - 0.5;
@@ -155,7 +154,8 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
         double along = lx * f.getStepX() + lz * f.getStepZ();
         double right = lx * r.getStepX() + lz * r.getStepZ();
         LaneSide near = right < 0 ? LaneSide.LEFT : LaneSide.RIGHT;
-        String key = LaneStacks.key(stack, level.registryAccess());
+        String key = LaneStacks.toLane(stack, level.registryAccess()).orElse(null);
+        if (key == null) return false; // too large for a lane (R22): stays an entity
         // The rest of the stack rides along on top of the item it just left, so fall back to the
         // other lane and then to one item spacing behind/ahead.
         boolean taken = false;
