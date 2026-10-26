@@ -36,16 +36,20 @@ public final class HandcraftPayloads {
         }
     }
 
-    /** Client to server: cancel the queue entry at {@code index} (validated by {@link HandcraftTicker#cancel}). */
-    public record Cancel(int index) implements CustomPacketPayload {
+    /**
+     * Client to server: cancel the queue entry at {@code index}, which the client saw as {@code times} ×
+     * {@code recipeId} (validated by {@link HandcraftTicker#cancel}; refused if the entry differs).
+     */
+    public record Cancel(int index, String recipeId, int times) implements CustomPacketPayload {
         public static final Type<Cancel> TYPE = new Type<>(id("handcraft_cancel"));
-        public static final StreamCodec<ByteBuf, Cancel> STREAM_CODEC = ByteBufCodecs.VAR_INT.map(Cancel::new, Cancel::index);
+        public static final StreamCodec<ByteBuf, Cancel> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, Cancel::index, ID, Cancel::recipeId, ByteBufCodecs.VAR_INT, Cancel::times, Cancel::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
         public static void handle(Cancel payload, IPayloadContext context) {
-            if (context.player() instanceof ServerPlayer player) HandcraftTicker.cancel(player, payload.index());
+            if (context.player() instanceof ServerPlayer player) HandcraftTicker.cancel(player, payload.index(), payload.recipeId(), payload.times());
         }
     }
 

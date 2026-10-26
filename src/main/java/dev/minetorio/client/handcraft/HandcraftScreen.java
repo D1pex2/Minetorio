@@ -309,7 +309,8 @@ public class HandcraftScreen extends Screen {
         }
         int q = button == 0 ? queueIndexAt(mouseX, mouseY) : -1;
         if (q >= 0) {
-            PacketDistributor.sendToServer(new HandcraftPayloads.Cancel(q));
+            HandcraftQueue.Entry e = ClientHandcraft.entries().get(q);
+            PacketDistributor.sendToServer(new HandcraftPayloads.Cancel(q, e.recipeId(), e.times()));
             click();
             return true;
         }

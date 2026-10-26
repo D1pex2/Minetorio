@@ -7,11 +7,13 @@ import static dev.minetorio.gametest.MachineGameTest.player;
 
 import dev.minetorio.content.handcraft.HandcraftAttachment;
 import dev.minetorio.content.handcraft.HandcraftPayloads;
-import dev.minetorio.content.handcraft.HandcraftTicker;
 import dev.minetorio.content.handcraft.HandcraftTicker.EnqueueResult;
+import dev.minetorio.content.handcraft.HandcraftTicker;
 import dev.minetorio.content.registry.ModItems;
+import dev.minetorio.content.research.LabBlockEntity;
 import dev.minetorio.content.research.ResearchSavedData;
 import dev.minetorio.core.handcraft.HandcraftQueue;
+import dev.minetorio.core.research.LabLogic;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.lang.reflect.Proxy;
@@ -28,13 +30,17 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -160,7 +166,11 @@ public class HandcraftGameTest {
         h.assertTrue(HandcraftTicker.enqueue(b, "assembling_machine_1", 1) == EnqueueResult.LOCKED, "locked recipe queued");
         h.assertTrue(plain(b, ModItems.IRON_PLATE.get()) == 22, "plates taken by a refused enqueue");
         h.assertTrue(ResearchSavedData.select(a, "automation") == ResearchSavedData.SelectResult.OK, "A cannot research");
-        data.restore(Set.of("automation"), null, Map.of());
+        // A's lab researches automation unit by unit through the world's research (10 units × 10 s)
+        LabLogic lab = new LabLogic(1.0, LabBlockEntity.POWER);
+        h.assertTrue(lab.insertPack("minetorio:automation_science_pack", 10, false) == 10, "packs refused");
+        for (int i = 0; i < 5000 && !data.state().isResearched("automation"); i++) data.tickLab(lab, 1.0);
+        h.assertTrue(data.state().isResearched("automation"), "automation not researched, units " + data.state().unitsDone());
         h.assertTrue(HandcraftTicker.enqueue(b, "assembling_machine_1", 1) == EnqueueResult.OK, "B refused after A's research");
         h.assertTrue(plain(b, ModItems.IRON_PLATE.get()) == 0 && plain(b, ModItems.COPPER_PLATE.get()) == 0, "plates left");
         tick(b, 400);
@@ -238,7 +248,10 @@ public class HandcraftGameTest {
         h.assertTrue(HandcraftTicker.enqueue(p, "automation_science_pack", 1) == EnqueueResult.OK, "pack refused");
         tick(p, 3);
         for (int i = 0; i < p.getInventory().items.size(); i++) p.getInventory().items.set(i, new ItemStack(Items.DIRT, 64));
-        HandcraftPayloads.Cancel.handle(new HandcraftPayloads.Cancel(0), context(p));
+        HandcraftPayloads.Cancel.handle(new HandcraftPayloads.Cancel(0, "automation_science_pack", 2), context(p));
+        HandcraftPayloads.Cancel.handle(new HandcraftPayloads.Cancel(0, "iron_gear_wheel", 1), context(p));
+        h.assertTrue(entries(p).size() == 1, "an entry other than the one the client saw was cancelled");
+        HandcraftPayloads.Cancel.handle(new HandcraftPayloads.Cancel(0, "automation_science_pack", 1), context(p));
         h.assertTrue(entries(p).isEmpty(), "entry not cancelled");
         h.assertTrue(dropped(h, ModItems.IRON_PLATE.get()) == 2, "iron dropped " + dropped(h, ModItems.IRON_PLATE.get()));
         h.assertTrue(dropped(h, ModItems.COPPER_PLATE.get()) == 1, "copper dropped " + dropped(h, ModItems.COPPER_PLATE.get()));
@@ -293,7 +306,7 @@ public class HandcraftGameTest {
         });
     }
 
-    /** On death every entry is cancelled and its items go back to the inventory (to drop with it). */
+    /** On death (a real LivingDeathEvent) every entry is cancelled and its items go back to the inventory (to drop with it). */
     @GameTest(template = "empty16")
     public static void deathCancelsQueue(GameTestHelper h) {
         FakePlayer p = player(h, AT);
@@ -302,11 +315,65 @@ public class HandcraftGameTest {
         h.assertTrue(HandcraftTicker.enqueue(p, "inserter", 1) == EnqueueResult.OK, "inserter refused");
         h.assertTrue(HandcraftTicker.enqueue(p, "pipe", 1) == EnqueueResult.MISSING_ITEMS, "pipe from nothing");
         tick(p, 25);
-        HandcraftTicker.onDeath(p);
+        die(p);
         h.assertTrue(entries(p).isEmpty(), "queue survived death");
         h.assertTrue(plain(p, ModItems.IRON_PLATE.get()) == 4 && plain(p, ModItems.COPPER_PLATE.get()) == 2,
                 "refund " + plain(p, ModItems.IRON_PLATE.get()) + " iron, " + plain(p, ModItems.COPPER_PLATE.get()) + " copper");
         h.assertTrue(plain(p, ModItems.COPPER_CABLE.get()) == 0 && plain(p, ModItems.ELECTRONIC_CIRCUIT.get()) == 0, "intermediates kept");
+        h.succeed();
+    }
+
+    /** A real LivingDeathEvent reaches the handcraft listener (FakePlayer.die does nothing, so the test posts it). */
+    private static void die(ServerPlayer p) {
+        NeoForge.EVENT_BUS.post(new LivingDeathEvent(p, p.damageSources().genericKill()));
+    }
+
+    /** Dying with a full inventory: what does not fit drops at the death position, nothing is lost. */
+    @GameTest(template = "empty16")
+    public static void deathWithFullInventoryDropsOverflow(GameTestHelper h) {
+        FakePlayer p = player(h, AT);
+        give(p, ModItems.IRON_PLATE.get(), 4);
+        give(p, ModItems.COPPER_PLATE.get(), 2);
+        h.assertTrue(HandcraftTicker.enqueue(p, "inserter", 1) == EnqueueResult.OK, "inserter refused");
+        tick(p, 25);
+        for (int i = 0; i < p.getInventory().items.size(); i++) p.getInventory().items.set(i, new ItemStack(Items.DIRT, 64));
+        die(p);
+        h.assertTrue(entries(p).isEmpty(), "queue survived death");
+        AABB near = p.getBoundingBox().inflate(1.5);
+        int iron = 0;
+        int copper = 0;
+        for (ItemEntity e : h.getLevel().getEntitiesOfClass(ItemEntity.class, near)) {
+            if (e.getItem().is(ModItems.IRON_PLATE.get())) iron += e.getItem().getCount();
+            if (e.getItem().is(ModItems.COPPER_PLATE.get())) copper += e.getItem().getCount();
+        }
+        h.assertTrue(iron == 4 && copper == 2, "dropped at the death position: " + iron + " iron, " + copper + " copper");
+        h.assertTrue(dropped(h, ModItems.COPPER_CABLE.get()) == 0 && dropped(h, ModItems.ELECTRONIC_CIRCUIT.get()) == 0, "intermediates dropped");
+        h.succeed();
+    }
+
+    @AfterBatch(batch = "handcraft_dead")
+    public static void after2(ServerLevel level) {
+        level.getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(false, level.getServer());
+    }
+
+    /**
+     * With keepInventory, a request that arrives after death (in flight, or a modified client on the
+     * death screen) is refused: the queue is not copied to the respawned player, so taking the
+     * ingredients would lose them. A dead player's queue does not tick and cancels nothing.
+     */
+    @GameTest(template = "empty16", batch = "handcraft_dead")
+    public static void deadPlayerCannotEnqueue(GameTestHelper h) {
+        h.getLevel().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, h.getLevel().getServer());
+        FakePlayer p = player(h, AT);
+        give(p, ModItems.IRON_PLATE.get(), 4);
+        h.assertTrue(HandcraftTicker.enqueue(p, "pipe", 1) == EnqueueResult.OK, "pipe refused");
+        die(p);
+        p.setHealth(0);
+        h.assertTrue(plain(p, ModItems.IRON_PLATE.get()) == 4, "death refund " + plain(p, ModItems.IRON_PLATE.get()));
+        HandcraftPayloads.Enqueue.handle(new HandcraftPayloads.Enqueue("iron_gear_wheel", 1), context(p));
+        h.assertTrue(HandcraftTicker.enqueue(p, "pipe", 2) == EnqueueResult.DEAD, "dead player queued");
+        h.assertTrue(entries(p).isEmpty(), "queued after death: " + entries(p));
+        h.assertTrue(plain(p, ModItems.IRON_PLATE.get()) == 4, "inventory changed after death: " + plain(p, ModItems.IRON_PLATE.get()));
         h.succeed();
     }
 

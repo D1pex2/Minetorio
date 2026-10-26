@@ -58,16 +58,17 @@ public final class HandcraftTicker {
         });
     }
 
-    public enum EnqueueResult { OK, SPECTATOR, BAD_COUNT, UNKNOWN_RECIPE, NOT_CRAFTING, LOCKED, QUEUE_FULL, TOO_SOON, MISSING_ITEMS }
+    public enum EnqueueResult { OK, SPECTATOR, DEAD, BAD_COUNT, UNKNOWN_RECIPE, NOT_CRAFTING, LOCKED, QUEUE_FULL, TOO_SOON, MISSING_ITEMS }
 
     /**
      * Queues {@code times} crafts of {@code recipeId} for the player (from {@link HandcraftPayloads.Enqueue}):
-     * refused for spectators, counts outside 1..{@value #MAX_TIMES}, unknown, non-crafting or locked
+     * refused for spectators and dead players (the queue was cancelled at death), counts outside 1..{@value #MAX_TIMES}, unknown, non-crafting or locked
      * recipes and a full queue; then at most {@value #MAX_REQUESTS_PER_SECOND} requests per second are
      * planned, and the ingredients (plain stacks) are taken at once or not at all.
      */
     public static EnqueueResult enqueue(ServerPlayer player, String recipeId, int times) {
         if (player.isSpectator()) return EnqueueResult.SPECTATOR;
+        if (!player.isAlive()) return EnqueueResult.DEAD;
         if (times < 1 || times > MAX_TIMES) return EnqueueResult.BAD_COUNT;
         Optional<Recipe> recipe = Phase1Data.recipes().get(recipeId);
         if (recipe.isEmpty()) return EnqueueResult.UNKNOWN_RECIPE;
@@ -90,20 +91,29 @@ public final class HandcraftTicker {
         return EnqueueResult.OK;
     }
 
-    /** Cancels the entry at {@code index} (from {@link HandcraftPayloads.Cancel}); returns whether there was one. */
-    public static boolean cancel(ServerPlayer player, int index) {
+    /**
+     * Cancels the entry at {@code index} (from {@link HandcraftPayloads.Cancel}) if it is still
+     * {@code times} × {@code recipeId}, as the client saw it; returns whether it was cancelled. A
+     * mismatch (the client's view was stale) cancels nothing. Dead players cancel nothing.
+     */
+    public static boolean cancel(ServerPlayer player, int index, String recipeId, int times) {
         HandcraftAttachment a = player.getExistingDataOrNull(ModAttachments.HANDCRAFT);
-        if (a == null || index < 0 || index >= a.queue().entries().size()) return false;
+        if (a == null || !player.isAlive()) return false;
+        List<HandcraftQueue.Entry> entries = a.queue().entries();
+        if (index < 0 || index >= entries.size()) return false;
+        HandcraftQueue.Entry e = entries.get(index);
+        if (!e.recipeId().equals(recipeId) || e.times() != times) return false;
         PlayerInventoryAdapter inv = new PlayerInventoryAdapter(player);
         inv.dropAll(a.queue().cancel(index, inv));
         sync(player, a, false);
         return true;
     }
 
-    /** One tick of the player's queue. */
+    /** One tick of the player's queue (nothing for dead players, or when there is nothing to do or to sync). */
     public static void tick(ServerPlayer player) {
         HandcraftAttachment a = player.getExistingDataOrNull(ModAttachments.HANDCRAFT);
-        if (a == null) return;
+        if (a == null || !player.isAlive()) return;
+        if (a.queue().entries().isEmpty() && a.refund().isEmpty() && a.syncedShape != null && a.syncedShape.isEmpty()) return;
         PlayerInventoryAdapter inv = new PlayerInventoryAdapter(player);
         giveRefund(a, inv);
         a.queue().tick(inv);
