@@ -5,22 +5,28 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-/** One lane of a belt block. Items are kept sorted front-first (highest pos first). */
+/**
+ * One lane of a belt block. Items are kept sorted front-first (highest pos first).
+ * Capacity is floor(length / SPACING) items. Chained lanes must be ticked downstream-first,
+ * and hand-offs must pass the overflow (see {@link #asSink()}) to keep the full 7.5 items/s.
+ */
 public final class BeltLane {
     public static final double SPACING = 0.25;
     private static final double EPS = 1e-9;
 
     private final double length;
+    private final int capacity;
     private final List<LaneItem> items = new ArrayList<>();
 
     public BeltLane(double length) {
         this.length = length;
+        this.capacity = (int) Math.floor(length / SPACING + EPS);
     }
 
     public double length() { return length; }
 
     public boolean canInsertAt(double pos) {
-        if (pos < 0 || pos > length) return false;
+        if (pos < 0 || pos > length || items.size() >= capacity) return false;
         for (LaneItem it : items) {
             if (Math.abs(it.pos() - pos) < SPACING - EPS) return false;
         }
