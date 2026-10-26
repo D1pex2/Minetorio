@@ -8,3 +8,14 @@ run/
 .vscode/
 bin/
 *.log
+
+# MDK
+.gradle
+!gradle/wrapper/gradle-wrapper.jar
+.run/
+.classpath
+.project
+.settings/
+.DS_Store
+**/src/generated/**/.cache/
+repo/
