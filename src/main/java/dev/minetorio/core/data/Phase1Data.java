@@ -2,14 +2,16 @@ package dev.minetorio.core.data;
 
 import dev.minetorio.core.Units;
 import dev.minetorio.core.recipe.*;
+import dev.minetorio.core.research.*;
 import java.util.*;
 
-/** Phase 1 content tables (Factorio 1.1 values). Tech tree is added in a later task. */
+/** Phase 1 content tables (Factorio 1.1 values). Includes the tech tree. */
 public final class Phase1Data {
     private static final String M = "minetorio:";
     private static final RecipeBook BOOK = build();
     private static final Map<String, Long> FUEL = buildFuel();
     private static final Set<String> START = buildStart();
+    private static final TechTree TECH = buildTech();
 
     private Phase1Data() {}
 
@@ -23,6 +25,27 @@ public final class Phase1Data {
      * Smelting recipe ids are included too (smelting is unlocked by category anyway).
      */
     public static Set<String> startRecipes() { return START; }
+
+    public static TechTree techTree() { return TECH; }
+
+    private static Technology tech(String id, String prereqs, String packs, int units, double sec, String unlocks) {
+        List<String> pre = prereqs.isEmpty() ? List.of() : List.of(prereqs.split(","));
+        Map<String, Integer> pk = new LinkedHashMap<>();
+        for (String p : packs.split(",")) pk.put(M + p + "_science_pack", 1);
+        return new Technology(id, pre, pk, units, Units.ticks(sec), List.of(unlocks.split(",")));
+    }
+
+    private static TechTree buildTech() {
+        return new TechTree(List.of(
+                tech("automation", "", "automation", 10, 10, "assembling_machine_1,long_handed_inserter"),
+                tech("logistics", "", "automation", 20, 15, "underground_belt,splitter"),
+                tech("fast_inserter", "automation", "automation", 30, 15, "fast_inserter"),
+                tech("logistic_science_pack", "", "automation", 75, 5, "logistic_science_pack"),
+                tech("automation_2", "automation,logistic_science_pack", "automation,logistic", 40, 15,
+                        "assembling_machine_2"),
+                tech("logistics_2", "logistics,logistic_science_pack", "automation,logistic", 200, 30,
+                        "fast_transport_belt,fast_underground_belt,fast_splitter")));
+    }
 
     private static Ingredient ing(String spec) {
         String[] p = spec.split(" ", 2);
