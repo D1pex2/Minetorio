@@ -3,6 +3,7 @@
   "textures": {
     "belt": "minetorio:block/transport_belt",
     "frame": "minetorio:block/underground_belt",
+    "top": "minetorio:block/underground_belt_top_input",
     "tunnel": "minecraft:block/black_concrete"
   }
 }

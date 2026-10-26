@@ -39,7 +39,7 @@ public class SplitterRenderer implements BlockEntityRenderer<SplitterBlockEntity
         for (LaneItem it : lane.items()) {
             double p = start + be.tracker().renderPos(it, speed, partialTick);
             double[] xz = BeltGeometry.local(facing, p - 0.5, lat);
-            items.draw(it.item(), xz[0], xz[1], facing, be.getLevel(), pose, buffers, light, seed);
+            items.draw(it.item(), xz[0], xz[1], facing.getStepX(), facing.getStepZ(), be.getLevel(), pose, buffers, light, seed);
         }
     }
 

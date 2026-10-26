@@ -30,8 +30,10 @@ public class BeltRenderer implements BlockEntityRenderer<BeltBlockEntity> {
             BeltLane lane = be.lane(side);
             for (LaneItem it : lane.items()) {
                 double p = be.tracker().renderPos(it, speed, partialTick);
-                double[] xz = BeltGeometry.lanePoint(facing, shape, side, Math.min(1, p / lane.length()));
-                items.draw(it.item(), xz[0], xz[1], facing, be.getLevel(), pose, buffers, light, seed);
+                double t = Math.min(1, p / lane.length());
+                double[] xz = BeltGeometry.lanePoint(facing, shape, side, t);
+                double[] dir = BeltGeometry.laneTangent(facing, shape, t);
+                items.draw(it.item(), xz[0], xz[1], dir[0], dir[1], be.getLevel(), pose, buffers, light, seed);
             }
         }
     }

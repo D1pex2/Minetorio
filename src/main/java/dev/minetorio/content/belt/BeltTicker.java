@@ -2,6 +2,7 @@ package dev.minetorio.content.belt;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -125,7 +126,12 @@ public final class BeltTicker {
         order = out;
     }
 
-    /** Ticking order, downstream first (for tests). */
+    /** All registered nodes (read-only view). */
+    public Collection<BeltNode> nodes() {
+        return Collections.unmodifiableSet(nodes);
+    }
+
+        /** Ticking order, downstream first (for tests). */
     public List<BeltNode> order() {
         if (dirty) rebuild();
         return Collections.unmodifiableList(order);

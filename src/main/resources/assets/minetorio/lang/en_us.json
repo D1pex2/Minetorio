@@ -20,5 +20,9 @@
   "block.minetorio.express_underground_belt": "Express Underground Belt",
   "block.minetorio.splitter": "Splitter",
   "block.minetorio.fast_splitter": "Fast Splitter",
-  "block.minetorio.express_splitter": "Express Splitter"
+  "block.minetorio.express_splitter": "Express Splitter",
+  "minetorio.underground.entrance": "Underground entrance — place the exit 1–%s blocks ahead, facing the same way",
+  "minetorio.underground.connected": "Underground belt connected (%s blocks)",
+  "minetorio.underground.tooltip.1": "Place the entrance looking along the belt,",
+  "minetorio.underground.tooltip.2": "then the exit 1–%s blocks ahead, facing the same way."
 }

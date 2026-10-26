@@ -20,5 +20,9 @@
   "block.minetorio.express_underground_belt": "Экспресс-подземный конвейер",
   "block.minetorio.splitter": "Разделитель",
   "block.minetorio.fast_splitter": "Скоростной разделитель",
-  "block.minetorio.express_splitter": "Экспресс-разделитель"
+  "block.minetorio.express_splitter": "Экспресс-разделитель",
+  "minetorio.underground.entrance": "Вход подземной ленты — поставь выход в 1–%s блоках впереди, глядя в ту же сторону",
+  "minetorio.underground.connected": "Подземная лента соединена (%s бл.)",
+  "minetorio.underground.tooltip.1": "Ставь вход, глядя вдоль ленты,",
+  "minetorio.underground.tooltip.2": "затем выход в 1–%s блоках впереди, глядя в ту же сторону."
 }

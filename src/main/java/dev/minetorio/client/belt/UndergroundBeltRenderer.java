@@ -35,7 +35,7 @@ public class UndergroundBeltRenderer implements BlockEntityRenderer<UndergroundB
                 double p = be.tracker().renderPos(it, speed, partialTick);
                 if (input ? p > 0.5 : p < 0.5) continue; // under the hood
                 double[] xz = BeltGeometry.local(facing, p - 0.5, lat);
-                items.draw(it.item(), xz[0], xz[1], facing, be.getLevel(), pose, buffers, light, seed);
+                items.draw(it.item(), xz[0], xz[1], facing.getStepX(), facing.getStepZ(), be.getLevel(), pose, buffers, light, seed);
             }
         }
     }

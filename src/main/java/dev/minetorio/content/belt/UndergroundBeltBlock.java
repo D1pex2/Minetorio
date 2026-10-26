@@ -8,12 +8,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.OptionalInt;
 import javax.annotation.Nullable;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -126,10 +131,30 @@ public class UndergroundBeltBlock extends BaseEntityBlock {
         return UndergroundLink.findEntranceDistance(matches, tier.undergroundMaxGap());
     }
 
+    /** Farthest exit distance from its entrance: gap + 1. */
+    public int maxDistance() {
+        return tier.undergroundMaxGap() + 1;
+    }
+
+    /** Links the new piece and tells a placing player what happened (action bar). */
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be) be.tryLink();
+        if (!(level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be)) return;
+        be.tryLink();
+        if (level.isClientSide() || !(placer instanceof Player player)) return;
+        if (be.isPaired()) {
+            player.displayClientMessage(Component.translatable("minetorio.underground.connected", be.distance()), true);
+        } else if (state.getValue(TYPE) == Type.INPUT) {
+            player.displayClientMessage(Component.translatable("minetorio.underground.entrance", maxDistance()), true);
+        }
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, Item.TooltipContext ctx, List<Component> lines, TooltipFlag flag) {
+        super.appendHoverText(stack, ctx, lines, flag);
+        lines.add(Component.translatable("minetorio.underground.tooltip.1").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("minetorio.underground.tooltip.2", maxDistance()).withStyle(ChatFormatting.GRAY));
     }
 
     @Override

@@ -124,6 +124,28 @@ public final class BeltGeometry {
         return local(facing, a, b);
     }
 
+    /**
+     * Unit travel direction {dx, dz} (world XZ) of a lane at {@code t}, matching {@link #lanePoint}:
+     * the facing on straight belts, the arc's tangent on curves (entry direction at t=0, facing at t=1).
+     */
+    public static double[] laneTangent(Direction facing, BeltShape shape, double t) {
+        double theta = t * Math.PI / 2;
+        return switch (shape) {
+            case CURVE_LEFT -> world(facing, Math.sin(theta), Math.cos(theta));
+            case CURVE_RIGHT -> world(facing, Math.sin(theta), -Math.cos(theta));
+            default -> world(facing, 1, 0);
+        };
+    }
+
+    /** World XZ vector of {@code along} forward and {@code right} to the right of {@code facing}. */
+    public static double[] world(Direction facing, double along, double right) {
+        Direction r = facing.getClockWise();
+        return new double[] {
+            facing.getStepX() * along + r.getStepX() * right,
+            facing.getStepZ() * along + r.getStepZ() * right
+        };
+    }
+
     /** Block-local {x, z} of the point {@code along} blocks forward and {@code right} blocks right of the center. */
     public static double[] local(Direction facing, double along, double right) {
         Direction r = facing.getClockWise();
