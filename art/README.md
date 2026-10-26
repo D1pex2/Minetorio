@@ -1,22 +1,27 @@
-# Minetorio placeholder art
+# Minetorio art
 
-All 35 item icons and 14 block textures are PROCEDURAL (Python + Pillow, 16x16, limited palette,
-dark outline, transparent items). Generator: C:/Users/kirill/AppData/Local/Temp/claude/minetorio-art/gen.py
-(copy it into the repo tools dir if you want it reproducible). No fal calls were made: the fal MCP was
-not connected and hand-drawn pixels beat downscaled diffusion output at 16x16.
+Everything here is procedural (Python 3 + Pillow + numpy) and deterministic. Re-run a script after
+editing it. No fal or other generated images are used: hand-placed pixels read better than
+downscaled diffusion output at 16×16.
 
-- item/*.png: iron_ore, copper_ore, iron_plate, copper_plate, stone_brick, iron_gear_wheel, copper_cable,
-  electronic_circuit, automation_science_pack, logistic_science_pack, scanner, burner_inserter, inserter,
-  long_handed_inserter, fast_inserter, {,fast_,express_}transport_belt, {,fast_,express_}underground_belt,
-  {,fast_,express_}splitter, burner_mining_drill, electric_mining_drill, stone_furnace, assembling_machine_1/2,
-  lab, offshore_pump, pipe, boiler, steam_engine, small_electric_pole.
-- block/: machine_metal, machine_metal_dark, furnace_stone, furnace_front_lit, drill_side, assembler_side,
-  lab_side, boiler_side, engine_side, pipe, pole_wood (tiling 16x16, noise + panel edges).
-- block/belt_yellow (16 frames, scroll 1px/frame), belt_red (8 frames, 2px/frame), belt_blue (8 frames,
-  3px/frame); chevron period is 8px so all loop seamlessly. All .png.mcmeta use {"animation":{"frametime":1}};
-  speed tiers come from the px-per-frame step, not frametime. Chevrons point toward the top of the image;
-  rotate the face UVs per belt direction in the model.
-- preview.png: contact sheet at x8 (belts show frame 0).
+| Script | Output |
+|---|---|
+| `gen.py` | Flat 16×16 item icons in `art/item/`. Copies the 11 material/tool icons the mod uses into `textures/item/` and writes `preview.png`. Its old `art/block/` tiles are kept for reference only. |
+| `gen_blocks.py` | All block textures in `src/main/resources/assets/minetorio/textures/block/` (plus `.mcmeta` for animated strips) and `blocks-preview.png`. |
+| `gen_models.py` | All block and item JSON models in `models/{block,item}/`: Create-style multi-element machines, belts, pipes, poles and inserters, plus fitted item display transforms for the multiblocks. |
+| `render_models.py` | `models-preview.png`: an offline isometric render of every model (two views each) for checking shapes without the game. |
 
-Human touch-up suggested: belt item icons (dotted chevrons are busy), iron_ore vs copper_ore (similar
-silhouette; iron should be browner/paler), iron_gear_wheel (stray top tooth), steam_engine, offshore_pump.
+Order: `python art/gen_blocks.py && python art/gen_models.py && python art/render_models.py`
+
+## Notes
+
+- **Palette:** vanilla-like steel, dark steel, brass, copper, rust and stone. Tier colours are yellow, red and blue, with green for the lab's science holders.
+- **Animated textures:**
+  - `fire` (8 frames, frametime 2): furnace mouth and boiler door.
+  - `lab_glow` (8 frames, pulsing): shown only while researching. Idle, the lab uses `lab_glass`.
+  - Belts: straights and curves scroll at Factorio speed at 20 tps: 1.5, 3 and 4.5 px per tick for yellow, red and blue. The chevron period is 16 px, so tiles join seamlessly and the fast tiers don't alias.
+  - Curves map the same pattern onto a quarter circle around the inner corner, matching `BeltGeometry`.
+- **Model geometry:**
+  - Boxes bigger than a block are split into equal parts of 16 px or less, so textures keep roughly vanilla texel density and show plate seams.
+  - Round parts are octagons: a box plus a copy turned 45°.
+  - Cogwheels are discs with 8 tooth bars at 22.5° steps.

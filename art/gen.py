@@ -1,4 +1,4 @@
-import random, json, os
+import random, json, os, math
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = "C:/Users/kirill/Documents/Projects/Minetorio/art"
@@ -40,18 +40,26 @@ def item(name):
         cv=Cv(); fn(cv); items[name]=cv.im; return fn
     return f
 
-def ore(name,pal,seed):
+def ore(name,rock,pal,fleck,seed,chunky):
+    """Ore chunk: iron = angular blue-grey rock with silver crystals; copper = rounded brown rock
+    with orange nuggets and green verdigris flecks (different silhouettes, not only hues)."""
     @item(name)
     def _(c):
         rnd=random.Random(seed)
-        c.e(1,2,14,14,STONE[1],OL)
-        c.e(3,3,9,7,STONE[0]); c.e(8,9,13,13,STONE[2])
-        for _i in range(11):
-            x,y=rnd.randint(3,12),rnd.randint(4,12)
-            c.p(x,y,pal[1]); c.p(x+1,y,pal[0]); c.p(x,y+1,pal[2])
-        for (x,y) in [(5,5),(10,6),(7,10),(11,10)]: c.p(x,y,pal[0]); c.p(x+1,y,pal[1])
-ore('iron_ore',[C('#e0b090'),C('#c98a66'),C('#8a5a40')],1)
-ore('copper_ore',[C('#ffb27a'),C('#e8743a'),C('#9a4a28')],2)
+        if chunky:
+            pts=[(2,9),(4,4),(8,2),(12,4),(14,8),(12,13),(6,14),(2,12)]
+            c.d.polygon(pts,fill=rock[1],outline=OL)
+            c.d.polygon([(4,5),(8,3),(11,5),(7,7)],fill=rock[0])
+            c.d.polygon([(7,12),(12,12),(13,9),(10,10)],fill=rock[2])
+        else:
+            c.e(1,3,14,14,rock[1],OL); c.e(3,4,9,8,rock[0]); c.e(8,9,13,13,rock[2])
+        for (x,y) in [(5,6),(9,5),(10,9),(6,10),(8,8)]:
+            c.p(x,y,pal[0]); c.p(x+1,y,pal[1]); c.p(x,y+1,pal[1]); c.p(x+1,y+1,pal[2])
+        for _i in range(4):
+            x,y=rnd.randint(4,11),rnd.randint(5,12)
+            if c.im.getpixel((x,y))[3]: c.p(x,y,fleck)
+ore('iron_ore',[C('#9aa6b4'),C('#6e7a88'),C('#4c5662')],[C('#f2f6fa'),C('#c8d4de'),C('#8e9cab')],C('#3a4450'),1,True)
+ore('copper_ore',[C('#a08068'),C('#7a5a44'),C('#56402e')],[C('#ffc08a'),C('#e8743a'),C('#9a4a28')],C('#4fbf8a'),2,False)
 
 def plate(name,pal):
     @item(name)
@@ -80,11 +88,20 @@ def gear(c,cx,cy,r,pal,hole=2):
     c.e(cx-hole,cy-hole,cx+hole-1,cy+hole-1,(0,0,0,0),OL)
 @item('iron_gear_wheel')
 def _(c):
-    gear(c,7,7,6,IRON); c.d.ellipse([5,5,8,8],fill=(0,0,0,0),outline=OL); c.p(6,6,(0,0,0,0)); c.p(7,7,(0,0,0,0))
-    c.p(3,3,IRON[0]);c.p(4,3,IRON[0])
-    # fix hole
-    for x in (6,7):
-        for y in (6,7): c.p(x,y,(0,0,0,0))
+    """Symmetric 8-tooth gear (the old icon had a stray tooth)."""
+    cx=cy=7.5
+    for y in range(16):
+        for x in range(16):
+            dx,dy=x-cx,y-cy; r=math.hypot(dx,dy); a=math.atan2(dy,dx)
+            tooth=math.cos(a*8)>0.3
+            if r<=4.6 or (r<=6.9 and tooth) or r<=5.4:
+                col=IRON[1]
+                if r<1.6: col=(0,0,0,0)
+                elif r<2.6: col=IRON[3]
+                elif dx+dy<-3: col=IRON[0]
+                elif dx+dy>4: col=IRON[2]
+                c.p(x,y,col)
+    outline(c)
 
 @item('copper_cable')
 def _(c):
@@ -340,6 +357,10 @@ belt_strip('belt_blue',BELTP['express_'],8,3)
 
 # ---------- write ----------
 for n,im in items.items(): assert im.size==(16,16); im.save(f"{ROOT}/item/{n}.png")
+# flat icons used by the mod (machines, belts, pipes, poles and inserters use 3D block-item models)
+FLAT=('iron_ore','copper_ore','iron_plate','copper_plate','stone_brick','iron_gear_wheel','copper_cable',
+      'electronic_circuit','automation_science_pack','logistic_science_pack','scanner')
+for n in FLAT: items[n].save(f"{ROOT}/../src/main/resources/assets/minetorio/textures/item/{n}.png")
 for n,im in blocks.items():
     im.save(f"{ROOT}/block/{n}.png")
     if n.startswith('belt_'):
