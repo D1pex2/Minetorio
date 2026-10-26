@@ -1,0 +1,15 @@
+{
+  "itemGroup.minetorio": "Minetorio",
+  "item.minetorio.iron_ore": "Iron Ore",
+  "item.minetorio.copper_ore": "Copper Ore",
+  "item.minetorio.iron_plate": "Iron Plate",
+  "item.minetorio.copper_plate": "Copper Plate",
+  "item.minetorio.stone_brick": "Stone Brick",
+  "item.minetorio.iron_gear_wheel": "Iron Gear Wheel",
+  "item.minetorio.copper_cable": "Copper Cable",
+  "item.minetorio.electronic_circuit": "Electronic Circuit",
+  "item.minetorio.automation_science_pack": "Automation Science Pack",
+  "item.minetorio.logistic_science_pack": "Logistic Science Pack",
+  "block.minetorio.stone_furnace": "Stone Furnace",
+  "block.minetorio.multiblock_part": "Machine Part"
+}

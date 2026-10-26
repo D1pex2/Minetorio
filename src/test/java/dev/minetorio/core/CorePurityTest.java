@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class CorePurityTest {
     @Test
     void coreHasNoMinecraftImports() throws IOException {
-        Path root = Paths.get("src/main/java/dev/minetorio/core");
+        Path root = Paths.get(System.getProperty("minetorio.projectDir", "."), "src/main/java/dev/minetorio/core");
         assertTrue(Files.isDirectory(root), "core dir missing");
         try (Stream<Path> s = Files.walk(root)) {
             for (Path p : (Iterable<Path>) s.filter(f -> f.toString().endsWith(".java"))::iterator) {

@@ -105,6 +105,12 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+
+    // Runs JUnit tests with the game on the classpath (needed by content-layer tests, e.g. CoreNbtTest).
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
 }
 
 // Sets up a dependency configuration called 'localRuntime'.
@@ -194,4 +200,6 @@ idea {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // MDG runs unit tests in its own game directory; tests that read sources resolve them from here.
+    systemProperty 'minetorio.projectDir', projectDir.absolutePath
 }

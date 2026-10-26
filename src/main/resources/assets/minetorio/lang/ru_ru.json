@@ -1,0 +1,15 @@
+{
+  "itemGroup.minetorio": "Minetorio",
+  "item.minetorio.iron_ore": "Железная руда",
+  "item.minetorio.copper_ore": "Медная руда",
+  "item.minetorio.iron_plate": "Железная пластина",
+  "item.minetorio.copper_plate": "Медная пластина",
+  "item.minetorio.stone_brick": "Каменный кирпич",
+  "item.minetorio.iron_gear_wheel": "Железная шестерня",
+  "item.minetorio.copper_cable": "Медный провод",
+  "item.minetorio.electronic_circuit": "Электронная схема",
+  "item.minetorio.automation_science_pack": "Исследовательский пакет автоматизации",
+  "item.minetorio.logistic_science_pack": "Логистический исследовательский пакет",
+  "block.minetorio.stone_furnace": "Каменная печь",
+  "block.minetorio.multiblock_part": "Часть машины"
+}
