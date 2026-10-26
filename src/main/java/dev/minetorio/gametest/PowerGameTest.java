@@ -282,18 +282,45 @@ public class PowerGameTest {
         h.succeed();
     }
 
-    /** Fuel comes in by right-click and by inserters (automated limit 5). */
-    @GameTest(template = "empty16", timeoutTicks = 200)
+    /**
+     * Inserters fill the boiler's fuel slot up to the automated limit 5 and no further: long after
+     * that (several more 33-tick cycles) it still holds exactly 5 and the inserter waits with coal
+     * in its hand. All 11 coal are accounted for: chest + hand + inserter slot + boiler + the one
+     * the inserter is burning (4 MJ lasts ~850 moving ticks at 94.2 kW, so only one has started).
+     */
+    @GameTest(template = "empty16", timeoutTicks = 380)
     public static void boilerTakesFuelFromInserter(GameTestHelper h) {
         place(h, ModItems.BOILER.get(), BOILER, Direction.NORTH);
-        container(h, Blocks.CHEST, new BlockPos(5, 1, 10), new ItemStack(Items.COAL, 10));
+        BlockPos src = new BlockPos(5, 1, 10);
+        container(h, Blocks.CHEST, src, new ItemStack(Items.COAL, 10));
         place(h, ModItems.BURNER_INSERTER.get(), new BlockPos(5, 1, 9), Direction.NORTH); // drops into the boiler at (5,8)
         InserterBlockEntity ins = inserter(h, new BlockPos(5, 1, 9));
         ins.addFuel(COAL, 1);
         BoilerBlockEntity boiler = (BoilerBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(BOILER));
-        h.succeedWhen(() -> {
-            int fuel = boiler.burner().fuel().getOrDefault(COAL, 0);
-            h.assertTrue(fuel == 5, "boiler fuel " + fuel);
+        h.runAtTickTime(360, () -> {
+            int inBoiler = boiler.burner().fuel().getOrDefault(COAL, 0);
+            h.assertTrue(inBoiler == 5, "boiler fuel " + inBoiler);
+            h.assertTrue(COAL.equals(ins.logic().held()), "inserter should wait holding coal, holds " + ins.logic().held());
+            h.assertTrue(ins.burner().remainingJ() > 0, "inserter burns nothing");
+            int inChest = count(h, src, Items.COAL);
+            int slot = ins.burner().fuel().getOrDefault(COAL, 0);
+            int total = inChest + 1 + slot + inBoiler + 1;
+            h.assertTrue(total == 11, "coal total " + total + " (chest " + inChest + ", slot " + slot + ")");
+            h.succeed();
+        });
+    }
+
+    /** One 900 kW load covered by two poles of the same network, one engine: supplied once, satisfaction 1. */
+    @GameTest(template = "empty16", timeoutTicks = 120)
+    public static void loadUnderTwoPolesCountedOnce(GameTestHelper h) {
+        steamPlant(h, 5);
+        place(h, ModItems.SMALL_ELECTRIC_POLE.get(), new BlockPos(11, 1, 6), Direction.NORTH); // wired to (9,4); both cover (10,5)
+        TestPower.Load load = TestPower.load(h, new BlockPos(10, 1, 5), KW_900);
+        ElectricPoleBlockEntity second = (ElectricPoleBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(11, 1, 6)));
+        h.runAtTickTime(100, () -> {
+            h.assertTrue(second.connections().equals(List.of(h.absolutePos(POLE))), "second pole wires " + second.connections());
+            h.assertTrue(load.satisfaction() >= 0.9999, "satisfaction " + load.satisfaction());
+            h.succeed();
         });
     }
 }

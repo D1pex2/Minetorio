@@ -2,13 +2,13 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.content.power.FluidPorts;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.wrapper.EmptyItemHandler;
 
 public final class ModCapabilities {
@@ -21,10 +21,15 @@ public final class ModCapabilities {
     private static void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
         // Multiblock parts expose whatever their controller exposes.
         delegateToController(event, Capabilities.ItemHandler.BLOCK);
-        // Fluid: a part that is a fluid port of its machine exposes that port (other parts: the controller's).
+        // Fluid: parts of a machine with fluid ports expose only their declared ports (others: nothing);
+        // parts of any other machine expose the controller's handler.
         event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.MULTIBLOCK_PART.get(), (be, side) -> {
-            IFluidHandler port = be.getLevel() == null ? null : FluidPorts.handler(be.getLevel(), be.getBlockPos(), side);
-            return port != null ? port : be.controllerCapability(Capabilities.FluidHandler.BLOCK, side);
+            Level level = be.getLevel();
+            if (level == null || !be.isLinked() || !level.isLoaded(be.controllerPos())) return null;
+            if (level.getBlockState(be.controllerPos()).getBlock() instanceof FluidPorts.Machine) {
+                return FluidPorts.handler(level, be.getBlockPos(), side);
+            }
+            return be.controllerCapability(Capabilities.FluidHandler.BLOCK, side);
         });
         delegateToController(event, Capabilities.EnergyStorage.BLOCK);
 

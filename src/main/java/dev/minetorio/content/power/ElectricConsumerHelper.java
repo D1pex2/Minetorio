@@ -47,7 +47,10 @@ public final class ElectricConsumerHelper implements PowerConsumer {
 
     public void onRemoved() {
         satisfaction = 0;
-        if (owner.getLevel() instanceof ServerLevel level) PowerGridManager.get(level).unregister(owner.getBlockPos(), this);
+        if (owner.getLevel() instanceof ServerLevel level) {
+            PowerGridManager grid = PowerGridManager.getIfPresent(level);
+            if (grid != null) grid.unregister(owner.getBlockPos(), this);
+        }
     }
 
     /** Satisfaction (0..1) supplied at the end of the previous tick. */

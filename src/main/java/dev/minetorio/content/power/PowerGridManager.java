@@ -6,7 +6,6 @@ import dev.minetorio.core.power.PowerConsumer;
 import dev.minetorio.core.power.PowerNetwork;
 import dev.minetorio.core.power.PowerProducer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -14,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.WeakHashMap;
+import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.AABB;
@@ -29,8 +28,9 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *
  * <p>Poles form a {@link PoleGraph} (wire reach {@value #WIRE_REACH}, supply radius
  * {@value #SUPPLY_RADIUS}); each connected component is one {@link PowerNetwork}. A consumer or
- * producer joins the network of a pole whose supply area covers any cell of its footprint (the
- * first one found if several do).
+ * producer joins the network of a pole whose supply area covers any cell of its footprint; if
+ * poles of several networks cover it, the one of the covering pole with the smallest position
+ * ({@link BlockPos#compareTo}) wins, so the choice does not depend on registration order.
  *
  * <p><b>Ticking</b> ({@link LevelTickEvent.Post}, after every block entity ticked): if anything was
  * added or removed, the networks are rebuilt (and, if the poles changed, every loaded pole is told
@@ -42,7 +42,8 @@ public final class PowerGridManager {
     public static final double WIRE_REACH = 7.5;
     public static final int SUPPLY_RADIUS = 2;
 
-    private static final Map<ServerLevel, PowerGridManager> MANAGERS = Collections.synchronizedMap(new WeakHashMap<>());
+    /** Server thread only; entries are removed when their level unloads. */
+    private static final Map<ServerLevel, PowerGridManager> MANAGERS = new HashMap<>();
 
     private record Member(AABB footprint, Object handle) {}
 
@@ -68,6 +69,12 @@ public final class PowerGridManager {
 
     public static PowerGridManager get(ServerLevel level) {
         return MANAGERS.computeIfAbsent(level, PowerGridManager::new);
+    }
+
+    /** The level's manager if it exists; never creates one (for unregistering, e.g. while a level unloads). */
+    @Nullable
+    public static PowerGridManager getIfPresent(ServerLevel level) {
+        return MANAGERS.get(level);
     }
 
     private static void onLevelTick(LevelTickEvent.Post event) {
@@ -132,20 +139,22 @@ public final class PowerGridManager {
         return out;
     }
 
-    /** Component id of the network supplying {@code footprint}, if any pole covers it. */
+    /**
+     * Component id of the network supplying {@code footprint}: that of the smallest-positioned pole
+     * whose supply area covers any of its cells; empty if no pole does.
+     */
     public OptionalInt networkCovering(AABB footprint) {
         int x0 = (int) Math.floor(footprint.minX), x1 = (int) Math.ceil(footprint.maxX) - 1;
         int y0 = (int) Math.floor(footprint.minY), y1 = (int) Math.ceil(footprint.maxY) - 1;
         int z0 = (int) Math.floor(footprint.minZ), z1 = (int) Math.ceil(footprint.maxZ) - 1;
-        for (int x = x0; x <= x1; x++) {
-            for (int y = y0; y <= y1; y++) {
-                for (int z = z0; z <= z1; z++) {
-                    OptionalInt c = graph.componentCovering(x, y, z);
-                    if (c.isPresent()) return c;
-                }
-            }
+        BlockPos best = null;
+        for (BlockPos p : poles) {
+            boolean covers = p.getX() >= x0 - SUPPLY_RADIUS && p.getX() <= x1 + SUPPLY_RADIUS
+                    && p.getY() >= y0 - SUPPLY_RADIUS && p.getY() <= y1 + SUPPLY_RADIUS
+                    && p.getZ() >= z0 - SUPPLY_RADIUS && p.getZ() <= z1 + SUPPLY_RADIUS;
+            if (covers && (best == null || p.compareTo(best) < 0)) best = p;
         }
-        return OptionalInt.empty();
+        return best == null ? OptionalInt.empty() : OptionalInt.of(graph.componentOf(pole(best)));
     }
 
     // --- ticking -----------------------------------------------------------------------------------

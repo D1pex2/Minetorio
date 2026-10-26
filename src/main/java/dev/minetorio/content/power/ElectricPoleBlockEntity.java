@@ -60,7 +60,10 @@ public class ElectricPoleBlockEntity extends BlockEntity {
     }
 
     private void unregister() {
-        if (level instanceof ServerLevel server) PowerGridManager.get(server).unregisterPole(worldPosition);
+        if (level instanceof ServerLevel server) {
+            PowerGridManager grid = PowerGridManager.getIfPresent(server);
+            if (grid != null) grid.unregisterPole(worldPosition);
+        }
     }
 
     @Override

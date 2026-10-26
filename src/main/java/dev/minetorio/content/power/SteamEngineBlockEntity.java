@@ -94,7 +94,10 @@ public class SteamEngineBlockEntity extends SteamMachineBlockEntity {
     }
 
     private void unregister() {
-        if (level instanceof ServerLevel server) PowerGridManager.get(server).unregister(worldPosition, producer);
+        if (level instanceof ServerLevel server) {
+            PowerGridManager grid = PowerGridManager.getIfPresent(server);
+            if (grid != null) grid.unregister(worldPosition, producer);
+        }
     }
 
     // --- persistence -------------------------------------------------------------------------------
