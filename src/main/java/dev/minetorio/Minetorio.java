@@ -10,6 +10,7 @@ import dev.minetorio.content.registry.ModCreativeTab;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.content.registry.ModMenus;
 import dev.minetorio.content.registry.ModPayloads;
+import dev.minetorio.content.research.ResearchSavedData;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -28,5 +29,6 @@ public class Minetorio {
         BeltTicker.register();
         PowerGridManager.register();
         Deposits.register();
+        ResearchSavedData.register();
     }
 }

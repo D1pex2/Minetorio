@@ -15,6 +15,7 @@ import dev.minetorio.content.power.ElectricPoleBlockEntity;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
 import dev.minetorio.content.power.PipeBlockEntity;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
+import dev.minetorio.content.research.LabBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
@@ -36,6 +37,10 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AssemblerBlockEntity>> ASSEMBLING_MACHINE =
             BLOCK_ENTITIES.register("assembling_machine", () -> BlockEntityType.Builder
                     .of(AssemblerBlockEntity::new, ModBlocks.ASSEMBLING_MACHINE_1.get(), ModBlocks.ASSEMBLING_MACHINE_2.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LabBlockEntity>> LAB =
+            BLOCK_ENTITIES.register("lab", () -> BlockEntityType.Builder
+                    .of(LabBlockEntity::new, ModBlocks.LAB.get()).build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BeltBlockEntity>> TRANSPORT_BELT =
             BLOCK_ENTITIES.register("transport_belt", () -> BlockEntityType.Builder

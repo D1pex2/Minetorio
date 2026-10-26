@@ -41,6 +41,8 @@ public final class ModCapabilities {
         // Crafting machines: automated inserts into inputs/fuel, extraction from outputs only.
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.STONE_FURNACE.get(), (be, side) -> be.itemHandler());
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.ASSEMBLING_MACHINE.get(), (be, side) -> be.itemHandler());
+        // Labs: automated inserts of science packs, no extraction.
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.LAB.get(), (be, side) -> be.itemHandler());
     }
 
     private static <B extends BlockEntity> void registerPorts(RegisterCapabilitiesEvent event, BlockEntityType<B> type) {

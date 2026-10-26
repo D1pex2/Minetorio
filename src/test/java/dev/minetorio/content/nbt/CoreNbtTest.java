@@ -10,6 +10,8 @@ import dev.minetorio.core.item.Inventory;
 import dev.minetorio.core.machine.Burner;
 import dev.minetorio.core.machine.CraftingMachine;
 import dev.minetorio.core.recipe.RecipeBook;
+import dev.minetorio.core.research.LabLogic;
+import dev.minetorio.core.research.ResearchState;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -197,5 +199,26 @@ class CoreNbtTest {
         CoreNbt.loadBurnerInto(back, CoreNbt.writeBurner(b));
         assertEquals(b.fuel(), back.fuel());
         assertEquals(b.remainingJ(), back.remainingJ());
+    }
+
+    @Test
+    void labRoundTrip() {
+        ResearchState s = new ResearchState(Phase1Data.techTree(), Phase1Data.startRecipes());
+        s.setCurrent("automation");
+        LabLogic lab = new LabLogic(1.0, 3000);
+        lab.insertPack("minetorio:automation_science_pack", 4, false);
+        for (int i = 0; i < 30; i++) lab.tick(s, 1.0);
+        LabLogic back = new LabLogic(1.0, 3000);
+        CoreNbt.loadLabInto(back, CoreNbt.writeLab(lab));
+        assertEquals(lab.packs(), back.packs());
+        assertEquals(lab.unitTech(), back.unitTech());
+        assertEquals(lab.progress(), back.progress());
+        assertTrue(back.isWorking());
+
+        LabLogic idle = new LabLogic(1.0, 3000);
+        LabLogic idleBack = new LabLogic(1.0, 3000);
+        CoreNbt.loadLabInto(idleBack, CoreNbt.writeLab(idle));
+        assertFalse(idleBack.isWorking());
+        assertTrue(idleBack.packs().isEmpty());
     }
 }

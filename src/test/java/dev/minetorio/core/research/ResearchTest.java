@@ -148,4 +148,43 @@ class ResearchTest {
             assertTrue(unlocked.contains(r.id()), r.id());
         }
     }
+
+    @Test void packRoomMatchesInsertLimits() {
+        LabLogic l = lab();
+        assertEquals(0, l.packRoom("minetorio:iron_plate", true));
+        assertEquals(2, l.packRoom(R, true));
+        assertEquals(64, l.packRoom(G, false));
+        l.insertPack(R, 1, true);
+        assertEquals(1, l.packRoom(R, true));
+        assertEquals(63, l.packRoom(R, false));
+        l.insertPack(R, 10, false);
+        assertEquals(0, l.packRoom(R, true));
+        assertEquals(53, l.packRoom(R, false));
+    }
+
+    @Test void labLoadRestoresUnitInProgress() {
+        ResearchState s = state();
+        s.setCurrent("automation");
+        LabLogic l = lab();
+        l.insertPack(R, 3, false);
+        for (int i = 0; i < 50; i++) l.tick(s, 1.0);
+        assertTrue(l.isWorking());
+        assertEquals("automation", l.unitTech());
+        LabLogic back = lab();
+        back.load(l.packs(), l.unitTech(), l.progress());
+        assertEquals(l.packs(), back.packs());
+        assertTrue(back.isWorking());
+        assertEquals(Units.kw(60), back.powerDemand());
+        for (int i = 0; i < 149; i++) back.tick(s, 1.0);
+        assertEquals(0, s.unitsDone());
+        back.tick(s, 1.0); // the unit finishes after 200 ticks in total, no new packs taken for it
+        assertEquals(1, s.unitsDone());
+        assertEquals(Map.of(R, 2), back.packs());
+
+        LabLogic idle = lab();
+        idle.load(Map.of(R, 5, "minetorio:iron_plate", 3, G, 0), null, 0.7);
+        assertFalse(idle.isWorking());
+        assertEquals(Map.of(R, 5), idle.packs()); // unknown items and empty counts dropped
+        assertEquals(0, idle.progress());
+    }
 }

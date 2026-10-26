@@ -7,6 +7,7 @@ import dev.minetorio.core.machine.Burner;
 import dev.minetorio.core.machine.CraftingMachine;
 import dev.minetorio.core.recipe.Recipe;
 import dev.minetorio.core.recipe.RecipeBook;
+import dev.minetorio.core.research.LabLogic;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -174,5 +175,20 @@ public final class CoreNbt {
 
     public static void loadBurnerInto(Burner burner, CompoundTag tag) {
         burner.load(readCounts(tag.getCompound("fuel")), tag.getLong("remaining"));
+    }
+
+    public static CompoundTag writeLab(LabLogic lab) {
+        CompoundTag tag = new CompoundTag();
+        tag.put("packs", writeCounts(lab.packs()));
+        if (lab.unitTech() != null) {
+            tag.putString("unit_tech", lab.unitTech());
+            tag.putDouble("progress", lab.progress());
+        }
+        return tag;
+    }
+
+    public static void loadLabInto(LabLogic lab, CompoundTag tag) {
+        String unit = tag.contains("unit_tech", Tag.TAG_STRING) ? tag.getString("unit_tech") : null;
+        lab.load(readCounts(tag.getCompound("packs")), unit, tag.getDouble("progress"));
     }
 }

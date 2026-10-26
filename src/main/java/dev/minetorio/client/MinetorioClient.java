@@ -10,6 +10,7 @@ import dev.minetorio.client.machine.AssemblerScreen;
 import dev.minetorio.client.machine.DrillRenderer;
 import dev.minetorio.client.machine.StoneFurnaceScreen;
 import dev.minetorio.client.power.SteamMachineRenderer;
+import dev.minetorio.client.research.LabRenderer;
 import dev.minetorio.client.power.WireRenderer;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.registry.ModMenus;
@@ -39,6 +40,7 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.LAB.get(), LabRenderer::new);
     }
 
     @SubscribeEvent
@@ -60,5 +62,7 @@ public final class MinetorioClient {
         event.register(AssemblerRenderer.BODY_1);
         event.register(AssemblerRenderer.BODY_2);
         event.register(AssemblerRenderer.GEAR);
+        event.register(LabRenderer.BODY);
+        event.register(LabRenderer.DOME);
     }
 }

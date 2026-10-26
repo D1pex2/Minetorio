@@ -28,12 +28,17 @@ public final class LabLogic {
 
     /** Returns the number of packs accepted. */
     public int insertPack(String item, int count, boolean automated) {
-        if (!ACCEPTED.contains(item) || count <= 0) return 0;
-        int have = packs.getOrDefault(item, 0);
-        int room = automated ? (have < AUTOMATED_LIMIT ? AUTOMATED_LIMIT - have : 0) : MANUAL_LIMIT - have;
-        int n = Math.max(0, Math.min(count, room));
-        if (n > 0) packs.put(item, have + n);
+        if (count <= 0) return 0;
+        int n = Math.min(count, packRoom(item, automated));
+        if (n > 0) packs.merge(item, n, Integer::sum);
         return n;
+    }
+
+    /** How many more of {@code item} {@link #insertPack} would accept now (0 for anything but a pack). */
+    public int packRoom(String item, boolean automated) {
+        if (!ACCEPTED.contains(item)) return 0;
+        int have = packs.getOrDefault(item, 0);
+        return Math.max(0, (automated ? AUTOMATED_LIMIT : MANUAL_LIMIT) - have);
     }
 
     public void tick(ResearchState s, double satisfaction) {
@@ -63,4 +68,25 @@ public final class LabLogic {
     public long powerDemand() { return working ? powerPerTickJ : 0; }
 
     public Map<String, Integer> packs() { return Collections.unmodifiableMap(packs); }
+
+    /** Whether a unit is in progress (its packs already deducted). */
+    public boolean isWorking() { return working; }
+
+    /** Technology of the unit in progress, or null. */
+    public String unitTech() { return working ? unitTech : null; }
+
+    /** Progress (0..1) of the unit in progress; 0 when idle. */
+    public double progress() { return working ? progress : 0; }
+
+    /**
+     * Restores saved state: the stored packs (non-packs and counts &lt;= 0 skipped) and the unit in
+     * progress ({@code unitTech} null = idle).
+     */
+    public void load(Map<String, Integer> savedPacks, String savedUnitTech, double savedProgress) {
+        packs.clear();
+        savedPacks.forEach((k, v) -> { if (ACCEPTED.contains(k) && v != null && v > 0) packs.put(k, v); });
+        working = savedUnitTech != null;
+        unitTech = savedUnitTech;
+        progress = working ? savedProgress : 0;
+    }
 }

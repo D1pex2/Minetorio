@@ -2,6 +2,8 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
+import dev.minetorio.content.research.ResearchSyncPayload;
+import dev.minetorio.content.research.SelectResearchPayload;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -24,7 +26,10 @@ public final class ModPayloads {
     }
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
-        event.registrar(VERSION).playToServer(SelectRecipePayload.TYPE, SelectRecipePayload.STREAM_CODEC, SelectRecipePayload::handle);
+        event.registrar(VERSION)
+                .playToServer(SelectRecipePayload.TYPE, SelectRecipePayload.STREAM_CODEC, SelectRecipePayload::handle)
+                .playToServer(SelectResearchPayload.TYPE, SelectResearchPayload.STREAM_CODEC, SelectResearchPayload::handle)
+                .playToClient(ResearchSyncPayload.TYPE, ResearchSyncPayload.STREAM_CODEC, ResearchSyncPayload::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

@@ -16,6 +16,7 @@ import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.OffshorePumpBlock;
 import dev.minetorio.content.power.PipeBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
+import dev.minetorio.content.research.LabBlock;
 import dev.minetorio.core.belt.BeltTier;
 import dev.minetorio.core.inserter.InserterType;
 import net.minecraft.world.level.block.SoundType;
@@ -45,6 +46,9 @@ public final class ModBlocks {
             p -> new AssemblerBlock(AssemblerBlockEntity.SPEED_1, AssemblerBlockEntity.POWER_1, p), machine(MapColor.METAL));
     public static final DeferredBlock<AssemblerBlock> ASSEMBLING_MACHINE_2 = BLOCKS.registerBlock("assembling_machine_2",
             p -> new AssemblerBlock(AssemblerBlockEntity.SPEED_2, AssemblerBlockEntity.POWER_2, p), machine(MapColor.METAL));
+
+    // Research
+    public static final DeferredBlock<LabBlock> LAB = BLOCKS.registerBlock("lab", LabBlock::new, machine(MapColor.METAL));
 
     // Mining drills
     public static final DeferredBlock<BurnerDrillBlock> BURNER_MINING_DRILL = BLOCKS.registerBlock("burner_mining_drill",
