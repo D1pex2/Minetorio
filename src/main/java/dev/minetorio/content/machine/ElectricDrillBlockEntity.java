@@ -1,33 +1,27 @@
 package dev.minetorio.content.machine;
 
+import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.Units;
-import dev.minetorio.core.power.PowerConsumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Electric mining drill: 0.5 ore/s at full satisfaction, 90 kW while it can mine, mining area 5×5.
- * A {@link PowerConsumer}: mines at the satisfaction last {@link #supply supplied}. Until the
- * power grid exists (Task 14) nothing supplies it, so it stands still in normal play; GameTests
- * use {@link #setTestPower}.
+ * Powered through an {@link ElectricConsumerHelper}: mines at the satisfaction the grid supplied at
+ * the end of the previous tick (0 outside every pole's supply area).
  */
-public class ElectricDrillBlockEntity extends MiningDrillBlockEntity implements PowerConsumer {
+public class ElectricDrillBlockEntity extends MiningDrillBlockEntity {
     public static final double RATE = 0.5;
     public static final int AREA = 5;
     public static final long POWER = Units.kw(90);
 
-    /** Satisfaction last supplied by the power network. */
-    private double supplied;
-    /** GameTest override of the satisfaction; NaN when unused. Not saved. */
-    private double testPower = Double.NaN;
+    private final ElectricConsumerHelper power = new ElectricConsumerHelper(this, this::demand,
+            () -> ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())));
 
     public ElectricDrillBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.ELECTRIC_MINING_DRILL.get(), pos, state);
     }
-
-    /** Fixes the satisfaction (0..1) for GameTests until the power grid exists. */
-    public void setTestPower(double satisfaction) { testPower = satisfaction; }
 
     @Override
     protected double miningRate() { return RATE; }
@@ -36,15 +30,32 @@ public class ElectricDrillBlockEntity extends MiningDrillBlockEntity implements 
     protected int areaSize() { return AREA; }
 
     @Override
-    protected double energy() { return Double.isNaN(testPower) ? supplied : testPower; }
+    protected double energy() { return power.satisfaction(); }
 
     @Override
     protected String noEnergyKey() { return "minetorio.drill.no_power"; }
 
     /** 90 kW while the drill can mine (buffer empty, ore left), else nothing. */
-    @Override
     public long demand() { return isActive() ? POWER : 0; }
 
+    /** Satisfaction last supplied by the grid. */
+    public double satisfaction() { return power.satisfaction(); }
+
     @Override
-    public void supply(double satisfaction) { supplied = satisfaction; }
+    public void onLoad() {
+        super.onLoad();
+        power.onLoad();
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        power.onRemoved();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        power.onRemoved();
+    }
 }

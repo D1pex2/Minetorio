@@ -53,6 +53,21 @@ class CoreNbtTest {
     }
 
     @Test
+    void fluidLoadsIntoExistingBox() {
+        FluidBox saved = new FluidBox(200);
+        saved.insert("water", 12.25);
+        FluidBox target = new FluidBox(200);
+        target.insert("steam", 50);
+        CoreNbt.loadFluidInto(target, CoreNbt.writeFluid(saved));
+        assertEquals("water", target.fluid());
+        assertEquals(12.25, target.amount());
+
+        CoreNbt.loadFluidInto(target, CoreNbt.writeFluid(new FluidBox(200)));
+        assertNull(target.fluid());
+        assertEquals(0, target.amount());
+    }
+
+    @Test
     void countsRoundTrip() {
         Map<String, Integer> counts = new LinkedHashMap<>();
         counts.put("minetorio:iron_plate", 12);

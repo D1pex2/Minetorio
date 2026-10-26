@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.SplittableRandom;
+import java.util.function.Predicate;
 
 /**
  * Deterministic deposit generation: each 64x64 region holds at most one deposit, derived only
@@ -67,6 +68,11 @@ public final class DepositGenerator {
 
     /** Deposit with the closest center to (x, z) whose center is within maxDistance, if any. */
     public Optional<Deposit> nearest(int x, int z, int maxDistance) {
+        return nearest(x, z, maxDistance, d -> true);
+    }
+
+    /** Like {@link #nearest(int, int, int)}, considering only deposits {@code accept}ed (e.g. not depleted). */
+    public Optional<Deposit> nearest(int x, int z, int maxDistance, Predicate<Deposit> accept) {
         long maxSq = (long) maxDistance * maxDistance;
         Deposit best = null;
         long bestSq = Long.MAX_VALUE;
@@ -77,7 +83,7 @@ public final class DepositGenerator {
         for (int rx = minRx; rx <= maxRx; rx++) {
             for (int rz = minRz; rz <= maxRz; rz++) {
                 Deposit g = generate(rx, rz);
-                if (g == null) continue;
+                if (g == null || !accept.test(g)) continue;
                 long sq = distSq(g, x, z);
                 if (sq <= maxSq && sq < bestSq) {
                     best = g;
@@ -87,7 +93,7 @@ public final class DepositGenerator {
         }
         for (Deposit d : starting) {
             long sq = distSq(d, x, z);
-            if (sq <= maxSq && sq < bestSq) {
+            if (sq <= maxSq && sq < bestSq && accept.test(d)) {
                 best = d;
                 bestSq = sq;
             }

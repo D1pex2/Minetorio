@@ -2,6 +2,7 @@ package dev.minetorio.content.inserter;
 
 import dev.minetorio.content.belt.LaneStacks;
 import dev.minetorio.content.nbt.CoreNbt;
+import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.belt.LaneItem;
 import dev.minetorio.core.data.Phase1Data;
@@ -10,7 +11,6 @@ import dev.minetorio.core.inserter.InserterLogic;
 import dev.minetorio.core.inserter.InserterType;
 import dev.minetorio.core.inserter.PickupSource;
 import dev.minetorio.core.machine.Burner;
-import dev.minetorio.core.power.PowerConsumer;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -31,6 +31,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Inserter state: the core {@link InserterLogic} (the hand holds a stack key, so data components
@@ -38,11 +39,10 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p><b>Energy.</b> Burner: the arm moves on what the burner delivers; it burns only while the arm
  * moves (or is about to pick something up). When it carries a fuel item and its own fuel slot is
- * empty, it keeps that item for itself. It starts without fuel. Electric inserters are
- * {@link PowerConsumer}s and move at the satisfaction last {@link #supply supplied} — every consumer
- * gets the network-wide satisfaction, even at zero demand, so an idle inserter can start a swing.
- * Until the power grid exists (Task 14 wires {@code ElectricConsumerHelper}) nothing supplies
- * them: electric inserters stand still in normal play; GameTests use {@link #setTestPower}.
+ * empty, it keeps that item for itself. It starts without fuel. Electric inserters draw power
+ * through an {@link ElectricConsumerHelper} and move at the satisfaction the grid supplied at the
+ * end of the previous tick — every consumer in a network gets the network-wide satisfaction, even
+ * at zero demand, so an idle inserter can start a swing; outside every pole's area it is 0.
  *
  * <p><b>Client sync.</b> The server sends the logic state (phase, arm leg, held key) plus the arm
  * speed ({@code rate}) when the item in the hand changes (pickup, drop, kept as fuel) or the speed
@@ -50,7 +50,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * target, which reproduces the arm motion between those events (the arm goes to the target and
  * waits there, or returns and waits at the pickup). The renderer interpolates with the partial tick.
  */
-public class InserterBlockEntity extends BlockEntity implements PowerConsumer {
+public class InserterBlockEntity extends BlockEntity {
     private static final String KEY_LOGIC = "logic";
     private static final String KEY_BURNER = "burner";
     private static final String KEY_FUEL = "fuel";
@@ -64,10 +64,9 @@ public class InserterBlockEntity extends BlockEntity implements PowerConsumer {
     @Nullable
     private final Burner burner;
 
-    /** Satisfaction last supplied by the power network (electric only). */
-    private double supplied;
-    /** GameTest override of the electric satisfaction; NaN when unused. Not saved. */
-    private double testPower = Double.NaN;
+    /** Grid connection; null for the burner inserter. */
+    @Nullable
+    private final ElectricConsumerHelper power;
 
     // sync bookkeeping (server) / arm motion (client)
     @Nullable
@@ -82,6 +81,7 @@ public class InserterBlockEntity extends BlockEntity implements PowerConsumer {
         this.type = ((InserterBlock) state.getBlock()).type();
         this.logic = new InserterLogic(type);
         this.burner = type.burner ? new Burner(type.powerPerTickJ, Phase1Data.fuelValues()) : null;
+        this.power = type.burner ? null : new ElectricConsumerHelper(this, logic::powerDemand, () -> new AABB(worldPosition));
     }
 
     public InserterType type() { return type; }
@@ -103,16 +103,31 @@ public class InserterBlockEntity extends BlockEntity implements PowerConsumer {
     /** Whether the arm is moving under power (synced to the client, for animation). */
     public boolean isWorking() { return working; }
 
-    /** Electric inserters: fixes the satisfaction (0..1) for GameTests until the power grid exists. */
-    public void setTestPower(double satisfaction) { testPower = satisfaction; }
-
     // --- power -------------------------------------------------------------------------------------
 
-    @Override
-    public long demand() { return burner == null ? logic.powerDemand() : 0; }
+    /** Joules wanted this tick from the grid (0 for the burner inserter). */
+    public long demand() { return power == null ? 0 : power.demand(); }
+
+    /** Satisfaction last supplied by the grid (0 for the burner inserter). */
+    public double satisfaction() { return power == null ? 0 : power.satisfaction(); }
 
     @Override
-    public void supply(double satisfaction) { supplied = satisfaction; }
+    public void onLoad() {
+        super.onLoad();
+        if (power != null) power.onLoad();
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        if (power != null) power.onRemoved();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        if (power != null) power.onRemoved();
+    }
 
     /** Puts fuel into the burner's slot by hand; returns the amount accepted (0 for electric inserters). */
     public int addFuel(String item, int count) {
@@ -139,7 +154,7 @@ public class InserterBlockEntity extends BlockEntity implements PowerConsumer {
         PickupSource src = Objects.requireNonNullElse(InserterEndpoints.source(level, pickupPos(), f), InserterEndpoints.NO_SOURCE);
         DropTarget dst = Objects.requireNonNullElse(InserterEndpoints.target(level, dropPos(), f.getOpposite()), InserterEndpoints.NO_TARGET);
         keepFuel();
-        double satisfaction = burner != null ? burnerSatisfaction(src, dst) : electricSatisfaction();
+        double satisfaction = burner != null ? burnerSatisfaction(src, dst) : power.satisfaction();
         String heldBefore = logic.held();
         double armBefore = logic.armProgress();
         logic.tick(src, dst, satisfaction);
@@ -158,10 +173,6 @@ public class InserterBlockEntity extends BlockEntity implements PowerConsumer {
         boolean starting = logic.held() == null && !logic.isMoving() && logic.armProgress() == 0
                 && src.peek(dst::wants).isPresent();
         return logic.isMoving() || starting ? burner.draw() : 0;
-    }
-
-    private double electricSatisfaction() {
-        return Double.isNaN(testPower) ? supplied : testPower;
     }
 
     /** Burner inserter carrying fuel while its own fuel slot is empty: keeps that item as fuel. */

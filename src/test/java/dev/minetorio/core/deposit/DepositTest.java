@@ -122,4 +122,10 @@ class DepositTest {
         assertEquals(OreType.IRON, d.type());
         assertTrue(gen.nearest(SX + 30, SZ, 5).isEmpty());
     }
+
+    @Test void nearestSkipsRejected() {
+        Deposit d = gen.nearest(SX + 30, SZ, 256, x -> x.type() != OreType.IRON).orElseThrow();
+        assertNotEquals(OreType.IRON, d.type());
+        assertTrue(gen.nearest(SX + 30, SZ, 256, x -> false).isEmpty());
+    }
 }

@@ -6,6 +6,8 @@ import dev.minetorio.client.belt.SplitterRenderer;
 import dev.minetorio.client.belt.UndergroundBeltRenderer;
 import dev.minetorio.client.inserter.InserterRenderer;
 import dev.minetorio.client.machine.DrillRenderer;
+import dev.minetorio.client.power.SteamMachineRenderer;
+import dev.minetorio.client.power.WireRenderer;
 import dev.minetorio.content.registry.ModBlockEntities;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -28,6 +30,9 @@ public final class MinetorioClient {
                 ctx -> new DrillRenderer(ctx, null, DrillRenderer.BURNER_HEAD));
         event.registerBlockEntityRenderer(ModBlockEntities.ELECTRIC_MINING_DRILL.get(),
                 ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC_BODY, DrillRenderer.ELECTRIC_HEAD));
+        event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
     }
 
     /** Models drawn by block entity renderers rather than through a blockstate. */
@@ -36,5 +41,9 @@ public final class MinetorioClient {
         event.register(DrillRenderer.BURNER_HEAD);
         event.register(DrillRenderer.ELECTRIC_BODY);
         event.register(DrillRenderer.ELECTRIC_HEAD);
+        event.register(SteamMachineRenderer.BOILER_BODY);
+        event.register(SteamMachineRenderer.BOILER_FIRE);
+        event.register(SteamMachineRenderer.ENGINE_BODY);
+        event.register(SteamMachineRenderer.ENGINE_FLYWHEEL);
     }
 }

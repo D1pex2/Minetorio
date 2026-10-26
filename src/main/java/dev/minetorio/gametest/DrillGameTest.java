@@ -160,7 +160,7 @@ public class DrillGameTest {
         });
     }
 
-    /** Without a power grid (Task 14) the electric drill does nothing; with the test hook it mines (0.5/s). */
+    /** Without a pole nearby the electric drill does nothing; once a powered pole covers it, it mines (0.5/s). */
     @GameTest(template = "empty16", timeoutTicks = 200)
     public static void electricDrillNeedsPower(GameTestHelper h) {
         Deposit d = deposit(h, OreType.COPPER, new BlockPos(3, 1, 3), 1000);
@@ -171,12 +171,14 @@ public class DrillGameTest {
             h.assertTrue(count(h, ELECTRIC_OUT, ModItems.COPPER_ORE.get()) == 0, "mined without power");
             h.assertTrue(remaining(h, d) == 1000, "ledger changed without power");
             h.assertFalse(be.isWorking(), "working without power");
+            h.assertTrue(be.satisfaction() == 0, "satisfaction " + be.satisfaction());
             h.assertTrue(be.demand() > 0, "no demand");
-            be.setTestPower(1.0);
+            TestPower.powerAt(h, new BlockPos(3, 1, 6)); // supply area x 1..5, z 4..8: covers the drill's z=4 row
         });
         h.runAtTickTime(190, () -> {
             int ore = count(h, ELECTRIC_OUT, ModItems.COPPER_ORE.get());
-            h.assertTrue(ore >= 2, "mined with power: " + ore); // 90 ticks at 0.5/s ≈ 2.25
+            h.assertTrue(ore >= 2, "mined with power: " + ore); // ~88 powered ticks at 0.5/s ≈ 2.2
+            h.assertTrue(be.satisfaction() == 1.0, "satisfaction " + be.satisfaction());
             h.succeed();
         });
     }

@@ -94,13 +94,20 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         if (!oldState.is(this)) placeParts(level, pos, state);
     }
 
-    /** Fills the footprint with parts; positions that are not replaceable (e.g. after /setblock) are skipped. */
+    /**
+     * Fills the footprint with parts; positions that are not replaceable (e.g. after /setblock) are
+     * skipped. Once a part is linked its neighbors get a shape update again, so blocks that depend on
+     * what the part belongs to (pipes next to a fluid port) see the finished link.
+     */
     private void placeParts(Level level, BlockPos origin, BlockState state) {
         BlockState part = ModBlocks.MULTIBLOCK_PART.get().defaultBlockState();
         for (BlockPos p : footprint(origin, state)) {
             if (p.equals(origin) || !level.getBlockState(p).canBeReplaced()) continue;
             level.setBlock(p, part, Block.UPDATE_ALL);
-            if (level.getBlockEntity(p) instanceof MultiblockPartBlockEntity be) be.link(origin.subtract(p), this);
+            if (level.getBlockEntity(p) instanceof MultiblockPartBlockEntity be) {
+                be.link(origin.subtract(p), this);
+                part.updateNeighbourShapes(level, p, Block.UPDATE_ALL);
+            }
         }
     }
 

@@ -11,6 +11,8 @@ import javax.annotation.Nullable;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
 
 /**
@@ -38,6 +40,11 @@ public final class Deposits {
     private Deposits(@Nullable DepositGenerator generator, @Nullable DepositSavedData data) {
         this.generator = generator;
         this.data = data;
+    }
+
+    /** Pins the deposit layout (spawn point) as soon as the server has started, not at the first deposit lookup. */
+    public static void register() {
+        NeoForge.EVENT_BUS.addListener((ServerStartedEvent e) -> get(e.getServer().overworld()));
     }
 
     public static Deposits get(ServerLevel level) {
@@ -73,9 +80,9 @@ public final class Deposits {
         return Optional.empty();
     }
 
-    /** The deposit with the closest center within {@code maxDistance} of (x, z), if any. */
+    /** The not yet depleted deposit with the closest center within {@code maxDistance} of (x, z), if any. */
     public Optional<Deposit> nearest(int x, int z, int maxDistance) {
-        return generator == null ? Optional.empty() : generator.nearest(x, z, maxDistance);
+        return generator == null ? Optional.empty() : generator.nearest(x, z, maxDistance, d -> remaining(d) > 0);
     }
 
     public long remaining(Deposit d) {

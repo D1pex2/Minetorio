@@ -15,6 +15,10 @@
     "minetorio:long_handed_inserter",
     "minetorio:fast_inserter",
     "minetorio:burner_mining_drill",
-    "minetorio:electric_mining_drill"
+    "minetorio:electric_mining_drill",
+    "minetorio:offshore_pump",
+    "minetorio:pipe",
+    "minetorio:boiler",
+    "minetorio:steam_engine"
   ]
 }

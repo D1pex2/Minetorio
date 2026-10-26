@@ -54,5 +54,14 @@
   "minetorio.drill.depleted": "Deposit depleted",
   "minetorio.drill.blocked": "Output blocked",
   "minetorio.drill.no_fuel": "No fuel",
-  "minetorio.drill.no_power": "No power"
+  "minetorio.drill.no_power": "No power",
+  "block.minetorio.offshore_pump": "Offshore Pump",
+  "block.minetorio.pipe": "Pipe",
+  "block.minetorio.boiler": "Boiler",
+  "block.minetorio.steam_engine": "Steam Engine",
+  "block.minetorio.small_electric_pole": "Small Electric Pole",
+  "minetorio.offshore_pump.status": "Pumping water (%s in the outlet)",
+  "minetorio.offshore_pump.no_water": "No water source behind the pump",
+  "minetorio.boiler.status": "Water %s, steam %s, fuel %s",
+  "minetorio.steam_engine.status": "Steam %s, output %s kW"
 }

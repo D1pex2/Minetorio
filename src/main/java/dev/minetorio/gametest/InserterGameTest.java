@@ -43,11 +43,11 @@ public class InserterGameTest {
         return (InserterBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(rel));
     }
 
-    /** Places an inserter dropping toward {@code facing}; electric ones get full power from the test hook. */
+    /** Places an inserter dropping toward {@code facing}; electric ones get a powered pole 2 blocks above. */
     static InserterBlockEntity placeInserter(GameTestHelper h, Item item, BlockPos rel, Direction facing) {
         place(h, item, rel, facing);
         InserterBlockEntity be = inserter(h, rel);
-        if (!be.type().burner) be.setTestPower(1.0);
+        if (!be.type().burner) TestPower.powerAt(h, rel.above(2));
         return be;
     }
 
@@ -215,7 +215,7 @@ public class InserterGameTest {
         });
     }
 
-    /** Electric inserters do not move without power (no grid before Task 14, no test hook here). */
+    /** Electric inserters do not move without power (no pole near this one). */
     @GameTest(template = "empty16")
     public static void electricWithoutPowerIdle(GameTestHelper h) {
         BlockPos src = new BlockPos(1, 1, 2);

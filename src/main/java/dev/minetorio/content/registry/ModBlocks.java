@@ -9,6 +9,11 @@ import dev.minetorio.content.machine.BurnerDrillBlock;
 import dev.minetorio.content.machine.ElectricDrillBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
+import dev.minetorio.content.power.BoilerBlock;
+import dev.minetorio.content.power.ElectricPoleBlock;
+import dev.minetorio.content.power.OffshorePumpBlock;
+import dev.minetorio.content.power.PipeBlock;
+import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.core.belt.BeltTier;
 import dev.minetorio.core.inserter.InserterType;
 import net.minecraft.world.level.block.SoundType;
@@ -67,6 +72,19 @@ public final class ModBlocks {
             p -> new InserterBlock(InserterType.LONG, p), belt(MapColor.COLOR_RED));
     public static final DeferredBlock<InserterBlock> FAST_INSERTER = BLOCKS.registerBlock("fast_inserter",
             p -> new InserterBlock(InserterType.FAST, p), belt(MapColor.COLOR_BLUE));
+
+    // Steam power
+    public static final DeferredBlock<OffshorePumpBlock> OFFSHORE_PUMP = BLOCKS.registerBlock("offshore_pump",
+            OffshorePumpBlock::new, machine(MapColor.METAL));
+    public static final DeferredBlock<PipeBlock> PIPE = BLOCKS.registerBlock("pipe",
+            PipeBlock::new, belt(MapColor.METAL));
+    public static final DeferredBlock<BoilerBlock> BOILER = BLOCKS.registerBlock("boiler",
+            BoilerBlock::new, machine(MapColor.METAL));
+    public static final DeferredBlock<SteamEngineBlock> STEAM_ENGINE = BLOCKS.registerBlock("steam_engine",
+            SteamEngineBlock::new, machine(MapColor.METAL));
+    public static final DeferredBlock<ElectricPoleBlock> SMALL_ELECTRIC_POLE = BLOCKS.registerBlock("small_electric_pole",
+            ElectricPoleBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f)
+                    .sound(SoundType.WOOD).noOcclusion().pushReaction(PushReaction.BLOCK));
 
     private ModBlocks() {}
 

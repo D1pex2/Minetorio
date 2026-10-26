@@ -1,0 +1,32 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "fire": "minetorio:block/furnace_front_lit",
+    "particle": "minetorio:block/furnace_front_lit"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        5,
+        22
+      ],
+      "to": [
+        14,
+        13,
+        22.5
+      ],
+      "faces": {
+        "south": {
+          "texture": "#fire",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

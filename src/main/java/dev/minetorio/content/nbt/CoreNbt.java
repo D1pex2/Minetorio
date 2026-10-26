@@ -124,4 +124,10 @@ public final class CoreNbt {
         if (tag.contains("fluid", Tag.TAG_STRING)) box.insert(tag.getString("fluid"), tag.getDouble("amount"));
         return box;
     }
+
+    /** Restores {@link #writeFluid} data into an existing box (its own capacity is kept). */
+    public static void loadFluidInto(FluidBox box, CompoundTag tag) {
+        box.extract(box.amount());
+        if (tag.contains("fluid", Tag.TAG_STRING)) box.insert(tag.getString("fluid"), tag.getDouble("amount"));
+    }
 }

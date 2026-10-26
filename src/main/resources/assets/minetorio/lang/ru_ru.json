@@ -35,7 +35,7 @@
   "block.minetorio.electric_mining_drill": "Электрический бур",
   "item.minetorio.scanner": "Сканер залежей",
   "minetorio.scanner.here": "Залежь: %s — осталось %s",
-  "minetorio.scanner.nearest": "Здесь пусто. Ближайшая: %s, %s блоков на %s",
+  "minetorio.scanner.nearest": "Здесь пусто. Ближайшая: %s, %s бл. на %s",
   "minetorio.scanner.none": "Залежей в радиусе %s блоков нет",
   "minetorio.ore.iron": "железная руда",
   "minetorio.ore.copper": "медная руда",
@@ -54,5 +54,14 @@
   "minetorio.drill.depleted": "Залежь исчерпана",
   "minetorio.drill.blocked": "Выход занят",
   "minetorio.drill.no_fuel": "Нет топлива",
-  "minetorio.drill.no_power": "Нет питания"
+  "minetorio.drill.no_power": "Нет питания",
+  "block.minetorio.offshore_pump": "Прибрежный насос",
+  "block.minetorio.pipe": "Труба",
+  "block.minetorio.boiler": "Бойлер",
+  "block.minetorio.steam_engine": "Паровой двигатель",
+  "block.minetorio.small_electric_pole": "Малая опора ЛЭП",
+  "minetorio.offshore_pump.status": "Качает воду (%s на выходе)",
+  "minetorio.offshore_pump.no_water": "За насосом нет источника воды",
+  "minetorio.boiler.status": "Вода %s, пар %s, топливо %s",
+  "minetorio.steam_engine.status": "Пар %s, выдаёт %s кВт"
 }
