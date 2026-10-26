@@ -27,6 +27,8 @@ public final class HandcraftQueue {
         final List<Boolean> top = new ArrayList<>();
         /** Per step: reserve items (earlier sub-crafts' outputs) that the step consumes when it finishes. */
         final List<Map<String, Integer>> use = new ArrayList<>();
+        /** Per top-level craft: raw items it took from the inventory (released from `removed` when delivered). */
+        final List<Map<String, Integer>> craftTaken = new ArrayList<>();
         int stepIndex;
         int stepTicks;
         final Map<String, Integer> removed = new LinkedHashMap<>();
@@ -39,6 +41,7 @@ public final class HandcraftQueue {
         final List<String> steps = new ArrayList<>();
         final List<Boolean> top = new ArrayList<>();
         final List<Map<String, Integer>> use = new ArrayList<>();
+        final List<Map<String, Integer>> craftTaken = new ArrayList<>();
         final Map<String, Integer> taken = new LinkedHashMap<>();
         final Map<String, Integer> spare = new LinkedHashMap<>();
     }
@@ -81,6 +84,7 @@ public final class HandcraftQueue {
         s.steps.addAll(p.steps);
         s.top.addAll(p.top);
         s.use.addAll(p.use);
+        s.craftTaken.addAll(p.craftTaken);
         for (Map.Entry<String, Integer> e : p.taken.entrySet()) {
             int got = inv.remove(e.getKey(), e.getValue());
             if (got > 0) s.removed.put(e.getKey(), got);
@@ -90,13 +94,21 @@ public final class HandcraftQueue {
     }
 
     /**
-     * Removes the entry and returns exactly the items it took from the inventory. Intermediates and progress are
-     * discarded; outputs already delivered to the inventory stay there and their share is not refunded.
+     * Removes the entry. Undelivered top-level outputs are flushed to the inventory first, then the raw items still
+     * held by the entry (inputs of crafts not yet delivered) are refunded. Intermediates and progress are discarded
+     * (their inputs are part of the refund); delivered outputs stay delivered and their inputs are not refunded.
+     * Returns the items the inventory did not accept (empty if everything fit).
      */
-    public void cancel(int entryIndex, Inventory inv) {
-        if (entryIndex < 0 || entryIndex >= slots.size()) return;
+    public Map<String, Integer> cancel(int entryIndex, Inventory inv) {
+        Map<String, Integer> rest = new LinkedHashMap<>();
+        if (entryIndex < 0 || entryIndex >= slots.size()) return rest;
         Slot s = slots.remove(entryIndex);
-        for (Map.Entry<String, Integer> e : s.removed.entrySet()) inv.add(e.getKey(), e.getValue());
+        for (Map<String, Integer> src : List.of(s.pending, s.removed))
+            for (Map.Entry<String, Integer> e : src.entrySet()) {
+                int added = inv.add(e.getKey(), e.getValue());
+                if (added < e.getValue()) rest.merge(e.getKey(), e.getValue() - added, Integer::sum);
+            }
+        return rest;
     }
 
     public void tick(Inventory inv) {
@@ -108,6 +120,14 @@ public final class HandcraftQueue {
             s.stepTicks++;
             if (s.stepTicks >= r.ticks()) {
                 boolean isTop = s.top.get(s.stepIndex);
+                if (isTop) {
+                    int k = 0;
+                    for (int i = 0; i < s.stepIndex; i++) if (s.top.get(i)) k++;
+                    for (Map.Entry<String, Integer> t : s.craftTaken.get(k).entrySet()) {
+                        int left = s.removed.getOrDefault(t.getKey(), 0) - t.getValue();
+                        if (left > 0) s.removed.put(t.getKey(), left); else s.removed.remove(t.getKey());
+                    }
+                }
                 for (Map.Entry<String, Integer> u : s.use.get(s.stepIndex).entrySet()) {
                     int left = s.reserve.getOrDefault(u.getKey(), 0) - u.getValue();
                     if (left > 0) s.reserve.put(u.getKey(), left); else s.reserve.remove(u.getKey());
@@ -141,7 +161,16 @@ public final class HandcraftQueue {
         Recipe r = book.get(recipeId).orElse(null);
         if (r == null || r.category() != RecipeCategory.CRAFTING || !isUnlocked.test(recipeId)) return null;
         Plan p = new Plan();
-        for (int i = 0; i < times; i++) if (!planCraft(r, true, inv, isUnlocked, p, 0)) return null;
+        for (int i = 0; i < times; i++) {
+            Map<String, Integer> before = new HashMap<>(p.taken);
+            if (!planCraft(r, true, inv, isUnlocked, p, 0)) return null;
+            Map<String, Integer> delta = new LinkedHashMap<>();
+            for (Map.Entry<String, Integer> e : p.taken.entrySet()) {
+                int d = e.getValue() - before.getOrDefault(e.getKey(), 0);
+                if (d > 0) delta.put(e.getKey(), d);
+            }
+            p.craftTaken.add(delta);
+        }
         return p;
     }
 
@@ -201,6 +230,9 @@ public final class HandcraftQueue {
             List<Object> use = new ArrayList<>();
             for (Map<String, Integer> u : s.use) use.add(new LinkedHashMap<String, Object>(u));
             m.put("use", use);
+            List<Object> ct = new ArrayList<>();
+            for (Map<String, Integer> u : s.craftTaken) ct.add(new LinkedHashMap<String, Object>(u));
+            m.put("craftTaken", ct);
             m.put("stepIndex", s.stepIndex);
             m.put("stepTicks", s.stepTicks);
             m.put("removed", new LinkedHashMap<String, Object>(s.removed));
@@ -228,6 +260,11 @@ public final class HandcraftQueue {
                 Map<String, Integer> um = new LinkedHashMap<>();
                 readCounts((Map<String, Object>) u, um);
                 s.use.add(um);
+            }
+            for (Object u : (List<Object>) m.get("craftTaken")) {
+                Map<String, Integer> um = new LinkedHashMap<>();
+                readCounts((Map<String, Object>) u, um);
+                s.craftTaken.add(um);
             }
             s.stepIndex = ((Number) m.get("stepIndex")).intValue();
             s.stepTicks = ((Number) m.get("stepTicks")).intValue();

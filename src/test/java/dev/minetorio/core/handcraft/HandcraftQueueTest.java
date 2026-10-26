@@ -138,4 +138,60 @@ class HandcraftQueueTest {
         tick(q, inv, 30);
         assertEquals(3, inv.count(GEAR));
     }
+
+    @Test void cancelAfterPartialDeliveryKeepsDeliveredAndRefundsRest() {
+        HandcraftQueue q = new HandcraftQueue(book);
+        Inv inv = new Inv().with(IRON, 6);
+        assertTrue(q.enqueue("iron_gear_wheel", 3, inv, all));
+        tick(q, inv, 20);
+        assertTrue(q.cancel(0, inv).isEmpty());
+        assertEquals(Map.of(GEAR, 2, IRON, 2), inv.m);
+    }
+
+    @Test void cancelThreeInsertersAtTick75ConservesValue() {
+        HandcraftQueue q = new HandcraftQueue(book);
+        Inv inv = new Inv().with(IRON, 10).with(COPPER, 4).with(CABLE, 2).with(GEAR, 1);
+        assertTrue(q.enqueue("inserter", 3, inv, all));
+        tick(q, inv, 75);
+        assertEquals(2, inv.count(INSERTER));
+        assertTrue(q.cancel(0, inv).isEmpty());
+        assertEquals(2, inv.count(INSERTER));
+        // craft 1 takes 2 iron, 2 cable, 1 gear, 1 copper; craft 2 takes 4 iron, 1 copper (spare cable reused);
+        // craft 3 (refunded) is planned with 4 iron and 2 copper
+        assertEquals(Map.of(INSERTER, 2, IRON, 4, COPPER, 2), inv.m);
+    }
+
+    @Test void cancelWithFullInventoryReturnsEverything() {
+        HandcraftQueue q = new HandcraftQueue(book);
+        Inv inv = new Inv().with(IRON, 4).with(COPPER, 2);
+        q.enqueue("inserter", 1, inv, all);
+        inv.cap = 0;
+        Map<String, Integer> rest = q.cancel(0, inv);
+        assertEquals(Map.of(IRON, 4, COPPER, 2), rest);
+        assertTrue(inv.m.isEmpty());
+    }
+
+    @Test void cancelNonFrontEntry() {
+        HandcraftQueue q = new HandcraftQueue(book);
+        Inv inv = new Inv().with(IRON, 4);
+        q.enqueue("iron_gear_wheel", 1, inv, all);
+        q.enqueue("iron_gear_wheel", 1, inv, all);
+        tick(q, inv, 3);
+        assertTrue(q.cancel(1, inv).isEmpty());
+        assertEquals(Map.of(IRON, 2), inv.m);
+        assertEquals(1, q.entries().size());
+        tick(q, inv, 7);
+        assertEquals(1, inv.count(GEAR));
+    }
+
+    @Test void twoInsertersReuseSpareCable() {
+        HandcraftQueue q = new HandcraftQueue(book);
+        Inv inv = new Inv().with(IRON, 8).with(COPPER, 4);
+        assertEquals(2, q.maxCraftable("inserter", inv, all));
+        assertTrue(q.enqueue("inserter", 2, inv, all));
+        assertEquals(Map.of(COPPER, 1), inv.m); // only 3 copper needed: the spare cable is reused
+        tick(q, inv, 200);
+        assertEquals(Map.of(INSERTER, 2, COPPER, 1), inv.m);
+        assertTrue(q.entries().isEmpty());
+    }
 }
