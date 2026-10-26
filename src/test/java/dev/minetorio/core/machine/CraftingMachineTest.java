@@ -115,4 +115,36 @@ class CraftingMachineTest {
         assertTrue(m.inputs().isEmpty());
         assertTrue(m.drainInputs().isEmpty());
     }
+
+    @Test void overshootCarriesBetweenCrafts() {
+        CraftingMachine m = new CraftingMachine(0.75, Units.kw(150));
+        m.setRecipe(gearRecipe());
+        for (int i = 1; i <= 400; i++) {
+            m.insertInput(IRON, 64, false);
+            m.tick(1.0);
+            if (i == 40) assertEquals(3, m.outputs().getOrDefault(GEAR, 0));
+        }
+        assertEquals(30, m.outputs().getOrDefault(GEAR, 0));
+    }
+
+    @Test void resumesAfterBlockedOutputWithoutLossOrDuplication() {
+        CraftingMachine m = new CraftingMachine(0.75, Units.kw(150));
+        m.setRecipe(gearRecipe());
+        int inserted = 0, extracted = 0;
+        for (int i = 0; i < 1000; i++) { // output fills to 64 and blocks
+            inserted += m.insertInput(IRON, 64, false);
+            m.tick(1.0);
+        }
+        assertEquals(64, m.outputs().get(GEAR));
+        assertEquals(0L, m.powerDemand());
+        extracted += m.extractOutput(GEAR, 64);
+        for (int i = 0; i < 200; i++) {
+            inserted += m.insertInput(IRON, 64, false);
+            m.tick(1.0);
+        }
+        assertTrue(m.outputs().get(GEAR) > 0, "production resumed");
+        int produced = extracted + m.outputs().getOrDefault(GEAR, 0);
+        int consumed = inserted - m.inputs().getOrDefault(IRON, 0);
+        assertEquals(produced * 2, consumed - (m.progress() > 0 ? 2 : 0));
+    }
 }

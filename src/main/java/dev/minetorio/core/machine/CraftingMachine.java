@@ -117,19 +117,22 @@ public final class CraftingMachine {
     public void tick(double satisfaction) {
         if (recipe == null) return;
         if (!crafting) {
-            if (!canStart()) return;
+            if (!canStart()) {
+                progress = 0; // idle or blocked: drop any carried overshoot
+                return;
+            }
             for (Ingredient in : recipe.inputs()) {
                 int left = inputs.get(in.item()) - in.count();
                 if (left == 0) inputs.remove(in.item()); else inputs.put(in.item(), left);
             }
-            crafting = true;
-            progress = 0;
+            crafting = true; // progress keeps the overshoot carried from the previous craft
         }
         progress += satisfaction * speed / recipe.ticks();
         if (progress >= 1.0 - EPS) {
             for (Ingredient out : recipe.outputs()) outputs.merge(out.item(), out.count(), Integer::sum);
             crafting = false;
-            progress = 0;
+            double carry = progress - 1.0;
+            progress = carry > EPS ? carry : 0;
         }
     }
 }
