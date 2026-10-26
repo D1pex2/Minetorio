@@ -57,6 +57,14 @@ public final class HandcraftQueue {
         return out;
     }
 
+    /** Duration in ticks of the step the front entry is crafting now (0 if the queue is empty). */
+    public int currentStepTicks() {
+        if (slots.isEmpty()) return 0;
+        Slot s = slots.get(0);
+        if (s.stepIndex >= s.steps.size()) return 0;
+        return book.get(s.steps.get(s.stepIndex)).map(Recipe::ticks).orElse(0);
+    }
+
     private double progressOf(Slot s) {
         if (s.stepIndex >= s.steps.size()) return 0;
         int ticks = book.get(s.steps.get(s.stepIndex)).map(Recipe::ticks).orElse(0);

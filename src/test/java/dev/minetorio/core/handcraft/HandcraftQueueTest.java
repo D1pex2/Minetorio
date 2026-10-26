@@ -194,4 +194,19 @@ class HandcraftQueueTest {
         assertEquals(Map.of(INSERTER, 2, COPPER, 1), inv.m);
         assertTrue(q.entries().isEmpty());
     }
+
+    @Test void currentStepTicksFollowsTheFrontStep() {
+        HandcraftQueue q = new HandcraftQueue(book);
+        Inv inv = new Inv().with(IRON, 4).with(COPPER, 2);
+        assertEquals(0, q.currentStepTicks());
+        assertTrue(q.enqueue("automation_science_pack", 1, new Inv().with(IRON, 2).with(COPPER, 1), all));
+        assertTrue(q.enqueue("inserter", 1, inv, all));
+        assertEquals(10, q.currentStepTicks()); // the gear sub-step of the science pack
+        tick(q, inv, 10);
+        assertEquals(100, q.currentStepTicks()); // the pack itself (5 s)
+        tick(q, inv, 100);
+        assertEquals(10, q.currentStepTicks()); // the inserter entry is in front now
+        tick(q, inv, 200);
+        assertEquals(0, q.currentStepTicks());
+    }
 }

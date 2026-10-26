@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.handcraft.HandcraftPayloads;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.research.ResearchSyncPayload;
 import dev.minetorio.content.research.SelectResearchPayload;
@@ -29,7 +30,10 @@ public final class ModPayloads {
         event.registrar(VERSION)
                 .playToServer(SelectRecipePayload.TYPE, SelectRecipePayload.STREAM_CODEC, SelectRecipePayload::handle)
                 .playToServer(SelectResearchPayload.TYPE, SelectResearchPayload.STREAM_CODEC, SelectResearchPayload::handle)
-                .playToClient(ResearchSyncPayload.TYPE, ResearchSyncPayload.STREAM_CODEC, ResearchSyncPayload::handle);
+                .playToClient(ResearchSyncPayload.TYPE, ResearchSyncPayload.STREAM_CODEC, ResearchSyncPayload::handle)
+                .playToServer(HandcraftPayloads.Enqueue.TYPE, HandcraftPayloads.Enqueue.STREAM_CODEC, HandcraftPayloads.Enqueue::handle)
+                .playToServer(HandcraftPayloads.Cancel.TYPE, HandcraftPayloads.Cancel.STREAM_CODEC, HandcraftPayloads.Cancel::handle)
+                .playToClient(HandcraftPayloads.QueueSync.TYPE, HandcraftPayloads.QueueSync.STREAM_CODEC, HandcraftPayloads.QueueSync::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

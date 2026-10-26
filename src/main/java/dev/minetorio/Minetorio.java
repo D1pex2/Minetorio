@@ -3,6 +3,8 @@ package dev.minetorio;
 import dev.minetorio.content.belt.BeltTicker;
 import dev.minetorio.content.deposit.Deposits;
 import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.handcraft.HandcraftTicker;
+import dev.minetorio.content.registry.ModAttachments;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.content.registry.ModCapabilities;
@@ -26,9 +28,11 @@ public class Minetorio {
         ModCapabilities.register(modBus);
         ModMenus.register(modBus);
         ModPayloads.register(modBus);
+        ModAttachments.register(modBus);
         BeltTicker.register();
         PowerGridManager.register();
         Deposits.register();
         ResearchSavedData.register();
+        HandcraftTicker.register();
     }
 }
