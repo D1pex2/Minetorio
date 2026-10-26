@@ -19,6 +19,9 @@ public final class MachineItemHandler implements IItemHandler {
         /** How many more of {@code stack} {@code slot} takes now (0 if not allowed there). */
         int room(int slot, ItemStack stack, boolean automated);
 
+        /** Whether the stack's type belongs in {@code slot}, ignoring its current contents. */
+        boolean accepts(int slot, ItemStack stack);
+
         /** Inserts {@code n} × {@code id} into {@code slot}; returns the amount accepted. */
         int insert(int slot, String id, int n, boolean automated);
 
@@ -68,6 +71,6 @@ public final class MachineItemHandler implements IItemHandler {
 
     @Override
     public boolean isItemValid(int slot, ItemStack stack) {
-        return MachineItems.isPlain(stack) && !slots.isOutput(slot) && slots.room(slot, stack.copyWithCount(1), true) > 0;
+        return slots.accepts(slot, stack);
     }
 }

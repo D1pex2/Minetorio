@@ -30,7 +30,7 @@ public class AssemblerMenu extends MachineMenu {
 
     /** Server side, over the assembler's slots and data. */
     public AssemblerMenu(int id, Inventory inventory, MachineContainer assembler, ContainerData data, BlockPos pos) {
-        super(ModMenus.ASSEMBLING_MACHINE.get(), id, assembler, data);
+        super(ModMenus.ASSEMBLING_MACHINE.get(), id, assembler, data, AssemblerBlockEntity.DATA_COUNT);
         this.pos = pos;
         for (int i = 0; i < AssemblerBlockEntity.MAX_INPUTS; i++) {
             int slot = i;

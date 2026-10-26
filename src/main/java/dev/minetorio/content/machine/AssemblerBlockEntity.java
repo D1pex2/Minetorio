@@ -149,20 +149,24 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
 
     // --- recipe selection (server) -----------------------------------------------------------------
 
-    public enum SelectResult { OK, NOT_ASSEMBLER, TOO_FAR, UNKNOWN_RECIPE, NOT_CRAFTING, LOCKED }
+    public enum SelectResult { OK, SPECTATOR, NOT_ASSEMBLER, TOO_FAR, MENU_NOT_OPEN, UNKNOWN_RECIPE, NOT_CRAFTING, LOCKED }
 
     /**
-     * Handles a player's recipe choice for the assembler at {@code pos}: it must be an assembler
-     * within {@value #SELECT_DISTANCE} blocks of the player, and the recipe a known, unlocked
-     * CRAFTING recipe. On success what the machine gave up goes into the player's inventory (the
+     * Handles a player's recipe choice for the assembler at {@code pos}: the player must not be a
+     * spectator and must have this assembler's GUI open (still valid), the assembler must be within
+     * {@value #SELECT_DISTANCE} blocks, and the recipe a known, unlocked CRAFTING recipe. On success what the machine gave up goes into the player's inventory (the
      * rest is dropped at the player).
      */
     public static SelectResult select(ServerPlayer player, BlockPos pos, String recipeId) {
+        if (player.isSpectator()) return SelectResult.SPECTATOR;
         Level level = player.level();
         if (!level.isLoaded(pos) || !(level.getBlockEntity(pos) instanceof AssemblerBlockEntity be)) return SelectResult.NOT_ASSEMBLER;
         double reach = SELECT_DISTANCE * SELECT_DISTANCE;
         if (ElectricConsumerHelper.box(be.shape().footprint(pos, be.facing())).distanceToSqr(player.position()) > reach) {
             return SelectResult.TOO_FAR;
+        }
+        if (!(player.containerMenu instanceof AssemblerMenu menu) || !menu.pos().equals(pos) || !menu.stillValid(player)) {
+            return SelectResult.MENU_NOT_OPEN;
         }
         Optional<Recipe> recipe = Phase1Data.recipes().get(recipeId);
         if (recipe.isEmpty()) return SelectResult.UNKNOWN_RECIPE;
@@ -245,6 +249,12 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         @Override
         public int room(int slot, ItemStack stack, boolean automated) {
             return MachineItems.isPlain(stack) ? room(slot, MachineItems.id(stack), automated) : 0;
+        }
+
+        @Override
+        public boolean accepts(int slot, ItemStack stack) {
+            Ingredient in = inputOf(slot);
+            return in != null && MachineItems.isPlain(stack) && in.item().equals(MachineItems.id(stack));
         }
 
         int room(int slot, String id, boolean automated) {

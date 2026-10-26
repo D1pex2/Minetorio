@@ -176,6 +176,19 @@ class CoreNbtTest {
     }
 
     @Test
+    void unknownRecipeReturnsInputsOfCraftInProgress() {
+        CraftingMachine m = new CraftingMachine(0.5, 3750);
+        m.setRecipe(Phase1Data.recipes().get("iron_gear_wheel").orElseThrow());
+        m.insertInput("minetorio:iron_plate", 5, false);
+        m.tick(1.0); // craft running: 2 plates consumed, 3 stored
+        assertTrue(m.isCrafting());
+        CraftingMachine back = new CraftingMachine(0.5, 3750);
+        CoreNbt.loadMachineInto(back, CoreNbt.writeMachine(m), new RecipeBook(List.of()));
+        assertFalse(back.isCrafting());
+        assertEquals(Map.of("minetorio:iron_plate", 5), back.drainInputs());
+    }
+
+    @Test
     void burnerRoundTrip() {
         Burner b = new Burner(4500, Phase1Data.fuelValues());
         b.insertFuel("minecraft:coal", 3, false);

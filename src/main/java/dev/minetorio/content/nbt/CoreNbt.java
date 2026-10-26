@@ -142,15 +142,27 @@ public final class CoreNbt {
         tag.put("outputs", writeCounts(machine.outputs()));
         tag.put("pending", writeCounts(machine.pendingReturn()));
         tag.putBoolean("crafting", machine.isCrafting());
+        if (machine.isCrafting()) {
+            Map<String, Integer> consumed = new LinkedHashMap<>();
+            for (var in : machine.recipe().inputs()) consumed.merge(in.item(), in.count(), Integer::sum);
+            tag.put("crafting_inputs", writeCounts(consumed));
+        }
         tag.putDouble("progress", machine.progress());
         return tag;
     }
 
-    /** Restores {@link #writeMachine} data; a recipe id unknown to {@code book} loads as no recipe (inputs kept for draining). */
+    /**
+     * Restores {@link #writeMachine} data. A recipe id unknown to {@code book} loads as no recipe:
+     * stored inputs are kept and the inputs consumed by a craft in progress go to the pending
+     * return, so both are handed back by {@code drainInputs} (or dropped when the machine breaks).
+     */
     public static void loadMachineInto(CraftingMachine machine, CompoundTag tag, RecipeBook book) {
         Recipe recipe = tag.contains("recipe", Tag.TAG_STRING) ? book.get(tag.getString("recipe")).orElse(null) : null;
+        boolean crafting = tag.getBoolean("crafting");
+        Map<String, Integer> pending = readCounts(tag.getCompound("pending"));
+        if (recipe == null && crafting) readCounts(tag.getCompound("crafting_inputs")).forEach((k, v) -> pending.merge(k, v, Integer::sum));
         machine.load(recipe, readCounts(tag.getCompound("inputs")), readCounts(tag.getCompound("outputs")),
-                readCounts(tag.getCompound("pending")), tag.getBoolean("crafting"), tag.getDouble("progress"));
+                pending, crafting, tag.getDouble("progress"));
     }
 
     public static CompoundTag writeBurner(Burner burner) {

@@ -1,5 +1,7 @@
 package dev.minetorio.content.machine;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 import net.minecraft.world.Container;
@@ -17,13 +19,28 @@ public interface MachineContainer extends Container {
     /** How many more of {@code stack} the player may put into {@code slot} now (0 = not allowed). */
     int room(int slot, ItemStack stack);
 
-    /** Client side: a plain container whose {@code room} is predicted by {@code room}. */
+    /**
+     * Whether {@code stack}'s type belongs in {@code slot} at all, regardless of what the slot holds
+     * now (plain stack; fuel for a fuel slot, a recipe input for an input slot; never an output slot).
+     */
+    boolean accepts(int slot, ItemStack stack);
+
+    /**
+     * Stacks a {@link #setItem} could not store (see {@link View#setItem}); the menu hands them back
+     * to the player after each click. Taking clears them.
+     */
+    default List<ItemStack> takeOverflow() { return List.of(); }
+
+    /** Client side: a plain container whose {@code room} (and so {@code accepts}) is predicted by {@code room}. */
     static MachineContainer client(int size, BiFunction<Integer, ItemStack, Integer> room) {
         class Client extends SimpleContainer implements MachineContainer {
             Client() { super(size); }
 
             @Override
             public int room(int slot, ItemStack stack) { return room.apply(slot, stack); }
+
+            @Override
+            public boolean accepts(int slot, ItemStack stack) { return room(slot, stack) > 0; }
         }
         return new Client();
     }
@@ -34,6 +51,8 @@ public interface MachineContainer extends Container {
      * components ({@link #room} is 0 for them), so the id is the whole stack.
      */
     abstract class View implements MachineContainer {
+        private final List<ItemStack> overflow = new ArrayList<>();
+
         /** Item id shown in {@code slot}, or null when it is empty. */
         @Nullable
         protected abstract String itemIn(int slot);
@@ -56,8 +75,10 @@ public interface MachineContainer extends Container {
         }
 
         /**
-         * Makes the slot hold {@code stack} by extracting/inserting the difference. Callers keep within
-         * {@link #room} (see {@link MachineSlot}), so every insert is accepted in full.
+         * Makes the slot hold {@code stack} by extracting/inserting the difference (a different item
+         * replaces the current one, which the caller already took). {@link MachineSlot} keeps callers
+         * within {@link #room}; anything the machine still refuses is kept in {@link #takeOverflow}
+         * so it is returned, never lost.
          */
         @Override
         public void setItem(int slot, ItemStack stack) {
@@ -66,11 +87,23 @@ public interface MachineContainer extends Container {
                 extract(slot, current.getCount());
                 current = ItemStack.EMPTY;
             }
-            if (stack.isEmpty() || !MachineItems.isPlain(stack)) return;
+            if (stack.isEmpty()) {
+                setChanged();
+                return;
+            }
             int delta = stack.getCount() - current.getCount();
-            if (delta > 0) insert(slot, MachineItems.id(stack), delta);
+            int accepted = 0;
+            if (delta > 0 && MachineItems.isPlain(stack)) accepted = insert(slot, MachineItems.id(stack), delta);
             else if (delta < 0) extract(slot, -delta);
+            if (delta > accepted) overflow.add(stack.copyWithCount(delta - accepted));
             setChanged();
+        }
+
+        @Override
+        public List<ItemStack> takeOverflow() {
+            List<ItemStack> out = List.copyOf(overflow);
+            overflow.clear();
+            return out;
         }
 
         @Override

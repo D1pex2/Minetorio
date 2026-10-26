@@ -17,7 +17,7 @@ import net.minecraft.world.inventory.SimpleContainerData;
 public class StoneFurnaceMenu extends MachineMenu {
     /** Server side, over the furnace's slots and data. */
     public StoneFurnaceMenu(int id, Inventory inventory, MachineContainer furnace, ContainerData data) {
-        super(ModMenus.STONE_FURNACE.get(), id, furnace, data);
+        super(ModMenus.STONE_FURNACE.get(), id, furnace, data, StoneFurnaceBlockEntity.DATA_COUNT);
         addMachineSlot(new MachineSlot(furnace, FUEL_SLOT, 56, 53));
         addMachineSlot(new MachineSlot(furnace, INPUT_SLOT, 56, 17));
         addMachineSlot(new MachineSlot(furnace, StoneFurnaceBlockEntity.OUTPUT_SLOT, 116, 35));

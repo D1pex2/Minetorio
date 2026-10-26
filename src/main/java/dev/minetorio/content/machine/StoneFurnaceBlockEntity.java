@@ -167,6 +167,17 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
             return room(slot, MachineItems.id(stack), automated);
         }
 
+        @Override
+        public boolean accepts(int slot, ItemStack stack) {
+            if (!MachineItems.isPlain(stack)) return false;
+            String id = MachineItems.id(stack);
+            return switch (slot) {
+                case FUEL_SLOT -> Phase1Data.fuelValues().containsKey(id);
+                case INPUT_SLOT -> Phase1Data.recipes().smeltingFor(id).isPresent();
+                default -> false;
+            };
+        }
+
         int room(int slot, String id, boolean automated) {
             return switch (slot) {
                 case FUEL_SLOT -> fuelRoom(id, automated);
