@@ -1,7 +1,9 @@
 {
   "parent": "minetorio:block/template_belt_curve_left",
+  "ambientocclusion": false,
   "textures": {
     "belt": "minetorio:block/fast_transport_belt",
-    "curve": "minetorio:block/fast_transport_belt_curve"
+    "curve": "minetorio:block/fast_transport_belt_curve",
+    "rail": "minetorio:block/tier_red"
   }
 }

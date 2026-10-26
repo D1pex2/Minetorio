@@ -22,14 +22,14 @@ import net.minecraft.world.phys.AABB;
 import org.joml.Vector3f;
 
 /**
- * Draws an inserter's arm (placeholder box geometry; Task 18 does the final art): a shoulder on
- * top of the base, an upper arm rising to the elbow and a forearm down to the hand, all in the
- * vertical plane of the arm's heading. The heading turns 180° about the base through the
+ * Draws an inserter's arm: a shoulder on top of the base, an upper arm rising to the elbow and a
+ * forearm down to the hand, all in the vertical plane of the arm's heading; the hand is a tier
+ * colored block with two gripper fingers hanging from it. The heading turns 180° about the base through the
  * inserter's right side as {@code armProgress} goes 0 (hand over the pickup block) → 1 (over the
  * drop block). The held item hangs under the hand.
  */
 public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity> {
-    private static final ResourceLocation ARM_TEXTURE = ResourceLocation.withDefaultNamespace("textures/block/iron_block.png");
+    private static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
     private static final float SHOULDER_Y = 5f / 16;
     private static final float ELBOW_RISE = 0.45f;
     private static final float HAND_RISE = 0.12f;
@@ -83,10 +83,14 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
 
         VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(ARM_TEXTURE));
         PoseStack.Pose p = pose.last();
-        int metal = 0xFFB0B0B0;
+        int metal = 0xFFE8E8E8;
         box(vc, p, shoulder, elbow, side, 0.05f, metal, light);
         box(vc, p, elbow, hand, side, 0.04f, metal, light);
         box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.02f, 0), side, 0.07f, tierColor(type), light);
+        for (float s : new float[] {-0.05f, 0.05f}) { // gripper fingers
+            Vector3f top = new Vector3f(hand).add(new Vector3f(side).mul(s)).sub(0, 0.06f, 0);
+            box(vc, p, top, new Vector3f(top).sub(0, 0.09f, 0), side, 0.015f, 0xFF505458, light);
+        }
 
         String held = be.logic().held();
         Level level = be.getLevel();

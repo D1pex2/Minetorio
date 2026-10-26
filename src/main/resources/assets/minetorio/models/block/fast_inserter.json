@@ -1,7 +1,7 @@
 {
   "parent": "minetorio:block/template_inserter",
+  "ambientocclusion": false,
   "textures": {
-    "base": "minecraft:block/blue_concrete",
-    "metal": "minecraft:block/iron_block"
+    "housing": "minetorio:block/tier_blue_panel"
   }
 }

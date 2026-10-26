@@ -1,6 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "minetorio:item/small_electric_pole"
-  }
+  "parent": "minetorio:block/small_electric_pole"
 }

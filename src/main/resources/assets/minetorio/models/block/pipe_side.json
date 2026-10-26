@@ -1,68 +1,14 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "pipe": "minetorio:block/pipe",
-    "particle": "minetorio:block/pipe"
+    "pipe_h": "minetorio:block/pipe_h",
+    "pipe_v": "minetorio:block/pipe_v",
+    "pipe_end": "minetorio:block/pipe_end",
+    "flange": "minetorio:block/flange",
+    "particle": "minetorio:block/pipe_h"
   },
   "elements": [
-    {
-      "from": [
-        5,
-        5,
-        0
-      ],
-      "to": [
-        11,
-        11,
-        5
-      ],
-      "faces": {
-        "north": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "east": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "west": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "up": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "down": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        }
-      }
-    }
+    {"from": [4.5, 4.5, 1], "to": [11.5, 11.5, 4], "faces": {"east": {"uv": [6.5, 4.5, 9.5, 11.5], "texture": "#pipe_h"}, "west": {"uv": [6.5, 4.5, 9.5, 11.5], "texture": "#pipe_h"}, "up": {"uv": [4.5, 6.5, 11.5, 9.5], "texture": "#pipe_v"}, "down": {"uv": [4.5, 6.5, 11.5, 9.5], "texture": "#pipe_v"}}},
+    {"from": [4, 4, 0], "to": [12, 12, 1], "faces": {"north": {"uv": [4, 4, 12, 12], "texture": "#flange", "cullface": "north"}, "east": {"uv": [7.5, 4, 8.5, 12], "texture": "#flange"}, "west": {"uv": [7.5, 4, 8.5, 12], "texture": "#flange"}, "up": {"uv": [4, 7.5, 12, 8.5], "texture": "#flange"}, "down": {"uv": [4, 7.5, 12, 8.5], "texture": "#flange"}}}
   ]
 }

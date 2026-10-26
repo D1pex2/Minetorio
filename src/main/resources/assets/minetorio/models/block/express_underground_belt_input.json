@@ -1,9 +1,10 @@
 {
   "parent": "minetorio:block/template_underground_input",
+  "ambientocclusion": false,
   "textures": {
     "belt": "minetorio:block/express_transport_belt",
-    "frame": "minetorio:block/express_underground_belt",
-    "top": "minetorio:block/express_underground_belt_top_input",
-    "tunnel": "minecraft:block/black_concrete"
+    "rail": "minetorio:block/tier_blue",
+    "hood": "minetorio:block/tier_blue_panel",
+    "arrow": "minetorio:block/express_belt_arrow"
   }
 }

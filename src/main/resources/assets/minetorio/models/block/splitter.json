@@ -1,7 +1,11 @@
 {
   "parent": "minetorio:block/template_splitter",
+  "ambientocclusion": false,
   "textures": {
     "belt": "minetorio:block/transport_belt",
-    "frame": "minetorio:block/splitter"
+    "rail": "minetorio:block/tier_yellow",
+    "hood": "minetorio:block/tier_yellow_panel",
+    "motor": "minetorio:block/belt_motor",
+    "arrow": "minetorio:block/belt_arrow"
   }
 }
