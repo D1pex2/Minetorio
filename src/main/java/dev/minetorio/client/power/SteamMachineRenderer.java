@@ -19,8 +19,10 @@ import net.minecraft.world.phys.AABB;
  * <ul>
  *   <li>Boiler (3×2): "boiler_body", plus "boiler_fire" drawn at full brightness while it burns.</li>
  *   <li>Steam engine (3×5, too long for one model): "steam_engine_body" covers 2.5 blocks and is
- *       drawn twice, front half and back half; "steam_engine_flywheel" turns about the width axis
- *       (pivot 1 block up, at the center) while the engine produces.</li>
+ *       drawn twice, front half and back half; "steam_engine_center" (cylinder, slide bars, crank
+ *       bearing) once; "steam_engine_flywheel" turns about the width axis (pivot 1 block up, at the
+ *       center) while the engine produces, and "steam_engine_piston" slides along the length in
+ *       step with it.</li>
  * </ul>
  */
 public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamMachineBlockEntity> {
@@ -28,6 +30,8 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
     public static final ModelResourceLocation BOILER_FIRE = MachineRender.model("block/boiler_fire");
     public static final ModelResourceLocation ENGINE_BODY = MachineRender.model("block/steam_engine_body");
     public static final ModelResourceLocation ENGINE_FLYWHEEL = MachineRender.model("block/steam_engine_flywheel");
+    public static final ModelResourceLocation ENGINE_CENTER = MachineRender.model("block/steam_engine_center");
+    public static final ModelResourceLocation ENGINE_PISTON = MachineRender.model("block/steam_engine_piston");
 
     protected final ModelBlockRenderer modelRenderer;
 
@@ -76,6 +80,8 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
         private static final double FRONT_HALF = -1.0;
         private static final double BACK_HALF = 1.5;
         private static final double FLYWHEEL_PIVOT_Y = 1.0;
+        /** Piston stroke half-length in blocks. */
+        private static final double PISTON_THROW = 3 / 16.0;
 
         public Engine(BlockEntityRendererProvider.Context ctx) { super(ctx); }
 
@@ -84,9 +90,12 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
                                    int light, int overlay) {
             draw(ENGINE_BODY, FRONT_HALF, pose, buffers, light, overlay);
             draw(ENGINE_BODY, BACK_HALF, pose, buffers, light, overlay);
+            draw(ENGINE_CENTER, 0, pose, buffers, light, overlay);
+            float angle = be.renderAngle(partialTick);
+            draw(ENGINE_PISTON, PISTON_THROW * Math.sin(Math.toRadians(angle)), pose, buffers, light, overlay);
             pose.pushPose();
             pose.translate(0, FLYWHEEL_PIVOT_Y, 0);
-            pose.mulPose(Axis.XP.rotationDegrees(be.renderAngle(partialTick)));
+            pose.mulPose(Axis.XP.rotationDegrees(angle));
             pose.translate(0, -FLYWHEEL_PIVOT_Y, 0);
             draw(ENGINE_FLYWHEEL, 0, pose, buffers, light, overlay);
             pose.popPose();

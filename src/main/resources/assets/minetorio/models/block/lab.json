@@ -1,6 +1,9 @@
 {
+  "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/machine_metal"
+    "particle": "minetorio:block/lab_panel"
   },
-  "elements": []
+  "elements": [
+
+  ]
 }

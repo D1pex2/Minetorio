@@ -13,14 +13,15 @@ import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Draws a lab (R19): the body model and the dome on top, which glows (full brightness) and turns
- * slowly about the vertical center axis while the lab is {@link LabBlockEntity#isWorking working}.
+ * Draws a lab (R19): the body model and the dome on top. While the lab is
+ * {@link LabBlockEntity#isWorking working} the dome swaps to its glowing model (animated pulsing
+ * texture, full brightness) and turns slowly about the vertical center axis; idle it shows plain glass.
  * Models are authored around the footprint's center block (−16..32) in the north orientation.
- * Placeholder geometry: Task 18 swaps the models.
  */
 public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
     public static final ModelResourceLocation BODY = MachineRender.model("block/lab_body");
     public static final ModelResourceLocation DOME = MachineRender.model("block/lab_dome");
+    public static final ModelResourceLocation DOME_IDLE = MachineRender.model("block/lab_dome_idle");
 
     private final ModelBlockRenderer modelRenderer;
 
@@ -38,7 +39,8 @@ public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
         pose.popPose();
         pose.mulPose(Axis.YP.rotationDegrees(be.renderDomeAngle(partialTick)));
         pose.translate(-0.5, 0, -0.5);
-        MachineRender.renderModel(modelRenderer, DOME, pose, buffers, be.isWorking() ? LightTexture.FULL_BRIGHT : light, overlay);
+        boolean working = be.isWorking();
+        MachineRender.renderModel(modelRenderer, working ? DOME : DOME_IDLE, pose, buffers, working ? LightTexture.FULL_BRIGHT : light, overlay);
         pose.popPose();
     }
 

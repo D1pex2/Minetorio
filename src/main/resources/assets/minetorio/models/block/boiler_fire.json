@@ -1,32 +1,10 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "fire": "minetorio:block/furnace_front_lit",
-    "particle": "minetorio:block/furnace_front_lit"
+    "fire": "minetorio:block/fire",
+    "particle": "minetorio:block/fire"
   },
   "elements": [
-    {
-      "from": [
-        2,
-        5,
-        22
-      ],
-      "to": [
-        14,
-        13,
-        22.5
-      ],
-      "faces": {
-        "south": {
-          "texture": "#fire",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        }
-      }
-    }
+    {"from": [1.5, 4.5, 23.5], "to": [14.5, 10.5, 23.6], "shade": false, "faces": {"south": {"uv": [0, 0, 16, 16], "texture": "#fire"}}}
   ]
 }

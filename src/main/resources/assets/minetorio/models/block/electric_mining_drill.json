@@ -1,6 +1,9 @@
 {
+  "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/drill_side"
+    "particle": "minetorio:block/steel_panel"
   },
-  "elements": []
+  "elements": [
+
+  ]
 }

@@ -1,6 +1,9 @@
 {
+  "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/boiler_side"
+    "particle": "minetorio:block/boiler_shell"
   },
-  "elements": []
+  "elements": [
+
+  ]
 }

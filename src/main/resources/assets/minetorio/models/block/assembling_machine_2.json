@@ -1,6 +1,9 @@
 {
+  "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/assembler_side"
+    "particle": "minetorio:block/assembler_panel"
   },
-  "elements": []
+  "elements": [
+
+  ]
 }
