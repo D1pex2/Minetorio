@@ -40,23 +40,42 @@ class DepositTest {
         }
     }
 
-    @Test void richerFarAway() {
-        Deposit near = firstRegular(200, OreType.IRON);
-        Deposit far = firstRegular(2000, OreType.IRON);
-        assertTrue(far.initialAmount() > near.initialAmount());
+    private double distToSpawn(Deposit d) {
+        return Math.hypot(d.centerX() - SX, d.centerZ() - SZ);
     }
 
-    private Deposit firstRegular(int dist, OreType type) {
-        int r0 = (SX + dist) / DepositGenerator.REGION;
-        for (int rx = r0; rx < r0 + 50; rx++) {
-            for (int rz = -3; rz < 3; rz++) {
+    private Deposit regularBetween(double min, double max) {
+        for (int rx = -60; rx < 60; rx++)
+            for (int rz = -60; rz < 60; rz++)
+                for (Deposit d : gen.inRegion(rx, rz))
+                    if (d.id() > 0 && distToSpawn(d) >= min && distToSpawn(d) <= max) return d;
+        throw new AssertionError("none found");
+    }
+
+    @Test void richerFarAway() {
+        Deposit near = regularBetween(150, 300);
+        Deposit far = regularBetween(1800, 2500);
+        assertEquals(Math.round(near.type().baseAmount() * (1 + distToSpawn(near) / 500.0)), near.initialAmount());
+        assertEquals(Math.round(far.type().baseAmount() * (1 + distToSpawn(far) / 500.0)), far.initialAmount());
+        assertTrue((double) far.initialAmount() / far.type().baseAmount()
+                > (double) near.initialAmount() / near.type().baseAmount());
+    }
+
+    @Test void regularDepositsStayInsideTheirRegion() {
+        int n = 0;
+        for (int rx = -40; rx < 40; rx++) {
+            for (int rz = -40; rz < 40; rz++) {
                 for (Deposit d : gen.inRegion(rx, rz)) {
-                    if (d.id() > 0 && d.type() == type) return d;
+                    if (d.id() < 0) continue;
+                    n++;
+                    assertTrue(d.centerX() - d.radius() >= rx * 64 && d.centerX() + d.radius() <= rx * 64 + 63, "x " + d);
+                    assertTrue(d.centerZ() - d.radius() >= rz * 64 && d.centerZ() + d.radius() <= rz * 64 + 63, "z " + d);
                 }
             }
         }
-        throw new AssertionError("none found");
+        assertTrue(n > 1000);
     }
+
 
     @Test void regularIdsUniqueAndPositive() {
         List<Long> ids = new ArrayList<>();

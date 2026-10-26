@@ -113,8 +113,8 @@ public final class DepositGenerator {
         SplittableRandom rnd = new SplittableRandom(mix(worldSeed, rx, rz));
         if (rnd.nextDouble() >= CHANCE) return null;
         int span = REGION - 2 * MAX_RADIUS;
-        int cx = rx * REGION + MAX_RADIUS + rnd.nextInt(span + 1);
-        int cz = rz * REGION + MAX_RADIUS + rnd.nextInt(span + 1);
+        int cx = rx * REGION + MAX_RADIUS + rnd.nextInt(span);
+        int cz = rz * REGION + MAX_RADIUS + rnd.nextInt(span);
         OreType type = pickType(rnd.nextInt(totalWeight()));
         int radius = MIN_RADIUS + rnd.nextInt(MAX_RADIUS - MIN_RADIUS + 1);
         double dist = Math.hypot((double) cx - spawnX, (double) cz - spawnZ);
