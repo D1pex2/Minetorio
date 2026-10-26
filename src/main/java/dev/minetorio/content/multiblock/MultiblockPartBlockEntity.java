@@ -54,15 +54,19 @@ public class MultiblockPartBlockEntity extends BlockEntity {
     /** The controller's block entity, or null if unlinked, missing or not loaded. */
     @Nullable
     public MultiblockControllerBlockEntity controller() {
-        if (level == null || !isLinked()) return null;
+        if (level == null || !isLinked() || !level.isLoaded(controllerPos())) return null;
         return level.getBlockEntity(controllerPos()) instanceof MultiblockControllerBlockEntity c ? c : null;
     }
 
-    /** The controller's capability, or null if unlinked or there is no controller block at the linked position. */
+    /**
+     * The controller's capability, or null if unlinked, the controller's chunk is not loaded, or
+     * there is no controller block at the linked position.
+     */
     @Nullable
     public <T, C> T controllerCapability(BlockCapability<T, C> capability, C context) {
         if (level == null || !isLinked()) return null;
         BlockPos c = controllerPos();
+        if (!level.isLoaded(c)) return null;
         if (!(level.getBlockState(c).getBlock() instanceof MultiblockControllerBlock)) return null;
         return level.getCapability(capability, c, context);
     }

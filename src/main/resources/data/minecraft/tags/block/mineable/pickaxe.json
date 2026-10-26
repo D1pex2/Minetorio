@@ -13,6 +13,8 @@
     "minetorio:burner_inserter",
     "minetorio:inserter",
     "minetorio:long_handed_inserter",
-    "minetorio:fast_inserter"
+    "minetorio:fast_inserter",
+    "minetorio:burner_mining_drill",
+    "minetorio:electric_mining_drill"
   ]
 }

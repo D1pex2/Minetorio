@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.deposit.ScannerItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -24,6 +25,11 @@ public final class ModItems {
 
     // Machines (block items; the item id equals the block id)
     public static final DeferredItem<BlockItem> STONE_FURNACE = ITEMS.registerSimpleBlockItem(ModBlocks.STONE_FURNACE);
+    public static final DeferredItem<BlockItem> BURNER_MINING_DRILL = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_MINING_DRILL);
+    public static final DeferredItem<BlockItem> ELECTRIC_MINING_DRILL = ITEMS.registerSimpleBlockItem(ModBlocks.ELECTRIC_MINING_DRILL);
+
+    // Tools
+    public static final DeferredItem<ScannerItem> SCANNER = ITEMS.registerItem("scanner", ScannerItem::new, new Item.Properties().stacksTo(1));
 
     // Belts (express_* have no recipe: creative tab only)
     public static final DeferredItem<BlockItem> TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.TRANSPORT_BELT);

@@ -5,6 +5,8 @@ import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.SplitterBlockEntity;
 import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
 import dev.minetorio.content.inserter.InserterBlockEntity;
+import dev.minetorio.content.machine.BurnerDrillBlockEntity;
+import dev.minetorio.content.machine.ElectricDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
 import net.minecraft.core.registries.Registries;
@@ -44,6 +46,14 @@ public final class ModBlockEntities {
             BLOCK_ENTITIES.register("inserter", () -> BlockEntityType.Builder
                     .of(InserterBlockEntity::new, ModBlocks.BURNER_INSERTER.get(), ModBlocks.INSERTER.get(),
                             ModBlocks.LONG_HANDED_INSERTER.get(), ModBlocks.FAST_INSERTER.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BurnerDrillBlockEntity>> BURNER_MINING_DRILL =
+            BLOCK_ENTITIES.register("burner_mining_drill", () -> BlockEntityType.Builder
+                    .of(BurnerDrillBlockEntity::new, ModBlocks.BURNER_MINING_DRILL.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ElectricDrillBlockEntity>> ELECTRIC_MINING_DRILL =
+            BLOCK_ENTITIES.register("electric_mining_drill", () -> BlockEntityType.Builder
+                    .of(ElectricDrillBlockEntity::new, ModBlocks.ELECTRIC_MINING_DRILL.get()).build(null));
 
     private ModBlockEntities() {}
 

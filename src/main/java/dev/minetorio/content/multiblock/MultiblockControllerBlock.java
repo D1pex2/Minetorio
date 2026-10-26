@@ -121,7 +121,7 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         be.dismantling = true;
         be.dropContents(level, controllerPos);
         for (BlockPos p : footprint(controllerPos, controllerState)) {
-            if (!p.equals(controllerPos) && level.getBlockState(p).getBlock() instanceof MultiblockPartBlock
+            if (!p.equals(controllerPos) && level.isLoaded(p) && level.getBlockState(p).getBlock() instanceof MultiblockPartBlock
                     && controllerPos.equals(MultiblockPartBlock.controllerPos(level, p))) {
                 level.removeBlock(p, false);
             }

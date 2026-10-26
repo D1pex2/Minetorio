@@ -59,10 +59,11 @@ public class MultiblockPartBlock extends BaseEntityBlock {
         return level.getBlockEntity(pos) instanceof MultiblockPartBlockEntity be && be.isLinked() ? be.controllerPos() : null;
     }
 
-    /** State of the controller at {@code controller}, or null if there is no controller block there. */
+    /** State of the controller at {@code controller}, or null if there is no controller block there (or its chunk is not loaded). */
     @Nullable
     private static BlockState controllerState(BlockGetter level, @Nullable BlockPos controller) {
         if (controller == null) return null;
+        if (level instanceof LevelReader reader && !reader.hasChunkAt(controller)) return null;
         BlockState state = level.getBlockState(controller);
         return state.getBlock() instanceof MultiblockControllerBlock ? state : null;
     }

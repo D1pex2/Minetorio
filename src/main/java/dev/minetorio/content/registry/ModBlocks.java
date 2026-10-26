@@ -5,6 +5,8 @@ import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.SplitterBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.inserter.InserterBlock;
+import dev.minetorio.content.machine.BurnerDrillBlock;
+import dev.minetorio.content.machine.ElectricDrillBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.core.belt.BeltTier;
@@ -29,6 +31,12 @@ public final class ModBlocks {
 
     public static final DeferredBlock<StoneFurnaceBlock> STONE_FURNACE = BLOCKS.registerBlock("stone_furnace",
             StoneFurnaceBlock::new, machine(MapColor.STONE));
+
+    // Mining drills
+    public static final DeferredBlock<BurnerDrillBlock> BURNER_MINING_DRILL = BLOCKS.registerBlock("burner_mining_drill",
+            BurnerDrillBlock::new, machine(MapColor.METAL));
+    public static final DeferredBlock<ElectricDrillBlock> ELECTRIC_MINING_DRILL = BLOCKS.registerBlock("electric_mining_drill",
+            ElectricDrillBlock::new, machine(MapColor.METAL));
 
     // Belts
     public static final DeferredBlock<BeltBlock> TRANSPORT_BELT = BLOCKS.registerBlock("transport_belt",
