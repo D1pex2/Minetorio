@@ -47,6 +47,16 @@ class LangCompletenessTest {
     }
 
     @Test
+    void everyItemHasAnItemModel() {
+        Path models = LANG.resolveSibling("models").resolve("item");
+        List<String> missing = new ArrayList<>();
+        for (String id : ModItems.IDS) {
+            if (!Files.isRegularFile(models.resolve(id + ".json"))) missing.add(id);
+        }
+        assertTrue(missing.isEmpty(), "no models/item/<id>.json for " + missing);
+    }
+
+    @Test
     void everyItemAndBlockHasANameInBothLanguages() throws IOException {
         for (String code : List.of("en_us", "ru_ru")) {
             JsonObject json = lang(code);

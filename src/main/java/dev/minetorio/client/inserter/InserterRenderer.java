@@ -23,10 +23,10 @@ import org.joml.Vector3f;
 
 /**
  * Draws an inserter's arm: a shoulder on top of the base, an upper arm rising to the elbow and a
- * forearm down to the hand, all in the vertical plane of the arm's heading; the hand is a tier
- * colored block with two gripper fingers hanging from it. The heading turns 180° about the base through the
- * inserter's right side as {@code armProgress} goes 0 (hand over the pickup block) → 1 (over the
- * drop block). The held item hangs under the hand.
+ * forearm down to the hand, all in the vertical plane of the arm's heading. The hand is a tier
+ * colored block with two gripper fingers hanging from it. The heading turns 180° about the base
+ * through the inserter's right side as {@code armProgress} goes 0 (hand over the pickup block) → 1
+ * (over the drop block). The held item hangs under the hand.
  */
 public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity> {
     private static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
@@ -36,8 +36,15 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
     /** Horizontal hand distance from the inserter's center, per block of reach. */
     private static final float HAND_REACH = 0.85f;
     private static final int MAX_CACHED_STACKS = 64;
+    /** Gripper fingers: sideways offsets from the hand center, length and color. */
+    private static final float[] FINGER_OFFSETS = {-0.05f, 0.05f};
+    private static final float FINGER_LENGTH = 0.09f;
+    private static final int FINGER_COLOR = 0xFF505458;
 
     private final ItemRenderer items;
+    /** Reused per finger (renderers run on the render thread only). */
+    private final Vector3f fingerTop = new Vector3f();
+    private final Vector3f fingerTip = new Vector3f();
     private final Map<String, ItemStack> stacks = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, ItemStack> eldest) {
@@ -87,9 +94,10 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
         box(vc, p, shoulder, elbow, side, 0.05f, metal, light);
         box(vc, p, elbow, hand, side, 0.04f, metal, light);
         box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.02f, 0), side, 0.07f, tierColor(type), light);
-        for (float s : new float[] {-0.05f, 0.05f}) { // gripper fingers
-            Vector3f top = new Vector3f(hand).add(new Vector3f(side).mul(s)).sub(0, 0.06f, 0);
-            box(vc, p, top, new Vector3f(top).sub(0, 0.09f, 0), side, 0.015f, 0xFF505458, light);
+        for (float offset : FINGER_OFFSETS) {
+            fingerTop.set(side).mul(offset).add(hand).sub(0, 0.06f, 0);
+            fingerTip.set(fingerTop).sub(0, FINGER_LENGTH, 0);
+            box(vc, p, fingerTop, fingerTip, side, 0.015f, FINGER_COLOR, light);
         }
 
         String held = be.logic().held();

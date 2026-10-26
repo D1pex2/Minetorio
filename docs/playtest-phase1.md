@@ -62,9 +62,14 @@ Things to check closely:
 1. [ ] With a pickaxe, mine vanilla iron and copper ore, cobblestone and coal.
 2. [ ] Press **R** and hand-craft a stone furnace (5 cobblestone). Place it, add coal, and smelt `raw_iron` into iron plates. **Look:** the furnace mouth lights up and flickers.
 3. [ ] Hand-craft a deposit scanner (5 circuits, 10 iron plates, 5 cables; smelt some copper first). Use it to find the starting iron deposit. Place a burner mining drill on it, then a belt from the drill's chute into a stone furnace (use a burner inserter). **Look:** the drill rotor spins and the belt animates.
-4. [ ] Place an offshore pump on a shore facing the water, then pipe, boiler, steam engine, small electric poles and an electric mining drill. **Look:** the boiler fire flickers, the engine flywheel turns and its piston slides, wires sag between poles, and the drill head spins.
-5. [ ] Hand-craft a lab, automate red science (copper plate + gear), and research `automation` (Y screen). **Look:** the lab dome glows and pulses while researching.
-6. [ ] Make assemblers produce gears and red science. Research `logistic_science_pack`, automate green science (inserter + belt), then research `logistics_2` and craft red (fast) belts. **Look:** the assembler gears turn only while crafting, and the AM2 has blue accents if you research `automation_2`.
+4. [ ] Place an offshore pump on a shore facing the water, then pipes to a boiler (fuel it with coal) and a steam engine. Place small electric poles (1 stick + 2 copper cable → 2 poles) and an electric mining drill (3 circuits, 5 gears, 10 iron plates). **Everything electric must be inside a pole's supply area:** labs, assemblers, electric drills and the non-burner inserters. **Look:** the boiler fire flickers, the engine flywheel turns and its piston slides, wires sag between poles, and the drill head spins.
+5. [ ] Hand-craft (R) a lab (10 circuits, 10 gears, 4 transport belts) and 10 automation (red) science packs (1 copper plate + 1 gear each, 5 s). Place the lab in pole coverage, insert the packs, press **Y** and research `automation` (10 red packs; unlocks assembling machine 1 and the long-handed inserter). Assemblers stay locked until this research is done. **Look:** the lab dome glows and pulses while researching.
+6. [ ] Craft assembling machines 1 (3 circuits, 5 gears, 9 iron plates) and place them powered.
+   1. Automate gears and red science with inserters and belts. **Look:** the assembler gears turn only while crafting.
+   2. Research `logistic_science_pack` (75 red packs). It unlocks the green pack recipe (1 inserter + 1 transport belt, 6 s). Automate green science.
+   3. Research `logistics` (20 red packs). It is a prerequisite of `logistics_2`, together with `logistic_science_pack`.
+   4. Research `logistics_2` (200 red + 200 green packs). It unlocks fast belts, fast undergrounds and fast splitters. Craft red (fast) belts: 5 gears + 1 transport belt.
+   5. Optional: research `automation_2` (40 red + 40 green) and check that assembling machine 2 has blue accents.
 7. [ ] Save and quit, then reload: everything is still there, belts keep moving and animations resume.
 8. [ ] Dedicated server: run `./gradlew runServer` (accept the EULA in `run/eula.txt` on the first start), join with the client, and check that belts, GUIs, research and animations all work.
 
