@@ -3,6 +3,8 @@ package dev.minetorio.content.deposit;
 import dev.minetorio.core.deposit.Deposit;
 import dev.minetorio.core.deposit.DepositGenerator;
 import dev.minetorio.core.deposit.DepositLedger;
+import dev.minetorio.core.deposit.OreType;
+import dev.minetorio.core.deposit.PlacedDeposits;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -17,8 +19,9 @@ import net.neoforged.neoforge.gametest.GameTestHooks;
 
 /**
  * The ore deposits of a world: a {@link DepositGenerator} (world seed, spawn point pinned in
- * {@link DepositSavedData}) plus the saved {@link DepositLedger}. Deposits exist only in the
- * Overworld; for every other dimension {@link #get} returns an instance without any.
+ * {@link DepositSavedData}) plus the saved {@link DepositLedger}, and the saved {@link PlacedDeposits}
+ * ({@link #placeDemoDeposit}), which cover the generated ones inside their circles. Deposits exist
+ * only in the Overworld; for every other dimension {@link #get} returns an instance without any.
  *
  * <p>{@link DepositGenerator#depositAt} builds RNGs for 9 regions per call: callers that need a
  * deposit every tick (drills) look it up once and cache it.
@@ -61,6 +64,10 @@ public final class Deposits {
         for (TestOverride o : testOverrides) {
             if (o.covers(x, z)) return o.deposit != null && o.deposit.contains(x, z) ? Optional.of(o.deposit) : Optional.empty();
         }
+        if (data != null) {
+            Optional<Deposit> placed = data.placed().at(x, z);
+            if (placed.isPresent()) return placed;
+        }
         return generator == null ? Optional.empty() : generator.depositAt(x, z);
     }
 
@@ -82,7 +89,12 @@ public final class Deposits {
 
     /** The not yet depleted deposit with the closest center within {@code maxDistance} of (x, z), if any. */
     public Optional<Deposit> nearest(int x, int z, int maxDistance) {
-        return generator == null ? Optional.empty() : generator.nearest(x, z, maxDistance, d -> remaining(d) > 0);
+        if (generator == null || data == null) return Optional.empty();
+        Optional<Deposit> generated = generator.nearest(x, z, maxDistance, d -> remaining(d) > 0);
+        Optional<Deposit> placed = data.placed().nearest(x, z, maxDistance, d -> remaining(d) > 0);
+        if (placed.isEmpty()) return generated;
+        if (generated.isEmpty()) return placed;
+        return PlacedDeposits.distSq(placed.get(), x, z) <= PlacedDeposits.distSq(generated.get(), x, z) ? placed : generated;
     }
 
     public long remaining(Deposit d) {
@@ -107,6 +119,37 @@ public final class Deposits {
             if (d.equals(o.deposit)) return o;
         }
         return null;
+    }
+
+    // --- placed deposits (demo) ------------------------------------------------------------------
+
+    /**
+     * Places a saved deposit of {@code type} centered at (x, z) with {@code amount} ore, covering
+     * the generated deposits inside its circle; placed deposits it intersects are removed (with
+     * their mined amounts). For {@code /minetorio demo} (operators only): the showcase needs ore at
+     * a fixed spot whatever the world seed. Overworld only.
+     */
+    public static Deposit placeDemoDeposit(ServerLevel level, OreType type, int x, int z, int radius, long amount) {
+        DepositSavedData data = dataOf(level);
+        PlacedDeposits.Placement p = data.placed().place(type, x, z, radius, amount);
+        for (Deposit old : p.removed()) data.ledger().forget(old.id());
+        data.setDirty();
+        return p.added();
+    }
+
+    /** Removes a deposit placed by {@link #placeDemoDeposit} (and its mined amount); returns whether it existed. */
+    public static boolean removePlacedDeposit(ServerLevel level, Deposit d) {
+        DepositSavedData data = dataOf(level);
+        if (!data.placed().remove(d)) return false;
+        data.ledger().forget(d.id());
+        data.setDirty();
+        return true;
+    }
+
+    private static DepositSavedData dataOf(ServerLevel level) {
+        Deposits deposits = get(level);
+        if (deposits.data == null) throw new IllegalArgumentException("deposits exist only in the Overworld");
+        return deposits.data;
     }
 
     // --- GameTest hook -----------------------------------------------------------------------------

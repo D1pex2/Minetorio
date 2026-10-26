@@ -19,6 +19,11 @@ public final class DepositLedger {
         return taken;
     }
 
+    /** Drops what was mined from deposit {@code id} (the deposit no longer exists). */
+    public void forget(long id) {
+        mined.remove(id);
+    }
+
     public Map<Long, Long> minedById() {
         return new HashMap<>(mined);
     }

@@ -1,6 +1,8 @@
 package dev.minetorio;
 
 import dev.minetorio.content.belt.BeltTicker;
+import dev.minetorio.content.demo.DemoCommand;
+import dev.minetorio.content.demo.DemoSavedData;
 import dev.minetorio.content.deposit.Deposits;
 import dev.minetorio.content.power.PowerGridManager;
 import dev.minetorio.content.handcraft.HandcraftTicker;
@@ -34,5 +36,7 @@ public class Minetorio {
         Deposits.register();
         ResearchSavedData.register();
         HandcraftTicker.register();
+        DemoSavedData.register();
+        DemoCommand.register();
     }
 }

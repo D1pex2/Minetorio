@@ -4,8 +4,8 @@
 overnight. It could not do a manual playthrough because nobody could watch the client window. What
 it did check automatically:
 
-- `./gradlew test` passes (155 unit tests, including `LangCompletenessTest`).
-- `./gradlew runGameTestServer` reports "All 97 required tests passed".
+- `./gradlew test` passes (163 unit tests, including `LangCompletenessTest`).
+- `./gradlew runGameTestServer` reports "All 98 required tests passed".
 - `./gradlew runClient` loads to the title screen with no model, blockstate or texture warnings in the log.
 - Every model was rendered offline into `art/models-preview.png`, and the textures into `art/blocks-preview.png`.
 
@@ -21,6 +21,8 @@ export JAVA_HOME="/c/Users/kirill/.jdks/jdk-21.0.12.1+1"; export PATH="$JAVA_HOM
 
 Create a new world: **Survival**, cheats **on** (for `/time set day` and `/gamemode` while inspecting).
 Keys: **R** hand crafting, **Y** research.
+
+To see every mechanic running at once, use the demo showcase first: `/minetorio demo` or the saved world `demo/Minetorio-Demo.zip` (see `docs/demo-world.md`).
 
 - [ ] The log (`run/logs/latest.log`) has no `Missing textures in model` or `Unable to load model` lines, and no `minetorio` errors.
 - [ ] Creative inventory, Minetorio tab: every one of the 35 items has an icon and a name, with no purple-black squares and no raw keys like `item.minetorio.x`. Machines show as small 3D models. Ores, plates, gear, cable, circuit, science packs and scanner show as flat icons. Check again with the language set to Russian.

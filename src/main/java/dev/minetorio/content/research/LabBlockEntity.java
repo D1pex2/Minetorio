@@ -81,6 +81,9 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
 
     public MultiblockShape shape() { return ((MultiblockControllerBlock) getBlockState().getBlock()).shape(); }
 
+    /** Last supplied power satisfaction (server). */
+    public double satisfaction() { return power.satisfaction(); }
+
     /** Researched with power recently (synced to the client). */
     public boolean isWorking() { return working; }
 
