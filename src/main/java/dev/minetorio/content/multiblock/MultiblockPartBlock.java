@@ -1,6 +1,7 @@
 package dev.minetorio.content.multiblock;
 
 import com.mojang.serialization.MapCodec;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
@@ -15,13 +16,15 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
 /**
  * Invisible full-cube filler of a multiblock machine. Shared by all machines; has no item form.
- * Interaction, mining speed and picking delegate to the controller; removing a part dismantles
- * the whole machine (see {@link MultiblockControllerBlock#dismantle}).
+ * Interaction, mining speed, picking and drops delegate to the controller; removing a part
+ * dismantles the whole machine (see {@link MultiblockControllerBlock#dismantle}).
  */
 public class MultiblockPartBlock extends BaseEntityBlock {
     public static final MapCodec<MultiblockPartBlock> CODEC = simpleCodec(MultiblockPartBlock::new);
@@ -89,23 +92,26 @@ public class MultiblockPartBlock extends BaseEntityBlock {
         return cs == null ? ItemStack.EMPTY : cs.getCloneItemStack(target, level, c, player);
     }
 
+    /**
+     * A part drops what its controller block would drop (the machine item), with this break's loot
+     * context (tool, breaker, explosion). The controller itself is then removed without drops.
+     */
     @Override
-    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-        BlockState result = super.playerWillDestroy(level, pos, state, player);
-        // Creative breaking must not drop the machine item; survival drops it from onRemove.
-        if (!level.isClientSide() && player.isCreative()) dismantleController(level, pos, false);
-        return result;
+    protected List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
+        if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof MultiblockPartBlockEntity be
+                && be.controllerBlock() != null) {
+            return be.controllerBlock().defaultBlockState().getDrops(params);
+        }
+        return List.of();
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) dismantleController(level, pos, true);
+        if (!state.is(newState.getBlock())) {
+            BlockPos c = controllerPos(level, pos);
+            BlockState cs = controllerState(level, c);
+            if (cs != null) ((MultiblockControllerBlock) cs.getBlock()).dismantle(level, c, cs);
+        }
         super.onRemove(state, level, pos, newState, movedByPiston);
-    }
-
-    private static void dismantleController(Level level, BlockPos partPos, boolean dropMachine) {
-        BlockPos c = controllerPos(level, partPos);
-        BlockState cs = controllerState(level, c);
-        if (cs != null) ((MultiblockControllerBlock) cs.getBlock()).dismantle(level, c, cs, dropMachine);
     }
 }

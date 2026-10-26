@@ -22,10 +22,11 @@ import net.minecraft.world.phys.shapes.Shapes;
  * is a {@link MultiblockPartBlock}. The controller's facing is the player's horizontal look
  * direction at placement, so the machine extends forward and to the right of the clicked spot.
  *
- * <p>Drops: the machine item comes only from the controller's loot table (parts drop nothing).
- * Breaking the controller drops it through the normal block-drop path; breaking a part drops it
- * via {@link #dismantle}. Either way the controller block entity's
- * {@link MultiblockControllerBlockEntity#dropContents contents} are dropped and all blocks removed.
+ * <p>Drops: the machine item comes from the controller's loot table through the normal block-drop
+ * path of whichever piece is broken (a part's drops are its controller block's drops, see
+ * {@link MultiblockPartBlock}); the rest of the machine is removed without drops by
+ * {@link #dismantle}, which also drops the controller block entity's
+ * {@link MultiblockControllerBlockEntity#dropContents contents} once.
  */
 public abstract class MultiblockControllerBlock extends BaseEntityBlock {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -86,30 +87,29 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         for (BlockPos p : footprint(origin, state)) {
             if (p.equals(origin) || !level.getBlockState(p).canBeReplaced()) continue;
             level.setBlock(p, part, Block.UPDATE_ALL);
-            if (level.getBlockEntity(p) instanceof MultiblockPartBlockEntity be) be.setControllerOffset(origin.subtract(p));
+            if (level.getBlockEntity(p) instanceof MultiblockPartBlockEntity be) be.link(origin.subtract(p), this);
         }
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        // The controller's own loot (the machine item) drops through the normal block-drop path, if any.
-        if (!state.is(newState.getBlock())) dismantle(level, pos, state, false);
+        if (!state.is(newState.getBlock())) dismantle(level, pos, state);
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     /**
-     * Tears the whole machine down (server side): optionally drops the machine item from the
-     * controller's loot table, drops the controller's contents, then removes all parts and the
-     * controller. Re-entrant calls from the removals it triggers are ignored.
+     * Tears the whole machine down (server side) after one of its pieces was removed: drops the
+     * controller's contents, then removes the remaining parts and the controller without drops.
+     * Re-entrant calls from the removals it triggers are ignored.
      */
-    public void dismantle(Level level, BlockPos controllerPos, BlockState controllerState, boolean dropMachine) {
+    public void dismantle(Level level, BlockPos controllerPos, BlockState controllerState) {
         if (level.isClientSide()) return;
         if (!(level.getBlockEntity(controllerPos) instanceof MultiblockControllerBlockEntity be) || be.dismantling) return;
         be.dismantling = true;
-        if (dropMachine) Block.dropResources(controllerState, level, controllerPos, be);
         be.dropContents(level, controllerPos);
         for (BlockPos p : footprint(controllerPos, controllerState)) {
-            if (!p.equals(controllerPos) && controllerPos.equals(MultiblockPartBlock.controllerPos(level, p))) {
+            if (!p.equals(controllerPos) && level.getBlockState(p).getBlock() instanceof MultiblockPartBlock
+                    && controllerPos.equals(MultiblockPartBlock.controllerPos(level, p))) {
                 level.removeBlock(p, false);
             }
         }
