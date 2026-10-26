@@ -27,6 +27,8 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> STONE_FURNACE = ITEMS.registerSimpleBlockItem(ModBlocks.STONE_FURNACE);
     public static final DeferredItem<BlockItem> BURNER_MINING_DRILL = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_MINING_DRILL);
     public static final DeferredItem<BlockItem> ELECTRIC_MINING_DRILL = ITEMS.registerSimpleBlockItem(ModBlocks.ELECTRIC_MINING_DRILL);
+    public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_1 = ITEMS.registerSimpleBlockItem(ModBlocks.ASSEMBLING_MACHINE_1);
+    public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_2 = ITEMS.registerSimpleBlockItem(ModBlocks.ASSEMBLING_MACHINE_2);
 
     // Tools
     public static final DeferredItem<ScannerItem> SCANNER = ITEMS.registerItem("scanner", ScannerItem::new, new Item.Properties().stacksTo(1));

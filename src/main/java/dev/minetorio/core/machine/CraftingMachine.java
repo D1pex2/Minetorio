@@ -70,15 +70,38 @@ public final class CraftingMachine {
             Optional<Recipe> r = smeltingBook.smeltingFor(item);
             if (r.isPresent() && r.get() != recipe) setRecipe(r.get());
         }
-        if (recipe == null) return 0;
-        int need = 0;
-        for (Ingredient in : recipe.inputs()) if (in.item().equals(item)) need = in.count();
-        if (need == 0) return 0;
-        int have = inputs.getOrDefault(item, 0);
-        int limit = automated ? 2 * need : STACK_LIMIT;
-        int accepted = Math.max(0, Math.min(count, limit - have));
+        int accepted = Math.min(count, room(recipe, item, automated));
         if (accepted > 0) inputs.merge(item, accepted, Integer::sum);
         return accepted;
+    }
+
+    /**
+     * How many of {@code item} {@link #insertInput} would accept right now (for a smelter: including
+     * the recipe switch an idle, empty smelter makes for a new input). Changes nothing.
+     */
+    public int inputRoom(String item, boolean automated) {
+        Recipe r = recipe;
+        if (smeltingBook != null && isIdle()) r = smeltingBook.smeltingFor(item).orElse(recipe);
+        return room(r, item, automated);
+    }
+
+    private int room(Recipe r, String item, boolean automated) {
+        if (r == null) return 0;
+        int need = 0;
+        for (Ingredient in : r.inputs()) if (in.item().equals(item)) need = in.count();
+        if (need == 0) return 0;
+        int have = r == recipe ? inputs.getOrDefault(item, 0) : 0;
+        int limit = automated ? 2 * need : STACK_LIMIT;
+        return Math.max(0, limit - have);
+    }
+
+    /** Takes back up to {@code max} stored (not yet consumed) inputs, e.g. by a player; returns the amount taken. */
+    public int extractInput(String item, int max) {
+        int have = inputs.getOrDefault(item, 0);
+        int taken = Math.max(0, Math.min(have, max));
+        if (taken == have) inputs.remove(item);
+        else if (taken > 0) inputs.put(item, have - taken);
+        return taken;
     }
 
     private boolean isIdle() { return !crafting && inputs.isEmpty() && outputs.isEmpty(); }
@@ -96,6 +119,35 @@ public final class CraftingMachine {
     public Map<String, Integer> outputs() { return Map.copyOf(outputs); }
 
     public double progress() { return progress; }
+
+    /** The current recipe, or null. */
+    public Recipe recipe() { return recipe; }
+
+    /** Whether a craft is running (its inputs already consumed). */
+    public boolean isCrafting() { return crafting; }
+
+    /** Items set aside by {@link #setRecipe} and not yet {@link #drainInputs drained}. */
+    public Map<String, Integer> pendingReturn() { return Map.copyOf(pendingReturn); }
+
+    /**
+     * Restores saved state ({@link #recipe()}, {@link #inputs()}, {@link #outputs()},
+     * {@link #pendingReturn()}, {@link #isCrafting()}, {@link #progress()}). Without a recipe the
+     * machine is idle with no progress; counts &lt;= 0 are skipped.
+     */
+    public void load(Recipe recipe, Map<String, Integer> inputs, Map<String, Integer> outputs,
+                     Map<String, Integer> pendingReturn, boolean crafting, double progress) {
+        this.recipe = recipe;
+        copyPositive(inputs, this.inputs);
+        copyPositive(outputs, this.outputs);
+        copyPositive(pendingReturn, this.pendingReturn);
+        this.crafting = recipe != null && crafting;
+        this.progress = recipe == null ? 0 : Math.max(0, progress);
+    }
+
+    private static void copyPositive(Map<String, Integer> from, Map<String, Integer> to) {
+        to.clear();
+        from.forEach((k, v) -> { if (v != null && v > 0) to.put(k, v); });
+    }
 
     private boolean hasInputs() {
         for (Ingredient in : recipe.inputs())

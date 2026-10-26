@@ -63,5 +63,13 @@
   "minetorio.offshore_pump.status": "Качает воду (%s на выходе)",
   "minetorio.offshore_pump.no_water": "За насосом нет источника воды",
   "minetorio.boiler.status": "Вода %s, пар %s, топливо %s",
-  "minetorio.steam_engine.status": "Пар %s, выдаёт %s кВт"
+  "minetorio.steam_engine.status": "Пар %s, выдаёт %s кВт",
+  "block.minetorio.assembling_machine_1": "Сборочный автомат 1",
+  "block.minetorio.assembling_machine_2": "Сборочный автомат 2",
+  "minetorio.assembler.select_recipe": "Выберите рецепт выше",
+  "minetorio.assembler.ingredients": "Ингредиенты:",
+  "minetorio.assembler.amount": "%s × %s",
+  "minetorio.assembler.time": "Время: %s с",
+  "minetorio.assembler.power": "Питание: %s%%",
+  "minetorio.assembler.no_power": "Нет питания"
 }

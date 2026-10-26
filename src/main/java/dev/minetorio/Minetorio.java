@@ -8,6 +8,8 @@ import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.content.registry.ModCapabilities;
 import dev.minetorio.content.registry.ModCreativeTab;
 import dev.minetorio.content.registry.ModItems;
+import dev.minetorio.content.registry.ModMenus;
+import dev.minetorio.content.registry.ModPayloads;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -21,6 +23,8 @@ public class Minetorio {
         ModBlockEntities.register(modBus);
         ModCreativeTab.register(modBus);
         ModCapabilities.register(modBus);
+        ModMenus.register(modBus);
+        ModPayloads.register(modBus);
         BeltTicker.register();
         PowerGridManager.register();
         Deposits.register();

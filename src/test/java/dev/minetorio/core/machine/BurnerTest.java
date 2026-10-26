@@ -60,4 +60,18 @@ class BurnerTest {
         assertTrue(b.fuel().isEmpty());
         assertEquals(0L, b.remainingJ());
     }
+
+    @Test void fuelRoomAndExtract() {
+        Burner b = burner();
+        assertEquals(5, b.fuelRoom("minecraft:coal", true));
+        assertEquals(64, b.fuelRoom("minecraft:coal", false));
+        assertEquals(0, b.fuelRoom("minecraft:stone", false));
+        b.insertFuel("minecraft:coal", 4, false);
+        assertEquals(1, b.fuelRoom("minecraft:coal", true));
+        assertEquals(60, b.fuelRoom("minecraft:coal", false));
+        assertEquals(3, b.extractFuel("minecraft:coal", 3));
+        assertEquals(1, b.extractFuel("minecraft:coal", 5));
+        assertTrue(b.fuel().isEmpty());
+        assertEquals(0, b.extractFuel("minecraft:coal", 1));
+    }
 }

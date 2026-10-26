@@ -20,12 +20,26 @@ public final class Burner {
 
     /** Inserts fuel; returns the amount accepted. Automated insertion keeps the slot under 5 items. */
     public int insertFuel(String item, int count, boolean automated) {
-        if (count <= 0 || !fuelValues.containsKey(item)) return 0;
-        int have = fuel.getOrDefault(item, 0);
-        int limit = automated ? AUTOMATED_FUEL_LIMIT : STACK_LIMIT;
-        int accepted = Math.max(0, Math.min(count, limit - have));
+        if (count <= 0) return 0;
+        int accepted = Math.min(count, fuelRoom(item, automated));
         if (accepted > 0) fuel.merge(item, accepted, Integer::sum);
         return accepted;
+    }
+
+    /** How many of {@code item} {@link #insertFuel} would accept right now (0 if it is not a fuel). */
+    public int fuelRoom(String item, boolean automated) {
+        if (!fuelValues.containsKey(item)) return 0;
+        int limit = automated ? AUTOMATED_FUEL_LIMIT : STACK_LIMIT;
+        return Math.max(0, limit - fuel.getOrDefault(item, 0));
+    }
+
+    /** Takes up to {@code max} unburnt fuel items back; returns the amount taken. */
+    public int extractFuel(String item, int max) {
+        int have = fuel.getOrDefault(item, 0);
+        int taken = Math.max(0, Math.min(have, max));
+        if (taken == have) fuel.remove(item);
+        else if (taken > 0) fuel.put(item, have - taken);
+        return taken;
     }
 
     /** Fraction (0..1) of this tick's energy demand that was obtained, burning fuel as needed. */

@@ -5,6 +5,8 @@ import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.SplitterBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.inserter.InserterBlock;
+import dev.minetorio.content.machine.AssemblerBlock;
+import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlock;
 import dev.minetorio.content.machine.ElectricDrillBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
@@ -35,7 +37,14 @@ public final class ModBlocks {
             MultiblockPartBlock::new, machine(MapColor.NONE).noLootTable().dynamicShape());
 
     public static final DeferredBlock<StoneFurnaceBlock> STONE_FURNACE = BLOCKS.registerBlock("stone_furnace",
-            StoneFurnaceBlock::new, machine(MapColor.STONE));
+            StoneFurnaceBlock::new, machine(MapColor.STONE)
+                    .lightLevel(s -> s.getValue(StoneFurnaceBlock.LIT) ? StoneFurnaceBlock.LIGHT : 0));
+
+    // Assembling machines
+    public static final DeferredBlock<AssemblerBlock> ASSEMBLING_MACHINE_1 = BLOCKS.registerBlock("assembling_machine_1",
+            p -> new AssemblerBlock(AssemblerBlockEntity.SPEED_1, AssemblerBlockEntity.POWER_1, p), machine(MapColor.METAL));
+    public static final DeferredBlock<AssemblerBlock> ASSEMBLING_MACHINE_2 = BLOCKS.registerBlock("assembling_machine_2",
+            p -> new AssemblerBlock(AssemblerBlockEntity.SPEED_2, AssemblerBlockEntity.POWER_2, p), machine(MapColor.METAL));
 
     // Mining drills
     public static final DeferredBlock<BurnerDrillBlock> BURNER_MINING_DRILL = BLOCKS.registerBlock("burner_mining_drill",

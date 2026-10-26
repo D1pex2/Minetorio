@@ -3,6 +3,10 @@ package dev.minetorio.content.nbt;
 import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.LaneItem;
 import dev.minetorio.core.fluid.FluidBox;
+import dev.minetorio.core.machine.Burner;
+import dev.minetorio.core.machine.CraftingMachine;
+import dev.minetorio.core.recipe.Recipe;
+import dev.minetorio.core.recipe.RecipeBook;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -129,5 +133,34 @@ public final class CoreNbt {
     public static void loadFluidInto(FluidBox box, CompoundTag tag) {
         box.extract(box.amount());
         if (tag.contains("fluid", Tag.TAG_STRING)) box.insert(tag.getString("fluid"), tag.getDouble("amount"));
+    }
+
+    public static CompoundTag writeMachine(CraftingMachine machine) {
+        CompoundTag tag = new CompoundTag();
+        if (machine.recipe() != null) tag.putString("recipe", machine.recipe().id());
+        tag.put("inputs", writeCounts(machine.inputs()));
+        tag.put("outputs", writeCounts(machine.outputs()));
+        tag.put("pending", writeCounts(machine.pendingReturn()));
+        tag.putBoolean("crafting", machine.isCrafting());
+        tag.putDouble("progress", machine.progress());
+        return tag;
+    }
+
+    /** Restores {@link #writeMachine} data; a recipe id unknown to {@code book} loads as no recipe (inputs kept for draining). */
+    public static void loadMachineInto(CraftingMachine machine, CompoundTag tag, RecipeBook book) {
+        Recipe recipe = tag.contains("recipe", Tag.TAG_STRING) ? book.get(tag.getString("recipe")).orElse(null) : null;
+        machine.load(recipe, readCounts(tag.getCompound("inputs")), readCounts(tag.getCompound("outputs")),
+                readCounts(tag.getCompound("pending")), tag.getBoolean("crafting"), tag.getDouble("progress"));
+    }
+
+    public static CompoundTag writeBurner(Burner burner) {
+        CompoundTag tag = new CompoundTag();
+        tag.put("fuel", writeCounts(burner.fuel()));
+        tag.putLong("remaining", burner.remainingJ());
+        return tag;
+    }
+
+    public static void loadBurnerInto(Burner burner, CompoundTag tag) {
+        burner.load(readCounts(tag.getCompound("fuel")), tag.getLong("remaining"));
     }
 }

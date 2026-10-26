@@ -35,6 +35,17 @@ final class TestPower {
      * (the same block entity instance, if it has one).
      */
     static void unlimitedProducer(GameTestHelper h, BlockPos rel) {
+        producer(h, rel, UNLIMITED_J);
+    }
+
+    /** Places a small electric pole at {@code rel} with a producer of at most {@code maxJ} joules per tick on its cell. */
+    static void limitedPowerAt(GameTestHelper h, BlockPos rel, long maxJ) {
+        h.setBlock(rel, ModBlocks.SMALL_ELECTRIC_POLE.get());
+        producer(h, rel, maxJ);
+    }
+
+    /** A producer of at most {@code maxJ} joules per tick occupying the cell at {@code rel}, alive while the block there stays. */
+    private static void producer(GameTestHelper h, BlockPos rel, long maxJ) {
         BlockPos abs = h.absolutePos(rel);
         ServerLevel level = h.getLevel();
         Block block = level.getBlockState(abs).getBlock();
@@ -44,7 +55,7 @@ final class TestPower {
             @Override
             public long maxOutput() {
                 boolean alive = be != null ? !be.isRemoved() && level.getBlockEntity(abs) == be : level.getBlockState(abs).is(block);
-                if (alive) return UNLIMITED_J;
+                if (alive) return maxJ;
                 grid.unregister(abs, this);
                 return 0;
             }

@@ -5,15 +5,20 @@ import dev.minetorio.client.belt.BeltRenderer;
 import dev.minetorio.client.belt.SplitterRenderer;
 import dev.minetorio.client.belt.UndergroundBeltRenderer;
 import dev.minetorio.client.inserter.InserterRenderer;
+import dev.minetorio.client.machine.AssemblerRenderer;
+import dev.minetorio.client.machine.AssemblerScreen;
 import dev.minetorio.client.machine.DrillRenderer;
+import dev.minetorio.client.machine.StoneFurnaceScreen;
 import dev.minetorio.client.power.SteamMachineRenderer;
 import dev.minetorio.client.power.WireRenderer;
 import dev.minetorio.content.registry.ModBlockEntities;
+import dev.minetorio.content.registry.ModMenus;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 /** Client-only registrations (mod bus). */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
@@ -33,6 +38,13 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void registerScreens(RegisterMenuScreensEvent event) {
+        event.register(ModMenus.STONE_FURNACE.get(), StoneFurnaceScreen::new);
+        event.register(ModMenus.ASSEMBLING_MACHINE.get(), AssemblerScreen::new);
     }
 
     /** Models drawn by block entity renderers rather than through a blockstate. */
@@ -45,5 +57,8 @@ public final class MinetorioClient {
         event.register(SteamMachineRenderer.BOILER_FIRE);
         event.register(SteamMachineRenderer.ENGINE_BODY);
         event.register(SteamMachineRenderer.ENGINE_FLYWHEEL);
+        event.register(AssemblerRenderer.BODY_1);
+        event.register(AssemblerRenderer.BODY_2);
+        event.register(AssemblerRenderer.GEAR);
     }
 }

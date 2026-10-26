@@ -63,5 +63,13 @@
   "minetorio.offshore_pump.status": "Pumping water (%s in the outlet)",
   "minetorio.offshore_pump.no_water": "No water source behind the pump",
   "minetorio.boiler.status": "Water %s, steam %s, fuel %s",
-  "minetorio.steam_engine.status": "Steam %s, output %s kW"
+  "minetorio.steam_engine.status": "Steam %s, output %s kW",
+  "block.minetorio.assembling_machine_1": "Assembling Machine 1",
+  "block.minetorio.assembling_machine_2": "Assembling Machine 2",
+  "minetorio.assembler.select_recipe": "Choose a recipe above",
+  "minetorio.assembler.ingredients": "Ingredients:",
+  "minetorio.assembler.amount": "%s × %s",
+  "minetorio.assembler.time": "Time: %s s",
+  "minetorio.assembler.power": "Power: %s%%",
+  "minetorio.assembler.no_power": "No power"
 }

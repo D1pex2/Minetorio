@@ -7,6 +7,8 @@ import dev.minetorio.core.fluid.FluidBox;
 import dev.minetorio.core.handcraft.HandcraftQueue;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.item.Inventory;
+import dev.minetorio.core.machine.Burner;
+import dev.minetorio.core.machine.CraftingMachine;
 import dev.minetorio.core.recipe.RecipeBook;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -142,5 +144,45 @@ class CoreNbtTest {
             m.merge(item, n, Integer::sum);
             return n;
         }
+    }
+
+    @Test
+    void craftingMachineRoundTrip() {
+        RecipeBook book = Phase1Data.recipes();
+        CraftingMachine m = new CraftingMachine(0.5, 3750);
+        m.setRecipe(book.get("iron_gear_wheel").orElseThrow());
+        m.insertInput("minetorio:iron_plate", 5, false);
+        for (int i = 0; i < 25; i++) m.tick(1.0);
+
+        CraftingMachine back = new CraftingMachine(0.5, 3750);
+        CoreNbt.loadMachineInto(back, CoreNbt.writeMachine(m), book);
+
+        assertEquals(m.recipe(), back.recipe());
+        assertEquals(m.inputs(), back.inputs());
+        assertEquals(m.outputs(), back.outputs());
+        assertEquals(m.isCrafting(), back.isCrafting());
+        assertEquals(m.progress(), back.progress());
+    }
+
+    @Test
+    void craftingMachineUnknownRecipeLoadsIdle() {
+        CraftingMachine m = new CraftingMachine(0.5, 3750);
+        m.setRecipe(Phase1Data.recipes().get("iron_gear_wheel").orElseThrow());
+        m.insertInput("minetorio:iron_plate", 3, false);
+        CraftingMachine back = new CraftingMachine(0.5, 3750);
+        CoreNbt.loadMachineInto(back, CoreNbt.writeMachine(m), new RecipeBook(List.of()));
+        assertNull(back.recipe());
+        assertEquals(Map.of("minetorio:iron_plate", 3), back.drainInputs()); // nothing lost
+    }
+
+    @Test
+    void burnerRoundTrip() {
+        Burner b = new Burner(4500, Phase1Data.fuelValues());
+        b.insertFuel("minecraft:coal", 3, false);
+        b.draw();
+        Burner back = new Burner(4500, Phase1Data.fuelValues());
+        CoreNbt.loadBurnerInto(back, CoreNbt.writeBurner(b));
+        assertEquals(b.fuel(), back.fuel());
+        assertEquals(b.remainingJ(), back.remainingJ());
     }
 }

@@ -9,7 +9,6 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.items.wrapper.EmptyItemHandler;
 
 public final class ModCapabilities {
     private ModCapabilities() {}
@@ -39,9 +38,9 @@ public final class ModCapabilities {
         registerPorts(event, ModBlockEntities.BOILER.get());
         registerPorts(event, ModBlockEntities.STEAM_ENGINE.get());
 
-        // Placeholder until the stone furnace gets its real inventory.
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.STONE_FURNACE.get(),
-                (be, side) -> EmptyItemHandler.INSTANCE);
+        // Crafting machines: automated inserts into inputs/fuel, extraction from outputs only.
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.STONE_FURNACE.get(), (be, side) -> be.itemHandler());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.ASSEMBLING_MACHINE.get(), (be, side) -> be.itemHandler());
     }
 
     private static <B extends BlockEntity> void registerPorts(RegisterCapabilitiesEvent event, BlockEntityType<B> type) {

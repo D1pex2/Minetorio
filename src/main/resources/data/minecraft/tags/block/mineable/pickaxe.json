@@ -19,6 +19,8 @@
     "minetorio:offshore_pump",
     "minetorio:pipe",
     "minetorio:boiler",
-    "minetorio:steam_engine"
+    "minetorio:steam_engine",
+    "minetorio:assembling_machine_1",
+    "minetorio:assembling_machine_2"
   ]
 }

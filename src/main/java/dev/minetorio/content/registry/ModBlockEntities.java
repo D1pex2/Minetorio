@@ -5,6 +5,7 @@ import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.SplitterBlockEntity;
 import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
 import dev.minetorio.content.inserter.InserterBlockEntity;
+import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.ElectricDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
@@ -31,6 +32,10 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<StoneFurnaceBlockEntity>> STONE_FURNACE =
             BLOCK_ENTITIES.register("stone_furnace", () -> BlockEntityType.Builder
                     .of(StoneFurnaceBlockEntity::new, ModBlocks.STONE_FURNACE.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AssemblerBlockEntity>> ASSEMBLING_MACHINE =
+            BLOCK_ENTITIES.register("assembling_machine", () -> BlockEntityType.Builder
+                    .of(AssemblerBlockEntity::new, ModBlocks.ASSEMBLING_MACHINE_1.get(), ModBlocks.ASSEMBLING_MACHINE_2.get()).build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BeltBlockEntity>> TRANSPORT_BELT =
             BLOCK_ENTITIES.register("transport_belt", () -> BlockEntityType.Builder
