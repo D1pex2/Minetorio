@@ -390,4 +390,34 @@ public class BeltGameTest {
                 "unencodable stack got key " + LaneStacks.toLane(odd, h.getLevel().registryAccess()));
         h.succeed();
     }
+
+    /**
+     * A piece saved as paired whose partner is gone (removed while this piece's chunk was unloaded,
+     * so nothing unlinked it) unpairs once the partner's position is loaded, and can pair again.
+     */
+    @GameTest(template = "empty16")
+    public static void undergroundWithVanishedPartnerUnpairs(GameTestHelper h) {
+        BlockPos in = new BlockPos(2, 1, 3);
+        BlockPos out = new BlockPos(5, 1, 3);
+        place(h, ModItems.UNDERGROUND_BELT.get(), in, Direction.EAST);
+        place(h, ModItems.UNDERGROUND_BELT.get(), out, Direction.EAST);
+        var registries = h.getLevel().registryAccess();
+        UndergroundBeltBlockEntity entrance = (UndergroundBeltBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(in));
+        h.assertTrue(entrance.distance() == 3, "setup: distance " + entrance.distance());
+        CompoundTag saved = entrance.saveWithoutMetadata(registries);
+        h.setBlock(out, Blocks.AIR);
+        h.setBlock(in, Blocks.AIR);
+        place(h, ModItems.UNDERGROUND_BELT.get(), in, Direction.EAST);
+        UndergroundBeltBlockEntity reloaded = (UndergroundBeltBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(in));
+        reloaded.loadWithComponents(saved, registries); // as if its chunk was loaded from disk, still paired at 3
+        h.assertTrue(reloaded.distance() == 3, "setup: reloaded distance " + reloaded.distance());
+        h.runAtTickTime(3, () -> {
+            h.assertTrue(reloaded.distance() == 0, "still paired to nothing: " + reloaded.distance());
+            place(h, ModItems.UNDERGROUND_BELT.get(), new BlockPos(4, 1, 3), Direction.EAST);
+            h.assertTrue(h.getBlockState(new BlockPos(4, 1, 3)).getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.OUTPUT,
+                    "new piece is not an exit");
+            h.assertTrue(reloaded.distance() == 2, "not re-paired: " + reloaded.distance());
+            h.succeed();
+        });
+    }
 }

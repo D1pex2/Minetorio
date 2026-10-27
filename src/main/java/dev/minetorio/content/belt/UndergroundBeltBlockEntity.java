@@ -22,7 +22,10 @@ import net.minecraft.world.level.block.state.BlockState;
  * Lanes of one underground belt piece. An entrance's lanes run from its back edge to the start of
  * its exit: length {@code distance} when paired (0.5 when not, the item stops under the hood).
  * An exit's lanes have length 1 and start at its back edge; only their front half is visible.
- * Entrance and exit store each other as {@code distance} along the facing.
+ * Entrance and exit store each other as {@code distance} along the facing. A piece loaded from
+ * disk checks its partner on its first ticks: if the partner's position is loaded and holds no
+ * piece pairing back (it was removed while this piece was unloaded), it unpairs and looks for a
+ * new partner.
  */
 public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode {
     private static final String KEY_LEFT = "left";
@@ -40,6 +43,8 @@ public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode 
     private int distance;
     /** True until NBT is loaded: a freshly placed piece looks for a partner when it loads. */
     private boolean fresh = true;
+    /** Set when loaded from NBT: the recorded partner still has to be checked (server, see class doc). */
+    private boolean checkPartner;
     private final LaneTracker tracker = new LaneTracker();
 
     public UndergroundBeltBlockEntity(BlockPos pos, BlockState state) {
@@ -145,12 +150,34 @@ public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode 
         LaneStacks.drop(level, worldPosition, right);
         left = new BeltLane(left.length());
         right = new BeltLane(right.length());
-        BlockPos p = partnerPos();
-        if (p != null && level.getBlockEntity(p) instanceof UndergroundBeltBlockEntity other
-                && worldPosition.equals(other.partnerPos())) {
-            other.setDistance(0);
-        }
+        UndergroundBeltBlockEntity other = partner();
+        if (other != null) other.setDistance(0);
         distance = 0;
+    }
+
+    /** The partner piece if it is loaded and paired back with this one, else null. */
+    @Nullable
+    private UndergroundBeltBlockEntity partner() {
+        BlockPos p = partnerPos();
+        return p != null && level != null && level.getBlockEntity(p) instanceof UndergroundBeltBlockEntity other
+                && other.type() != type() && other.facing() == facing() && worldPosition.equals(other.partnerPos()) ? other : null;
+    }
+
+    /**
+     * Unpairs (and looks for a new partner) if the recorded partner's position is loaded but holds no
+     * piece pairing back; keeps waiting while that position is unloaded.
+     */
+    private void checkPartner() {
+        BlockPos p = partnerPos();
+        if (p == null) {
+            checkPartner = false;
+            return;
+        }
+        if (!level.isLoaded(p)) return;
+        checkPartner = false;
+        if (partner() != null) return;
+        setDistance(0);
+        tryLink();
     }
 
     // --- ticking -------------------------------------------------------------------------------
@@ -190,6 +217,7 @@ public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode 
     @Override
     public void tickBelt() {
         if (level == null) return;
+        if (checkPartner && !level.isClientSide()) checkPartner();
         double speed = tier().speed();
         tracker.beginTick(level);
         tracker.tick(level, left, speed, next(LaneSide.LEFT));
@@ -237,6 +265,7 @@ public class UndergroundBeltBlockEntity extends BlockEntity implements BeltNode 
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         fresh = false;
+        checkPartner = true;
         distance = tag.getInt(KEY_DISTANCE);
         BeltLane l = tag.contains(KEY_LEFT) ? CoreNbt.readLane(tag.getCompound(KEY_LEFT)) : new BeltLane(laneLength());
         BeltLane r = tag.contains(KEY_RIGHT) ? CoreNbt.readLane(tag.getCompound(KEY_RIGHT)) : new BeltLane(laneLength());
