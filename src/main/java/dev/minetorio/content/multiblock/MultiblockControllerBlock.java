@@ -62,6 +62,20 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         return centeredPlacement() ? shape().anchorOf(origin, facing) : origin;
     }
 
+    /** Where a machine goes: its controller position and facing. */
+    public record Placement(BlockPos origin, Direction facing) {}
+
+    /**
+     * Where a placement click ({@code ctx} before any moving) puts the machine: the player's
+     * horizontal look direction as the facing, the footprint centered on the targeted cell. Blocks
+     * with their own aiming rule (the offshore pump) override this; the result is only a proposal,
+     * {@link #getStateForPlacement} still decides whether it is valid.
+     */
+    public Placement resolvePlacement(BlockPlaceContext ctx) {
+        Direction facing = ctx.getHorizontalDirection();
+        return new Placement(placementOrigin(ctx.getClickedPos(), facing), facing);
+    }
+
     /** Positions occupied by the machine whose controller is {@code state} at {@code origin}. */
     public List<BlockPos> footprint(BlockPos origin, BlockState state) {
         return shape().footprint(origin, state.getValue(FACING));
@@ -98,16 +112,20 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        Level level = ctx.getLevel();
-        BlockPos origin = ctx.getClickedPos();
         Direction facing = ctx.getHorizontalDirection();
+        return footprintFree(ctx, ctx.getClickedPos(), facing) ? defaultBlockState().setValue(FACING, facing) : null;
+    }
+
+    /** Whether the footprint at {@code origin} fits (see {@link #getStateForPlacement}). */
+    protected final boolean footprintFree(BlockPlaceContext ctx, BlockPos origin, Direction facing) {
+        Level level = ctx.getLevel();
         for (BlockPos p : footprint(origin, facing, shape())) {
             boolean free = p.equals(origin)
                     ? !level.isOutsideBuildHeight(p) && level.getWorldBorder().isWithinBounds(p) && level.getBlockState(p).canBeReplaced(ctx)
                     : canOccupy(level, p);
-            if (!free) return null;
+            if (!free) return false;
         }
-        return defaultBlockState().setValue(FACING, facing);
+        return true;
     }
 
     private static boolean canOccupy(Level level, BlockPos p) {
