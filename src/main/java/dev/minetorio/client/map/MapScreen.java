@@ -12,12 +12,16 @@ import net.minecraft.world.level.Level;
 
 /**
  * The full-screen map (M, as in Factorio): drag with the mouse to move, scroll to zoom about the
- * cursor, the block coordinates under the cursor (plus any {@link MapHoverInfo} lines) at the
+ * cursor (down to half a screen pixel per block), the block coordinates under the cursor (plus any {@link MapHoverInfo} lines) at the
  * bottom. Opens centered on the player. Overworld only: elsewhere it says the map is unavailable.
  * Does not pause the game.
  */
 public class MapScreen extends Screen {
-    private static final float MIN_SCALE = 1 / 16f;
+    /**
+     * Most zoomed out: half a screen pixel per block, so at most about 40 region textures are
+     * visible on a 1080p screen (they are cached in {@link MapTextures}).
+     */
+    private static final float MIN_SCREEN_PX_PER_BLOCK = 0.5f;
     private static final float MAX_SCALE = 8f;
     private static final float ZOOM_STEP = 1.25f;
     /** Zoom kept between openings. */
@@ -85,7 +89,8 @@ public class MapScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (scrollY == 0) return false;
         double wx = cx + (mouseX - width / 2.0) / scale, wz = cz + (mouseY - height / 2.0) / scale;
-        scale = Mth.clamp(scale * (float) Math.pow(ZOOM_STEP, scrollY), MIN_SCALE, MAX_SCALE);
+        float min = MIN_SCREEN_PX_PER_BLOCK / (float) Minecraft.getInstance().getWindow().getGuiScale();
+        scale = Mth.clamp(scale * (float) Math.pow(ZOOM_STEP, scrollY), min, MAX_SCALE);
         lastScale = scale;
         // keep the point under the cursor in place
         cx = wx - (mouseX - width / 2.0) / scale;

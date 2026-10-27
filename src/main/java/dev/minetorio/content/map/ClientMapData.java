@@ -4,20 +4,25 @@ import dev.minetorio.core.map.ChunkKeys;
 import dev.minetorio.core.map.MapChunkBatch;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * The client's copy of the explored map (filled by {@link MapPayloads.Chunks}) and the other
- * players' positions ({@link MapPayloads.Players}). Plain data, no rendering: the client's map
- * textures drain {@link #pollChanged} to update incrementally. Client thread only; reset on logout.
+ * players' positions ({@link MapPayloads.Players}). Plain data, no rendering. This is the source of
+ * truth for the client's map; the region textures are a bounded cache rebuilt from it on demand,
+ * and drain {@link #pollChanged} to update incrementally. Client thread only; reset on logout.
  */
 public final class ClientMapData {
     private static final Map<Long, byte[]> CHUNKS = new HashMap<>();
     private static final LinkedHashSet<Long> CHANGED = new LinkedHashSet<>();
+    /** Regions ({@code ChunkKeys.region}) with at least one explored chunk. */
+    private static final Set<Long> REGIONS = new HashSet<>();
     private static List<MapPayloads.Marker> players = List.of();
     private static int generation;
 
@@ -27,6 +32,7 @@ public final class ClientMapData {
         for (MapChunkBatch.Entry e : entries) {
             CHUNKS.put(e.key(), e.colors());
             CHANGED.add(e.key());
+            REGIONS.add(ChunkKeys.region(e.key()));
         }
     }
 
@@ -43,6 +49,9 @@ public final class ClientMapData {
     }
 
     public static boolean isExplored(int chunkX, int chunkZ) { return CHUNKS.containsKey(ChunkKeys.of(chunkX, chunkZ)); }
+
+    /** Whether the region has any explored chunk. */
+    public static boolean hasRegion(long region) { return REGIONS.contains(region); }
 
     public static int exploredCount() { return CHUNKS.size(); }
 
@@ -66,6 +75,7 @@ public final class ClientMapData {
     public static void reset() {
         CHUNKS.clear();
         CHANGED.clear();
+        REGIONS.clear();
         players = List.of();
         generation++;
     }

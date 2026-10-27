@@ -13,17 +13,19 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 
 /**
- * HUD layer: the minimap, {@value #SIZE}×{@value #SIZE} GUI px in the top right corner (below the
- * status effect icons when there are any), north up, centered on the player, 1 block = 1 px by
- * default ({@link #zoom} steps through {@link #SCALES}). Drawn from the shared region textures
+ * HUD layer: the minimap, {@value #SIZE}×{@value #SIZE} screen pixels (whatever the GUI scale) in
+ * the top right corner (below the status effect icons when there are any), north up, centered on
+ * the player, 1 block = 1 screen pixel by default ({@link #zoom} steps through {@link #SCALES}). Drawn from the shared region textures
  * ({@link MapTextures}). Hidden with N, with the HUD (F1), outside the Overworld and while the
  * full-screen map is open.
  */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class MinimapHud {
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(Minetorio.MODID, "minimap");
+    /** Side in screen pixels. */
     public static final int SIZE = 128;
     private static final int MARGIN = 4;
+    /** Screen pixels per block. */
     static final float[] SCALES = {0.25f, 0.5f, 1f, 2f, 4f};
     private static int scaleIndex = 2;
     private static boolean visible = true;
@@ -44,10 +46,12 @@ public final class MinimapHud {
         LocalPlayer player = mc.player;
         if (!visible || mc.options.hideGui || player == null || !MapScreen.available() || mc.screen instanceof MapScreen) return;
         float partial = delta.getGameTimeDeltaPartialTick(true);
-        int x1 = g.guiWidth() - MARGIN, x0 = x1 - SIZE;
-        int y0 = MARGIN + effectRows(player) * 26, y1 = y0 + SIZE;
+        double guiScale = mc.getWindow().getGuiScale();
+        int size = Math.max(16, (int) Math.round(SIZE / guiScale));
+        int x1 = g.guiWidth() - MARGIN, x0 = x1 - size;
+        int y0 = MARGIN + effectRows(player) * 26, y1 = y0 + size;
         g.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFF000000);
-        float scale = SCALES[scaleIndex];
+        float scale = (float) (SCALES[scaleIndex] / guiScale); // GUI px per block
         double cx = player.getX(partial), cz = player.getZ(partial);
         g.enableScissor(x0, y0, x1, y1);
         MapTextures.draw(g, cx, cz, scale, x0, y0, x1, y1);
