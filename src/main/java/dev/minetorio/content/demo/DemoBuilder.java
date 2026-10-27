@@ -47,12 +47,13 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
 
 /**
  * Builds the demo showcase ({@code /minetorio demo}): a {@value #SIZE}×{@value #SIZE} flat area with
- * eight stations along an east–west walkway, all running right away.
+ * eight stations and a radar along an east–west walkway, all running right away.
  *
  * <p>Coordinates below are (x, z) relative to the area's north-west corner; x grows east, z south.
  * Blocks stand on the floor (y + 1). The walkway is z 46..49; small electric poles on z = 46 every 7
  * blocks wire everything to the steam plant. North of the walkway (west → east): 1 belts, 2 inserters,
- * 3 mining, 4 smelting; south of it (east → west): 5 power, 6 assembly, 7 research, 8 hand crafting.
+ * 3 mining, 4 smelting; south of it (east → west): 5 power, 6 assembly, 7 research, 8 hand crafting,
+ * plus an unnumbered radar-and-map stop between assembly and research.
  * Each station has a sign on the walkway's edge (z 45 north, z 50 south).
  *
  * <p>Machines are placed through their items, like a player placing them (so multiblock parts and
@@ -81,7 +82,7 @@ public final class DemoBuilder {
     /** Where the parts of a showcase are, in world coordinates (the GameTest checks these). */
     public record Layout(BlockPos origin, BoundingBox area, BlockPos entrance, BlockPos ironField, BlockPos coalField, BlockPos smeltingOutput,
                          BlockPos gearAssembler, BlockPos gearChest, BlockPos redAssembler, List<BlockPos> labs,
-                         List<BlockPos> engines) {}
+                         List<BlockPos> engines, BlockPos radar) {}
 
     private final ServerLevel level;
     private final BlockPos origin;
@@ -110,7 +111,7 @@ public final class DemoBuilder {
         return new Layout(origin, area(origin), o.offset(1, 0, 47), origin.offset(IRON_X, 0, IRON_Z), origin.offset(COAL_X, 0, COAL_Z),
                 o.offset(80, 0, 37),
                 o.offset(52, 0, 57), o.offset(56, 0, 58), o.offset(58, 0, 57), List.of(o.offset(30, 0, 58), o.offset(36, 0, 58)),
-                List.of(o.offset(77, 0, 61), o.offset(77, 0, 56)));
+                List.of(o.offset(77, 0, 61), o.offset(77, 0, 56)), o.offset(43, 0, 53));
     }
 
     /** Builds the showcase with its floor's north-west corner at {@code origin}. Overworld only. */
@@ -139,6 +140,7 @@ public final class DemoBuilder {
         assembly();
         research();
         handcraft();
+        radar();
         discardBlockers(AABB.of(area).inflate(0, 2, 0)); // any that became visible during the build
         DemoSavedData data = DemoSavedData.get(level);
         data.removeIn(area);
@@ -229,6 +231,7 @@ public final class DemoBuilder {
         sign(58, 50, 8, "assembly", 4);
         sign(36, 50, 8, "research", 4);
         sign(14, 50, 8, "handcraft", 4);
+        sign(44, 50, 8, "radar", 4);
     }
 
     // --- 1: belts --------------------------------------------------------------------------------
@@ -404,6 +407,19 @@ public final class DemoBuilder {
         source(14, 52, "minecraft:cobblestone", 64);
         source(14, 52, "minecraft:stick", 32);
         source(14, 52, COAL, 64);
+    }
+
+    // --- radar and map ---------------------------------------------------------------------------
+
+    /**
+     * A radar (x 43..45, z 53..55) on the main grid; it keeps exploring the map around the showcase.
+     * Like every other machine it is a plain block: {@code /minetorio demo off} leaves it (and the
+     * steam plant powering it) in place.
+     */
+    private void radar() {
+        place(ModItems.RADAR.get(), 43, 53, Direction.EAST);
+        pole(42, 52); // wired to the backbone pole at (45, 46)
+        sign(47, 51, 8, "radar_map", 4);
     }
 
     // --- helpers ---------------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import dev.minetorio.content.demo.DemoSavedData;
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.ElectricDrillBlockEntity;
+import dev.minetorio.content.map.RadarBlockEntity;
 import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
 import dev.minetorio.content.registry.ModItems;
@@ -104,13 +105,14 @@ public class DemoGameTest {
         if (be instanceof AssemblerBlockEntity a) return a.satisfaction();
         if (be instanceof ElectricDrillBlockEntity d) return d.satisfaction();
         if (be instanceof LabBlockEntity l) return l.satisfaction();
+        if (be instanceof RadarBlockEntity r) return r.satisfaction();
         return Double.NaN;
     }
 
     /**
      * After 600 ticks: plates in the smelting output, gears made, every electric consumer of the
      * showcase fully powered by the steam plant (both engines running), research progressing, all
-     * three belt tiers carrying items.
+     * three belt tiers carrying items, the radar powered and working.
      */
     @GameTest(template = "empty16", batch = "demo", timeoutTicks = 700)
     public static void demoBuildsAndRuns(GameTestHelper h) throws Exception {
@@ -134,6 +136,8 @@ public class DemoGameTest {
         h.assertTrue(OreFields.typeOf(level.getBlockState(layout.ironField())) == OreType.IRON, "no iron field: " + level.getBlockState(layout.ironField()));
         h.assertTrue(OreFields.remaining(level, layout.ironField()) == DemoBuilder.FIELD_AMOUNT, "iron field amount " + OreFields.remaining(level, layout.ironField()));
         h.assertTrue(OreFields.typeOf(level.getBlockState(layout.coalField())) == OreType.COAL, "no coal field: " + level.getBlockState(layout.coalField()));
+        h.assertTrue(level.getBlockEntity(layout.radar()) instanceof RadarBlockEntity, "no radar at " + layout.radar().subtract(o)
+                + ": " + level.getBlockState(layout.radar()));
         ResearchState state = research.state();
         h.assertTrue(state.current().map(t -> t.id().equals("automation")).orElse(false), "research " + state.current());
 
@@ -154,11 +158,14 @@ public class DemoGameTest {
                 consumers++;
                 h.assertTrue(s >= 0.99, be.getType() + " at " + be.getBlockPos().subtract(o) + " has satisfaction " + s);
             }
-            h.assertTrue(consumers == 18, "electric consumers: " + consumers);
+            h.assertTrue(consumers == 19, "electric consumers: " + consumers);
             for (BlockPos e : layout.engines()) {
                 SteamEngineBlockEntity engine = (SteamEngineBlockEntity) level.getBlockEntity(e);
                 h.assertTrue(engine.isWorking(), "engine at " + e.subtract(o) + " not working");
             }
+
+            RadarBlockEntity radar = (RadarBlockEntity) level.getBlockEntity(layout.radar());
+            h.assertTrue(radar.satisfaction() >= 0.99 && radar.isWorking(), "radar not powered: " + radar.satisfaction());
 
             h.assertTrue(state.unitsDone() > 0 || state.isResearched("automation"), "no research progress");
             for (BlockPos lab : layout.labs()) h.assertTrue(((LabBlockEntity) level.getBlockEntity(lab)).isWorking(), "lab idle at " + lab.subtract(o));
