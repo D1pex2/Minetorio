@@ -9,6 +9,7 @@ import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.research.RecipeLocks;
 import dev.minetorio.core.Units;
+import dev.minetorio.core.belt.LaneItem;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.inserter.DropTarget;
 import dev.minetorio.core.inserter.PickupSource;
@@ -312,7 +313,7 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         return new DropTarget() {
             @Override
             public boolean wants(String item) {
-                return MachineItemHandler.isPlainKey(item) && machine.inputRoom(item, true) > 0;
+                return LaneItem.isPlain(item) && machine.inputRoom(item, true) > 0;
             }
 
             @Override

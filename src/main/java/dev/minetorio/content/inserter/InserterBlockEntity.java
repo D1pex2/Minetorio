@@ -1,6 +1,7 @@
 package dev.minetorio.content.inserter;
 
 import dev.minetorio.content.belt.LaneStacks;
+import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
@@ -17,16 +18,10 @@ import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.Containers;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -53,8 +48,6 @@ import net.minecraft.world.phys.AABB;
 public class InserterBlockEntity extends BlockEntity {
     private static final String KEY_LOGIC = "logic";
     private static final String KEY_BURNER = "burner";
-    private static final String KEY_FUEL = "fuel";
-    private static final String KEY_REMAINING = "remaining";
     private static final String KEY_RATE = "rate";
     /** Re-sync the arm speed when it drifts this much from what the client was told. */
     private static final double RATE_SYNC_DELTA = 0.05;
@@ -175,11 +168,13 @@ public class InserterBlockEntity extends BlockEntity {
         return logic.isMoving() || starting ? burner.draw() : 0;
     }
 
-    /** Burner inserter carrying fuel while its own fuel slot is empty: keeps that item as fuel. */
+    /**
+     * Burner inserter carrying fuel while its own fuel slot is empty: keeps that item as fuel, unless
+     * it has data components (the fuel slot stores plain item ids, the data would be lost).
+     */
     private void keepFuel() {
-        if (burner == null || logic.held() == null || !burner.fuel().isEmpty()) return;
-        String id = LaneItem.baseId(logic.held());
-        if (burner.insertFuel(id, 1, true) == 1) {
+        if (burner == null || logic.held() == null || !burner.fuel().isEmpty() || !LaneItem.isPlain(logic.held())) return;
+        if (burner.insertFuel(logic.held(), 1, true) == 1) {
             logic.takeHeld();
             setChanged();
         }
@@ -207,13 +202,7 @@ public class InserterBlockEntity extends BlockEntity {
         String held = logic.takeHeld();
         if (held != null) LaneStacks.drop(level, worldPosition, held);
         if (burner == null) return;
-        for (Map.Entry<String, Integer> e : burner.fuel().entrySet()) {
-            ResourceLocation id = ResourceLocation.tryParse(e.getKey());
-            Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id);
-            if (item == Items.AIR) continue;
-            Containers.dropItemStack(level, worldPosition.getX() + 0.5, worldPosition.getY() + 0.25, worldPosition.getZ() + 0.5,
-                    new ItemStack(item, e.getValue()));
-        }
+        MachineItems.drop(level, worldPosition, burner.fuel());
         burner.load(Map.of(), burner.remainingJ());
     }
 
@@ -223,22 +212,14 @@ public class InserterBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.put(KEY_LOGIC, CoreNbt.write(logic.save()));
-        if (burner != null) {
-            CompoundTag b = new CompoundTag();
-            b.put(KEY_FUEL, CoreNbt.writeCounts(burner.fuel()));
-            b.putLong(KEY_REMAINING, burner.remainingJ());
-            tag.put(KEY_BURNER, b);
-        }
+        if (burner != null) tag.put(KEY_BURNER, CoreNbt.writeBurner(burner));
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_LOGIC)) logic.load(CoreNbt.read(tag.getCompound(KEY_LOGIC)));
-        if (burner != null && tag.contains(KEY_BURNER)) {
-            CompoundTag b = tag.getCompound(KEY_BURNER);
-            burner.load(CoreNbt.readCounts(b.getCompound(KEY_FUEL)), b.getLong(KEY_REMAINING));
-        }
+        if (burner != null && tag.contains(KEY_BURNER)) CoreNbt.loadBurnerInto(burner, tag.getCompound(KEY_BURNER));
         if (tag.contains(KEY_RATE)) { // client update
             rate = tag.getDouble(KEY_RATE);
             working = logic.isMoving() && rate > 0;

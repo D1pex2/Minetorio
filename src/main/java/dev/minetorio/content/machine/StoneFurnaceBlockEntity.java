@@ -5,6 +5,7 @@ import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.Units;
+import dev.minetorio.core.belt.LaneItem;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.inserter.DropTarget;
 import dev.minetorio.core.inserter.PickupSource;
@@ -243,12 +244,12 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
         return new DropTarget() {
             @Override
             public boolean wants(String item) {
-                return MachineItemHandler.isPlainKey(item) && (slots.room(FUEL_SLOT, item, true) > 0 || slots.room(INPUT_SLOT, item, true) > 0);
+                return LaneItem.isPlain(item) && (slots.room(FUEL_SLOT, item, true) > 0 || slots.room(INPUT_SLOT, item, true) > 0);
             }
 
             @Override
             public boolean accept(String item) {
-                if (!MachineItemHandler.isPlainKey(item)) return false;
+                if (!LaneItem.isPlain(item)) return false;
                 int slot = slots.room(FUEL_SLOT, item, true) > 0 ? FUEL_SLOT : INPUT_SLOT;
                 return slots.insert(slot, item, 1, true) == 1;
             }

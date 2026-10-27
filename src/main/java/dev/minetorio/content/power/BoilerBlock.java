@@ -1,6 +1,7 @@
 package dev.minetorio.content.power;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.data.Phase1Data;
@@ -55,16 +56,17 @@ public class BoilerBlock extends SteamMachineBlock {
         return ModBlockEntities.BOILER.get();
     }
 
-    /** Right-click with fuel puts the whole held stack (up to 64) into the fuel slot. */
+    /** Right-click with fuel puts the whole held stack (up to 64) into the fuel slot; fuel with data components is refused. */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit) {
-        if (stack.isEmpty() || !Phase1Data.fuelValues().containsKey(stack.getItemHolder().getRegisteredName())) {
+        if (stack.isEmpty() || !MachineItems.isPlain(stack)
+                || !Phase1Data.fuelValues().containsKey(MachineItems.id(stack))) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
         if (!(level.getBlockEntity(pos) instanceof BoilerBlockEntity be)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-        int accepted = be.addFuel(stack.getItemHolder().getRegisteredName(), stack.getCount());
+        int accepted = be.addFuel(MachineItems.id(stack), stack.getCount());
         if (accepted == 0) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         stack.consume(accepted, player);
         return ItemInteractionResult.CONSUME;

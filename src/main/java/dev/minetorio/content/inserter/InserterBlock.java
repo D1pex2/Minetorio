@@ -1,6 +1,7 @@
 package dev.minetorio.content.inserter;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.inserter.InserterType;
@@ -94,17 +95,18 @@ public class InserterBlock extends BaseEntityBlock {
                 level.isClientSide() ? InserterBlockEntity::clientTick : InserterBlockEntity::serverTick);
     }
 
-    /** Burner inserter: right-click with fuel puts the whole held stack (up to 64) into its fuel slot. */
+    /** Burner inserter: right-click with fuel puts the whole held stack (up to 64) into its fuel slot (not fuel with data components). */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit) {
         if (!type.burner || stack.isEmpty()
-                || !Phase1Data.fuelValues().containsKey(stack.getItemHolder().getRegisteredName())) {
+                || !MachineItems.isPlain(stack)
+                || !Phase1Data.fuelValues().containsKey(MachineItems.id(stack))) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
         if (!(level.getBlockEntity(pos) instanceof InserterBlockEntity be)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-        int accepted = be.addFuel(stack.getItemHolder().getRegisteredName(), stack.getCount());
+        int accepted = be.addFuel(MachineItems.id(stack), stack.getCount());
         if (accepted == 0) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         stack.consume(accepted, player);
         return ItemInteractionResult.CONSUME;

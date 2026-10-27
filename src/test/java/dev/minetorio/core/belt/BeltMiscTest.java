@@ -19,6 +19,11 @@ class BeltMiscTest {
         assertEquals("minecraft:diamond_sword", LaneItem.baseId("minecraft:diamond_sword#{\"minecraft:damage\":17}"));
     }
 
+    @Test void plainKeysHaveNoComponentData() {
+        assertTrue(LaneItem.isPlain("minecraft:coal"));
+        assertFalse(LaneItem.isPlain("minecraft:coal#{\"minecraft:custom_name\":'\"special\"'}"));
+    }
+
     @Test void laneLengths() {
         assertEquals(1.0, BeltShape.STRAIGHT.laneLength(true));
         assertEquals(1.0, BeltShape.STRAIGHT.laneLength(false));

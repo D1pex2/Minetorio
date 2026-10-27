@@ -37,11 +37,6 @@ public final class MachineItemHandler implements IItemHandler {
         this.slots = slots;
     }
 
-    /** Whether a lane stack key names a plain item (no data components, see {@code LaneStacks}). */
-    public static boolean isPlainKey(String key) {
-        return key.indexOf('#') < 0;
-    }
-
     @Override
     public int getSlots() { return slots.getContainerSize(); }
 

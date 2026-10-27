@@ -13,13 +13,7 @@ import dev.minetorio.core.machine.Burner;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.Containers;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -34,8 +28,6 @@ public class BurnerDrillBlockEntity extends MiningDrillBlockEntity implements Ma
     public static final int AREA = 2;
     public static final long POWER = Units.kw(150);
     private static final String KEY_BURNER = "burner";
-    private static final String KEY_FUEL = "fuel";
-    private static final String KEY_REMAINING = "remaining";
 
     private final Burner burner = new Burner(POWER, Phase1Data.fuelValues());
 
@@ -69,16 +61,16 @@ public class BurnerDrillBlockEntity extends MiningDrillBlockEntity implements Ma
     @Override
     public PickupSource asSource() { return InserterEndpoints.NO_SOURCE; }
 
-    /** Fuel only, automated limit; fuel is stored by item id (extra item data is not kept). */
+    /** Fuel only, automated limit; fuel is stored by item id, so keys with data components are refused. */
     @Override
     public DropTarget asTarget() {
         return new DropTarget() {
             @Override
-            public boolean wants(String item) { return Phase1Data.fuelValues().containsKey(LaneItem.baseId(item)); }
+            public boolean wants(String item) { return LaneItem.isPlain(item) && Phase1Data.fuelValues().containsKey(item); }
 
             @Override
             public boolean accept(String item) {
-                if (burner.insertFuel(LaneItem.baseId(item), 1, true) != 1) return false;
+                if (!LaneItem.isPlain(item) || burner.insertFuel(item, 1, true) != 1) return false;
                 setChanged();
                 return true;
             }
@@ -90,30 +82,19 @@ public class BurnerDrillBlockEntity extends MiningDrillBlockEntity implements Ma
     @Override
     protected void dropContents(Level level, BlockPos pos) {
         super.dropContents(level, pos);
-        for (Map.Entry<String, Integer> e : burner.fuel().entrySet()) {
-            ResourceLocation id = ResourceLocation.tryParse(e.getKey());
-            Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id);
-            if (item == Items.AIR) continue;
-            Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.25, pos.getZ() + 0.5, new ItemStack(item, e.getValue()));
-        }
+        MachineItems.drop(level, pos, burner.fuel());
         burner.load(Map.of(), burner.remainingJ());
     }
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        CompoundTag b = new CompoundTag();
-        b.put(KEY_FUEL, CoreNbt.writeCounts(burner.fuel()));
-        b.putLong(KEY_REMAINING, burner.remainingJ());
-        tag.put(KEY_BURNER, b);
+        tag.put(KEY_BURNER, CoreNbt.writeBurner(burner));
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        if (tag.contains(KEY_BURNER)) {
-            CompoundTag b = tag.getCompound(KEY_BURNER);
-            burner.load(CoreNbt.readCounts(b.getCompound(KEY_FUEL)), b.getLong(KEY_REMAINING));
-        }
+        if (tag.contains(KEY_BURNER)) CoreNbt.loadBurnerInto(burner, tag.getCompound(KEY_BURNER));
     }
 }

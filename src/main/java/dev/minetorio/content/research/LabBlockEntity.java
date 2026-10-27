@@ -1,7 +1,6 @@
 package dev.minetorio.content.research;
 
 import dev.minetorio.content.inserter.MachineEndpoint;
-import dev.minetorio.content.machine.MachineItemHandler;
 import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
@@ -10,6 +9,7 @@ import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.Units;
+import dev.minetorio.core.belt.LaneItem;
 import dev.minetorio.core.inserter.DropTarget;
 import dev.minetorio.core.inserter.PickupSource;
 import dev.minetorio.core.research.LabLogic;
@@ -168,7 +168,7 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
         return new DropTarget() {
             @Override
             public boolean wants(String item) {
-                return MachineItemHandler.isPlainKey(item) && lab.packRoom(item, true) > 0;
+                return LaneItem.isPlain(item) && lab.packRoom(item, true) > 0;
             }
 
             @Override

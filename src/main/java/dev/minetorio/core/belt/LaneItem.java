@@ -11,4 +11,9 @@ public record LaneItem(String item, double pos) {
         int i = key.indexOf('#');
         return i < 0 ? key : key.substring(0, i);
     }
+
+    /** Whether a stack key names a plain item (no data components): such a key is the item id itself. */
+    public static boolean isPlain(String key) {
+        return key.indexOf('#') < 0;
+    }
 }
