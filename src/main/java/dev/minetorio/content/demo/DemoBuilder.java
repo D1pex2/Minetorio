@@ -5,6 +5,7 @@ import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
+import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.data.Phase1Data;
@@ -393,9 +394,12 @@ public final class DemoBuilder {
         return level.getBlockEntity(abs(x, z));
     }
 
-    /** Places {@code item} like a player looking {@code facing} would. */
+    /**
+     * Places {@code item} like a player looking {@code facing} would; a multiblock machine's
+     * controller lands at (x, z) (the targeted cell is moved so its centered footprint starts there).
+     */
     private void place(Item item, int x, int z, Direction facing) {
-        BlockPos pos = abs(x, z);
+        BlockPos pos = MultiblockBlockItem.targetFor(item, abs(x, z), facing);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
         BlockPlaceContext ctx = new BlockPlaceContext(level, null, InteractionHand.MAIN_HAND, new ItemStack(item), hit) {
             @Override

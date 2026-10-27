@@ -6,6 +6,7 @@ import static dev.minetorio.gametest.InserterGameTest.count;
 import static dev.minetorio.gametest.InserterGameTest.inserter;
 
 import dev.minetorio.content.inserter.InserterBlockEntity;
+import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
@@ -80,8 +81,9 @@ public class PowerGameTest {
         return boiler;
     }
 
+    /** Like {@link BeltGameTest#place}, reporting success instead of asserting it. */
     static boolean tryPlace(GameTestHelper h, BlockItem item, BlockPos rel, Direction facing) {
-        BlockPos abs = h.absolutePos(rel);
+        BlockPos abs = MultiblockBlockItem.targetFor(item, h.absolutePos(rel), facing);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
         BlockPlaceContext ctx = new BlockPlaceContext(h.getLevel(), null, InteractionHand.MAIN_HAND, new ItemStack(item), hit) {
             @Override

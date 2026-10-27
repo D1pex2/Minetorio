@@ -6,6 +6,7 @@ import dev.minetorio.content.belt.LaneSide;
 import dev.minetorio.content.belt.LaneStacks;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
+import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.belt.LaneItem;
 import java.util.List;
@@ -42,9 +43,12 @@ public class BeltGameTest {
 
     // --- helpers ---------------------------------------------------------------------------------
 
-    /** Places {@code item} like a player looking {@code facing} would. */
+    /**
+     * Places {@code item} like a player looking {@code facing} would; for a multiblock machine
+     * {@code rel} is the controller position (the targeted cell is its centered-placement anchor).
+     */
     static void place(GameTestHelper h, Item item, BlockPos rel, Direction facing) {
-        BlockPos abs = h.absolutePos(rel);
+        BlockPos abs = MultiblockBlockItem.targetFor(item, h.absolutePos(rel), facing);
         ItemStack stack = new ItemStack(item);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
         BlockPlaceContext ctx = new BlockPlaceContext(h.getLevel(), null, InteractionHand.MAIN_HAND, stack, hit) {

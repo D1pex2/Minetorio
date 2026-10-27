@@ -57,6 +57,7 @@ Things to check closely:
 - [ ] Belt chevrons point and move the same way the items travel, on straights and on both curve directions.
 - [ ] No faces flicker (z-fighting) on machine fronts: windows, chutes, the fire door and the furnace mouth.
 - [ ] Multiblock machines don't vanish when the controller block is off-screen. They render over their whole footprint.
+- [ ] Placing a multiblock machine: it is centered on the block you aim at (where a normal block would go), on that block's layer. For even sizes the aimed block is the left-front one of the middle 2×2 (2×2 furnace and burner drill: the aimed block is their near-left corner; boiler: centered across, extending away from you). Splitters are the exception: the aimed block is their left column, so they line up with the belt you click. While holding a machine, a translucent box shows the footprint: green if it fits, red if something is in the way (and then right-click places nothing and keeps the item).
 - [ ] Breaking particles show machine-coloured fragments, not missing-texture squares.
 
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)

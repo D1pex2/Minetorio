@@ -2,10 +2,13 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.deposit.ScannerItem;
+import dev.minetorio.content.multiblock.MultiblockBlockItem;
+import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import java.util.List;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -25,12 +28,12 @@ public final class ModItems {
     public static final DeferredItem<Item> LOGISTIC_SCIENCE_PACK = ITEMS.registerSimpleItem("logistic_science_pack");
 
     // Machines (block items; the item id equals the block id)
-    public static final DeferredItem<BlockItem> STONE_FURNACE = ITEMS.registerSimpleBlockItem(ModBlocks.STONE_FURNACE);
-    public static final DeferredItem<BlockItem> BURNER_MINING_DRILL = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_MINING_DRILL);
-    public static final DeferredItem<BlockItem> ELECTRIC_MINING_DRILL = ITEMS.registerSimpleBlockItem(ModBlocks.ELECTRIC_MINING_DRILL);
-    public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_1 = ITEMS.registerSimpleBlockItem(ModBlocks.ASSEMBLING_MACHINE_1);
-    public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_2 = ITEMS.registerSimpleBlockItem(ModBlocks.ASSEMBLING_MACHINE_2);
-    public static final DeferredItem<BlockItem> LAB = ITEMS.registerSimpleBlockItem(ModBlocks.LAB);
+    public static final DeferredItem<BlockItem> STONE_FURNACE = multiblock(ModBlocks.STONE_FURNACE);
+    public static final DeferredItem<BlockItem> BURNER_MINING_DRILL = multiblock(ModBlocks.BURNER_MINING_DRILL);
+    public static final DeferredItem<BlockItem> ELECTRIC_MINING_DRILL = multiblock(ModBlocks.ELECTRIC_MINING_DRILL);
+    public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_1 = multiblock(ModBlocks.ASSEMBLING_MACHINE_1);
+    public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_2 = multiblock(ModBlocks.ASSEMBLING_MACHINE_2);
+    public static final DeferredItem<BlockItem> LAB = multiblock(ModBlocks.LAB);
 
     // Tools
     public static final DeferredItem<ScannerItem> SCANNER = ITEMS.registerItem("scanner", ScannerItem::new, new Item.Properties().stacksTo(1));
@@ -42,9 +45,9 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.UNDERGROUND_BELT);
     public static final DeferredItem<BlockItem> FAST_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_UNDERGROUND_BELT);
     public static final DeferredItem<BlockItem> EXPRESS_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_UNDERGROUND_BELT);
-    public static final DeferredItem<BlockItem> SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.SPLITTER);
-    public static final DeferredItem<BlockItem> FAST_SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_SPLITTER);
-    public static final DeferredItem<BlockItem> EXPRESS_SPLITTER = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_SPLITTER);
+    public static final DeferredItem<BlockItem> SPLITTER = multiblock(ModBlocks.SPLITTER);
+    public static final DeferredItem<BlockItem> FAST_SPLITTER = multiblock(ModBlocks.FAST_SPLITTER);
+    public static final DeferredItem<BlockItem> EXPRESS_SPLITTER = multiblock(ModBlocks.EXPRESS_SPLITTER);
 
     // Inserters
     public static final DeferredItem<BlockItem> BURNER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_INSERTER);
@@ -53,10 +56,10 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> FAST_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_INSERTER);
 
     // Steam power
-    public static final DeferredItem<BlockItem> OFFSHORE_PUMP = ITEMS.registerSimpleBlockItem(ModBlocks.OFFSHORE_PUMP);
+    public static final DeferredItem<BlockItem> OFFSHORE_PUMP = multiblock(ModBlocks.OFFSHORE_PUMP);
     public static final DeferredItem<BlockItem> PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE);
-    public static final DeferredItem<BlockItem> BOILER = ITEMS.registerSimpleBlockItem(ModBlocks.BOILER);
-    public static final DeferredItem<BlockItem> STEAM_ENGINE = ITEMS.registerSimpleBlockItem(ModBlocks.STEAM_ENGINE);
+    public static final DeferredItem<BlockItem> BOILER = multiblock(ModBlocks.BOILER);
+    public static final DeferredItem<BlockItem> STEAM_ENGINE = multiblock(ModBlocks.STEAM_ENGINE);
     public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE);
 
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
@@ -72,6 +75,11 @@ public final class ModItems {
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole");
 
     private ModItems() {}
+
+    /** Item of a multiblock machine: placed centered on the targeted cell (R26). */
+    private static DeferredItem<BlockItem> multiblock(DeferredBlock<? extends MultiblockControllerBlock> block) {
+        return ITEMS.registerItem(block.getId().getPath(), p -> new MultiblockBlockItem(block.get(), p));
+    }
 
     public static void register(IEventBus modBus) {
         ITEMS.register(modBus);
