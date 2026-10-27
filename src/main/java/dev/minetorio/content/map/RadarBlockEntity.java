@@ -26,8 +26,11 @@ import net.minecraft.world.phys.Vec3;
  * In the Overworld, while it gets power, it keeps the {@value RadarLogic#NEAR_RADIUS}-chunk area
  * around itself live (requests a {@link WorldMap} scan of it every 5 s; throttled there) and
  * explores one more chunk per 30 s at full power from its own {@link RadarFrontier} (radius
- * {@value RadarLogic#FAR_RADIUS}), which skips chunks already explored by anyone. The frontier
- * index and the charge are saved with the radar; a radar broken and placed again starts its
+ * {@value RadarLogic#FAR_RADIUS}), which skips chunks already explored by anyone and chunks outside
+ * the world border. The chunk handed out is the radar's {@link #pendingTarget}: until the map has
+ * explored it, every further charge asks for it again instead of moving on, so a lost request (a
+ * load that timed out, a server restart) never leaves a hole. The frontier index, the pending
+ * target and the charge are saved with the radar; a radar broken and placed again starts its
  * frontier over (explored chunks are skipped at once).
  *
  * <p><b>Client sync.</b> Only {@link #isWorking()} (powered) is synced; the client turns the dish
@@ -41,12 +44,15 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
     private static final String KEY_FRONTIER = "frontier";
     private static final String KEY_PROGRESS = "progress";
     private static final String KEY_WORKING = "working";
+    private static final String KEY_TARGET = "target";
 
     private final RadarLogic logic = new RadarLogic();
     private final RadarFrontier frontier = new RadarFrontier(RadarLogic.FAR_RADIUS);
     private final ElectricConsumerHelper power = new ElectricConsumerHelper(this, () -> RadarLogic.POWER,
             () -> ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())));
     private boolean working;
+    /** Frontier chunk handed out and not explored yet, or {@link RadarFrontier#NONE}. */
+    private long pendingTarget = RadarFrontier.NONE;
     // client animation
     private float dishAngle;
     private float prevDishAngle;
@@ -66,6 +72,9 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
     /** Last supplied power satisfaction (server). */
     public double satisfaction() { return power.satisfaction(); }
 
+    /** The frontier chunk asked for and not explored yet, or {@link RadarFrontier#NONE}. */
+    public long pendingTarget() { return pendingTarget; }
+
     /** Powered (synced to the client). */
     public boolean isWorking() { return working; }
 
@@ -83,11 +92,22 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
             WorldMap map = WorldMap.get(server.getServer());
             int[] c = centerChunk();
             if (logic.tick(satisfaction)) map.requestArea(c[0], c[1], RadarLogic.NEAR_RADIUS);
-            if (logic.revealDue() && !frontier.isExhausted()) {
-                long next = frontier.next(map::isExplored, c[0], c[1], MAX_SKIPS_PER_TICK);
-                if (next != RadarFrontier.BUSY) {
-                    if (next != RadarFrontier.NONE) map.requestScan(next);
+            if (pendingTarget != RadarFrontier.NONE && (map.isExplored(pendingTarget) || !map.inBorder(pendingTarget))) {
+                pendingTarget = RadarFrontier.NONE;
+            }
+            if (logic.revealDue()) {
+                if (pendingTarget != RadarFrontier.NONE) {
+                    map.requestScan(pendingTarget); // not charted yet: ask again rather than move on
                     logic.revealed();
+                } else if (!frontier.isExhausted()) {
+                    long next = frontier.next(k -> map.isExplored(k) || !map.inBorder(k), c[0], c[1], MAX_SKIPS_PER_TICK);
+                    if (next != RadarFrontier.BUSY) {
+                        if (next != RadarFrontier.NONE) {
+                            pendingTarget = next;
+                            map.requestScan(next);
+                        }
+                        logic.revealed();
+                    }
                 }
             }
             if (satisfaction > 0) setChanged();
@@ -115,7 +135,7 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
         if (level == null || level.dimension() != Level.OVERWORLD) return Component.translatable("minetorio.radar.wrong_dimension");
         if (power.satisfaction() <= 0) return Component.translatable("minetorio.radar.no_power");
         int explored = level.getServer() == null ? 0 : WorldMap.get(level.getServer()).exploredCount();
-        if (frontier.isExhausted()) return Component.translatable("minetorio.radar.done", explored);
+        if (frontier.isExhausted() && pendingTarget == RadarFrontier.NONE) return Component.translatable("minetorio.radar.done", explored);
         int seconds = (int) Math.ceil((1 - logic.progress()) * RadarLogic.REVEAL_TICKS / power.satisfaction() / 20);
         return Component.translatable("minetorio.radar.scanning", explored, seconds);
     }
@@ -145,6 +165,7 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
         super.saveAdditional(tag, registries);
         tag.putInt(KEY_FRONTIER, frontier.index());
         tag.putDouble(KEY_PROGRESS, logic.progress());
+        if (pendingTarget != RadarFrontier.NONE) tag.putLong(KEY_TARGET, pendingTarget);
     }
 
     @Override
@@ -152,6 +173,7 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_FRONTIER)) frontier.setIndex(tag.getInt(KEY_FRONTIER));
         if (tag.contains(KEY_PROGRESS)) logic.load(tag.getDouble(KEY_PROGRESS));
+        if (tag.contains(KEY_TARGET)) pendingTarget = tag.getLong(KEY_TARGET);
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
     }
 
