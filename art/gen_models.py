@@ -13,6 +13,10 @@ block: width runs toward +x (east = right of north), depth toward -z (north = fo
 Boxes larger than a block are split into equal parts no longer than 16 px, so 16x16 textures keep
 roughly vanilla texel density and plates show Create-like seams. Faces inside a split box are
 dropped.
+
+No two faces may share a plane, face the same way and overlap (z-fighting): overlays stand EPS
+proud of the surface they decorate, copies of a box (octagons, staggered bars) are inset by EPS,
+and faces covered by a flush overlay are left out. `python -I art/check_zfight.py` checks it.
 """
 import json
 import math
@@ -28,6 +32,7 @@ NS = "minetorio:block/"
 
 FACES = ("north", "south", "east", "west", "up", "down")
 AXIS = {"x": 0, "y": 1, "z": 2}
+EPS = 0.02   # offset that keeps nearly coplanar faces apart (invisible at 1/16 block per unit)
 
 
 def r4(v):
@@ -136,7 +141,8 @@ class Model:
         """Vertical octagonal prism (square + square turned 45 degrees about the y axis)."""
         self.cbox(cx, cz, size, size, y0, y1, tex, split=False, **kw)
         s = size * 0.83
-        self.cbox(cx, cz, s, s, y0, y1, tex, split=False, rot=("y", 45, [cx, y0, cz]), **kw)
+        # the turned copy is EPS shorter at both ends so its caps don't share the square's planes
+        self.cbox(cx, cz, s, s, y0 + EPS, y1 - EPS, tex, split=False, rot=("y", 45, [cx, y0, cz]), **kw)
         return self
 
     def octagon_axis(self, axis, c1, c2, size, a0, a1, tex, **kw):
@@ -145,10 +151,10 @@ class Model:
         s = size * 0.83 / 2
         if axis == "x":
             self.box([a0, c1 - h, c2 - h], [a1, c1 + h, c2 + h], tex, **kw)
-            self.box([a0, c1 - s, c2 - s], [a1, c1 + s, c2 + s], tex, rot=("x", 45, [a0, c1, c2]), **kw)
+            self.box([a0 + EPS, c1 - s, c2 - s], [a1 - EPS, c1 + s, c2 + s], tex, rot=("x", 45, [a0, c1, c2]), **kw)
         else:
             self.box([c2 - h, c1 - h, a0], [c2 + h, c1 + h, a1], tex, **kw)
-            self.box([c2 - s, c1 - s, a0], [c2 + s, c1 + s, a1], tex, rot=("z", 45, [c2, c1, a0]), **kw)
+            self.box([c2 - s, c1 - s, a0 + EPS], [c2 + s, c1 + s, a1 - EPS], tex, rot=("z", 45, [c2, c1, a0]), **kw)
         return self
 
     def gear_y(self, cx, cz, radius, y0, y1, tex_disc, tex_teeth, tooth=3, bars=8, width=3):
@@ -173,18 +179,19 @@ class Model:
     def flange_x(self, cy, cz, x0, x1, tex="flange", size=10):
         return self.box([x0, cy - size / 2, cz - size / 2], [x1, cy + size / 2, cz + size / 2], tex, split=False)
 
-    def pipe_z(self, cx, cy, z0, z1, size=7):
+    def pipe_z(self, cx, cy, z0, z1, size=7, skip=()):
+        """skip: ends covered by a flush flange."""
         h = size / 2
         return self.box([cx - h, cy - h, z0], [cx + h, cy + h, z1],
                         {"east": "pipe_h", "west": "pipe_h", "up": "pipe_v", "down": "pipe_v",
-                         "north": "pipe_end", "south": "pipe_end"}, split=False)
+                         "north": "pipe_end", "south": "pipe_end"}, skip=skip, split=False)
 
-    def pipe_x(self, cy, cz, x0, x1, size=7):
+    def pipe_x(self, cy, cz, x0, x1, size=7, skip=()):
         h = size / 2
         return self.box([x0, cy - h, cz - h], [x1, cy + h, cz + h],
                         {"north": "pipe_h", "south": "pipe_h", "up": "pipe_h", "down": "pipe_h",
                          "east": "pipe_end", "west": "pipe_end"},
-                        uvrot={"up": 90, "down": 90}, split=False)
+                        uvrot={"up": 90, "down": 90}, skip=skip, split=False)
 
     def pipe_y(self, cx, cz, y0, y1, size=7):
         h = size / 2
@@ -391,12 +398,13 @@ save_block("electric_mining_drill_body", edb)
 
 edh = Model({"bit": "drill_bit", "arm": "steel", "tip": "tier_yellow", "hub": "gear_hub", "dark": "dark"}, "drill_bit")
 edh.octagon_y(8, 8, 9, 19, 30, "bit")
-for ang in (0, 45, -45):
+# crossing arms: each EPS thinner than the previous so their tops and bottoms never share a plane
+for i, ang in enumerate((0, 45, -45)):
     kw = {"rot": ("y", ang, [8, 22, 8])} if ang else {}
-    edh.box([-6, 22, 6], [22, 25, 10], "arm", split=False, **kw)
-edh.box([6, 22, -6], [10, 25, 22], "arm", split=False)
+    edh.box([-6, 22 + EPS * i, 6], [22, 25 - EPS * i, 10], "arm", split=False, **kw)
+edh.box([6, 22 + EPS * 3, -6], [10, 25 - EPS * 3, 22], "arm", split=False)
 for (x, z) in ((-7, 8), (23, 8), (8, -7), (8, 23)):
-    edh.cbox(x, z, 4, 4, 21, 26, "tip", split=False)
+    edh.cbox(x, z, 4 + 2 * EPS, 4 + 2 * EPS, 21, 26, "tip", split=False)   # proud of the arm sides
 edh.octagon_y(8, 8, 6, 30, 32, "hub")
 save_block("electric_mining_drill_head", edh)
 empty("electric_mining_drill", "steel_panel")
@@ -420,7 +428,7 @@ bmd.box([11, 4, -15.5], [21, 11, -14], "chute", split=False)
 bmd.box([12, 5, -16], [20, 9, -15.5], "dark", only=("north",), split=False)
 bmd.box([5, 17, -9], [27, 19, 9], "frame")
 # chimney
-bmd.octagon_y(24, 10, 5, 17, 31, "dark")
+bmd.octagon_y(24, 10, 5, 17, 31 + 2.5 * EPS, "dark")   # soot core stands proud of the steel collar
 bmd.octagon_y(24, 10, 7, 29, 31, "steel")
 save_block("burner_mining_drill", bmd)
 
@@ -449,7 +457,7 @@ def furnace(lit):
     # arched mouth on the south face
     m.box([8, 4, 15], [11, 15, 17], "stone", split=False)
     m.box([21, 4, 15], [24, 15, 17], "stone", split=False)
-    m.box([8, 13, 15], [24, 16, 17.5], "stone", split=False)
+    m.box([8 - EPS, 13, 15], [24 + EPS, 16, 17.5], "stone", split=False)   # proud of the jambs
     m.box([11, 4, 15], [21, 13, 15.5], "mouth", only=("south",), fit=("south",), split=False,
           light=15 if lit else None, shade=not lit)
     m.box([11, 4, 15.5], [21, 4.5, 17], "steel", only=("up",), split=False)
@@ -468,7 +476,7 @@ lb = Model({"frame": "dark_panel", "panel": "lab_panel", "deck": "steel_panel", 
             "red": "tier_red", "green": "tier_green", "dark": "dark"}, "lab_panel")
 lb.textures["green"] = "tier_green"
 lb.box([-15, 0, -15], [31, 3, 31], "frame")
-lb.cbox(8, 8, 36, 36, 0, 3, "frame", split=False, rot=("y", 45, [8, 0, 8]))
+lb.cbox(8, 8, 36, 36, EPS, 3 - EPS, "frame", split=False, rot=("y", 45, [8, 0, 8]))
 lb.box([-11, 3, -11], [27, 13, 27], {"north": "panel", "south": "panel", "east": "panel", "west": "panel",
                                      "up": "deck", "down": "frame"})
 lb.box([-9, 13, -9], [25, 15, 25], "steel")
@@ -516,17 +524,17 @@ bb.box([-6, 3, 13], [22, 14, 23], "box")
 bb.box([1, 4, 23], [15, 11, 23.5], "mouth", only=("south",), fit=("south",), split=False)
 bb.box([0, 3, 23], [16, 12, 23.5], "dark", only=("east", "west", "up"), split=False)
 # chimney on the firebox
-bb.octagon_y(18, 19, 5, 14, 31, "dark")
+bb.octagon_y(18, 19, 5, 14, 31 + 2.5 * EPS, "dark")
 bb.octagon_y(18, 19, 7, 29, 31, "steel")
 # safety valve on the tank
 bb.cbox(-4, 6, 3, 3, 22, 26, "brass", split=False)
 bb.cbox(-4, 6, 5, 2, 26, 27, "brass", split=False)
 # water ports (west/east of the near row, centered at z 16, y 8) and steam port (north, x 8)
-bb.pipe_x(8, 16, -16, -6)
+bb.pipe_x(8, 16, -16, -6, skip=("west",))
 bb.flange_x(8, 16, -16, -15)
-bb.pipe_x(8, 16, 22, 32)
+bb.pipe_x(8, 16, 22, 32, skip=("east",))
 bb.flange_x(8, 16, 31, 32)
-bb.pipe_z(8, 12, -8, -1)
+bb.pipe_z(8, 12, -8, -1, skip=("north",))
 bb.flange_z(8, 12, -8, -7)
 save_block("boiler_body", bb)
 
@@ -548,7 +556,7 @@ eb.box([-12, 3, -16], [-8, 6, 24], "rail")
 eb.box([24, 3, -16], [28, 6, 24], "rail")
 eb.box([-8, 3, -14], [24, 4, 22], "plate")
 # steam pipe along the bed, flanged at both ends of the half
-eb.pipe_z(8, 8, -16, 24)
+eb.pipe_z(8, 8, -16, 24, skip=("north", "south"))
 eb.flange_z(8, 8, -16, -15)
 eb.flange_z(8, 8, 23, 24)
 save_block("steam_engine_body", eb)
@@ -556,14 +564,16 @@ save_block("steam_engine_body", eb)
 ec = Model({"cyl": "cylinder", "brass": "brass", "dark": "dark", "steel": "steel", "plate": "dark_panel"},
            "cylinder")
 # cylinder (front), valve chest, slide bars, crank bearing
-ec.octagon_axis("z", 14, 4, 14, -16, 2, "cyl")
-ec.octagon_axis("z", 14, 4, 16, -16, -14, "brass", split=False)
+# the front ring stands EPS back from z -16 (the item model has the body's flange there) and the
+# cylinder sits behind the ring's face
+ec.octagon_axis("z", 14, 4, 14, -16 + 4 * EPS, 2, "cyl")
+ec.octagon_axis("z", 14, 4, 16, -16 + EPS, -14, "brass", split=False)
 ec.octagon_axis("z", 14, 4, 16, 1, 3, "brass", split=False)
 ec.box([-1, 21, -12], [9, 24, 0], "plate", split=False)
 ec.box([3, 24, -8], [5, 27, -6], "brass", split=False)
 for y0 in (10, 17):
     ec.box([1, y0, 3], [7, y0 + 1, 12], "steel", split=False)
-ec.box([-2, 4, 1], [10, 10, 14], "plate", split=False)
+ec.box([-2, 4, 1 + 2.5 * EPS], [10, 10, 14], "plate", split=False)   # behind the rear ring's face
 ec.box([18, 4, 3], [26, 13, 13], "plate", split=False)
 ec.box([19, 13, 5], [25, 19, 11], "dark", split=False)
 save_block("steam_engine_center", ec)
@@ -576,14 +586,18 @@ save_block("steam_engine_piston", ep)
 ef = Model({"rim": "dark", "spoke": "steel", "hub": "gear_hub", "crank": "brass"}, "dark")
 # flywheel on the east side, axle along x through (y 16, z 8)
 R = 13
-for ang in (0, 22.5, -22.5, 45, -45):
+# rim bars cross each other: each is EPS thinner (in x) than the previous so their sides never share a plane
+bars = [("y", a) for a in (0, 22.5, -22.5, 45, -45)] + [("z", a) for a in (0, 22.5, -22.5)]
+for i, (long_axis, ang) in enumerate(bars):
     kw = {"rot": ("x", ang, [27, 16, 8])} if ang else {}
-    ef.box([27, 16 - R, 8 - 2.5], [31, 16 + R, 8 + 2.5], "rim", split=False, **kw)
-for ang in (0, 22.5, -22.5):
-    kw = {"rot": ("x", ang, [27, 16, 8])} if ang else {}
-    ef.box([27, 16 - 2.5, 8 - R], [31, 16 + 2.5, 8 + R], "rim", split=False, **kw)
-ef.box([26, 16 - 8, 8 - 8], [32, 16 + 8, 8 + 8], "spoke", split=False)
-ef.box([26, 16 - 6, 8 - 6], [32, 16 + 6, 8 + 6], "spoke", split=False, rot=("x", 45, [27, 16, 8]))
+    x0, x1 = 27 + EPS * i, 31 - EPS * i
+    if long_axis == "y":
+        ef.box([x0, 16 - R, 8 - 2.5], [x1, 16 + R, 8 + 2.5], "rim", split=False, **kw)
+    else:
+        ef.box([x0, 16 - 2.5, 8 - R], [x1, 16 + 2.5, 8 + R], "rim", split=False, **kw)
+# spoke plates stop short of the hub's outer face
+ef.box([26, 16 - 8, 8 - 8], [32 - EPS, 16 + 8, 8 + 8], "spoke", split=False)
+ef.box([26 + EPS, 16 - 6, 8 - 6], [32 - 2 * EPS, 16 + 6, 8 + 6], "spoke", split=False, rot=("x", 45, [27, 16, 8]))
 ef.box([25.5, 13, 5], [32, 19, 11], "hub", split=False)
 ef.box([9, 14.5, 6.5], [26, 17.5, 9.5], "spoke", split=False)
 ef.box([10, 14, 6], [13, 22, 10], "crank", split=False)
@@ -598,7 +612,7 @@ item_from("steam_engine", eb, ec, ep, ef)
 op = Model({"frame": "dark_panel", "body": "steel_panel", "accent": "tier_yellow_panel", "dark": "dark",
             "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange", "grate": "vent"},
            "steel_panel")
-op.box([1, 0, -16], [15, 2, 14], "frame")
+op.box([1, 0, -16 + EPS], [15, 2, 14], "frame")   # behind the intake grate's face
 op.box([3, 2, 1], [13, 13, 13], "body")
 op.box([2.5, 9, 0.5], [13.5, 11, 13.5], "accent", split=False)
 op.box([4, 13, 3], [12, 15, 11], "dark", split=False)
@@ -606,7 +620,7 @@ op.octagon_y(8, -8, 12, 2, 12, "body")
 op.octagon_y(8, -8, 13, 12, 14, "accent")
 op.pipe_z(8, 7, -8, 1)
 op.box([4, 1, -16], [12, 9, -14], "grate", fit=("north",), split=False)
-op.pipe_z(8, 8, 13, 16, size=8)
+op.pipe_z(8, 8, 13, 16, size=8, skip=("south",))
 op.flange_z(8, 8, 15, 16)
 save_block("offshore_pump", op)
 item_from("offshore_pump", op)
@@ -631,7 +645,7 @@ pd.box([4.5, 1, 4.5], [11.5, 4, 11.5], "pipe_v", only=("north", "south", "east",
 pd.box([4, 0, 4], [12, 1, 12], "flange", skip=("up",), cull=("down",), split=False)
 save_block("pipe_down", pd)
 pipe_item = Model({"pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"}, "pipe_h")
-pipe_item.pipe_z(8, 8, 0, 16)
+pipe_item.pipe_z(8, 8, 0, 16, skip=("north", "south"))
 pipe_item.flange_z(8, 8, 0, 1, size=8)
 pipe_item.flange_z(8, 8, 15, 16, size=8)
 pipe_item.box([4, 4, 6], [12, 12, 10], "flange", split=False)
@@ -678,7 +692,7 @@ for name, housing in (("burner_inserter", "rust_panel"), ("inserter", "tier_yell
     im = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark", "housing": housing, "arm": "steel"}, housing)
     im.elements = json.loads(json.dumps(ti.elements))
     im.box([7, 5, 7], [9, 14, 9], "arm", split=False)
-    im.box([7, 12, 3], [9, 14, 9], "arm", split=False, rot=("x", -22.5, [8, 13, 8]))
+    im.box([7 + EPS, 12, 3], [9 - EPS, 14, 9], "arm", split=False, rot=("x", -22.5, [8, 13, 8]))
     im.box([6, 10, 2], [10, 12, 5], housing.replace("_panel", "") if "tier" in housing else "rust", split=False)
     im.textures.setdefault("rust", "rust")
     for t in ("tier_yellow", "tier_red", "tier_blue"):
@@ -701,15 +715,23 @@ def belt_template(kind):
         for x0 in (0, 15):
             m.box([x0, 0, 0], [x0 + 1, 3, 16], "rail", split=False, cull=("down",))
     else:
+        # the plate fills only what the rails leave free (an L around the corner post), so none of its
+        # faces is flush with a rail face; its texture keeps block coordinates
         right = kind == "curve_right"
-        up_uv = [16, 0, 0, 16] if right else [0, 0, 16, 16]
-        m.box([0, 0, 0], [16, 2, 16], {"up": "curve", "down": "side", "north": "side", "south": "side",
-                                       "east": "side", "west": "side"},
-              uv={"up": up_uv}, cull=("down",), split=False)
-        ox = 0 if right else 15
-        m.box([ox, 0, 0], [ox + 1, 3, 16], "rail", split=False, cull=("down",))
+        ox = 0 if right else 15      # outer rail along z
+        ix = 15 if right else 0      # corner post at the inner end of the entry edge
+        edge = "east" if right else "west"   # the plate strip's side on the block edge
+
+        def u(x):
+            return 16 - x if right else x
+
+        plate = {"up": "curve", "down": "side", "north": "side", "south": "side", "east": "side", "west": "side"}
+        m.box([1, 0, 0], [15, 2, 15], plate, only=("up", "down", "north"), uv={"up": [u(1), 0, u(15), 15]},
+              cull=("down",), split=False)
+        m.box([ix, 0, 1], [ix + 1, 2, 15], plate, only=("up", "down", edge),
+              uv={"up": [u(ix), 1, u(ix + 1), 15]}, cull=("down",), split=False)
+        m.box([ox, 0, 0], [ox + 1, 3, 15], "rail", skip=("south",), split=False, cull=("down",))
         m.box([0, 0, 15], [16, 3, 16], "rail", split=False, cull=("down",))
-        ix = 15 if right else 0
         m.box([ix, 0, 0], [ix + 1, 3, 1], "rail", split=False)
     for k, v in SIDE_TEX.items():
         m.textures.setdefault(k, v)
@@ -746,19 +768,20 @@ def underground(output):
           uv={"up": [1, b0, 15, b1]}, cull=("down",), split=False)
     for x0 in (0, 15):
         m.box([x0, 0, b0], [x0 + 1, 3, b1], "rail", split=False, cull=("down",))
-    # hood walls (tier color), interior black
-    for x0, x1, inner in ((0, 2, "east"), (14, 16, "west")):
+    # hood walls (tier color), interior black; walls and roof stand EPS in from the block sides so the
+    # lip over the mouth is proud of them
+    for x0, x1, inner in ((EPS, 2, "east"), (14, 16 - EPS, "west")):
         m.box([x0, 0, h0], [x1, 9, h1], {f: ("tunnel" if f == inner else "hood") for f in FACES}, split=False)
     zf0, zf1 = (far - 2, far) if far == 16 else (far, far + 2)
     m.box([2, 0, zf0], [14, 9, zf1], {f: ("tunnel" if f in ("north", "south") and f == ("south" if far == 0 else "north")
                                           else "hood") for f in FACES}, split=False)
-    m.box([0, 9, h0], [16, 11, h1], {"up": "arrow", "down": "tunnel", "north": "hood", "south": "hood",
-                                      "east": "hood", "west": "hood"},
+    m.box([EPS, 9, h0], [16 - EPS, 11, h1], {"up": "arrow", "down": "tunnel", "north": "hood", "south": "hood",
+                                              "east": "hood", "west": "hood"},
           uv={"up": [0, h0, 16, h1]}, split=False)
     m.box([2, 0, h0], [14, 0.5, h1], "tunnel", only=("up",), split=False)
     # lip over the mouth and a frame band
-    lz0, lz1 = (mouth - 1, mouth) if not output else (mouth, mouth + 1)
-    m.box([0, 7, min(lz0, lz1)], [16, 11, max(lz0, lz1)], "frame", split=False)
+    lz0, lz1 = (mouth - 1, mouth + EPS) if not output else (mouth - EPS, mouth + 1)
+    m.box([0, 7, lz0], [16, 11 + EPS, lz1], "frame", split=False)
     m.box([3, 11, h0 + 2], [13, 12, h1 - 2], "frame", split=False)
     return m
 
@@ -783,11 +806,22 @@ def splitter_template():
         m.box([x0 + 1, 0, 0], [x0 + 15, 2, 16], {"up": "belt", "down": "side"}, only=("up", "down"),
               uv={"up": [1, 0, 15, 16]}, cull=None, split=False)
         for rx in (x0, x0 + 15):
-            m.box([rx, 0, 0], [rx + 1, 3, 16], "rail", split=False)
+            if rx in (0, 31):
+                # outer rails run past the end frames: cut there, the frame covers the rail's outer side
+                outer = "west" if rx == 0 else "east"
+                for z0, z1 in ((0, 4), (4, 12), (12, 16)):
+                    skip = [f for f, cut in (("north", z0 > 0), ("south", z1 < 16), (outer, z0 == 4)) if cut]
+                    m.box([rx, 0, z0], [rx + 1, 3, z1], "rail", skip=skip, split=False,
+                          uv={"up": [7.5, z0, 8.5, z1], "down": [7.5, 16 - z1, 8.5, 16 - z0],
+                              "west": [z0, 6.5, z1, 9.5], "east": [16 - z1, 6.5, 16 - z0, 9.5]})
+            else:
+                m.box([rx, 0, 0], [rx + 1, 3, 16], "rail", split=False)
+    # motor housing: its ends are inside the end frames
     m.box([0, 2, 5], [32, 10, 11], {"north": "motor", "south": "motor", "east": "hood", "west": "hood",
-                                     "up": "arrow", "down": "side"}, fit=("north", "south", "up"))
-    m.box([0, 0, 4], [2, 12, 12], "frame", split=False)
-    m.box([30, 0, 4], [32, 12, 12], "frame", split=False)
+                                     "up": "arrow", "down": "side"}, skip=("east", "west"), fit=("north", "south", "up"))
+    # end frames: their bottoms are covered by the rails and the belt plates
+    m.box([0, 0, 4], [2, 12, 12], "frame", skip=("down",), split=False)
+    m.box([30, 0, 4], [32, 12, 12], "frame", skip=("down",), split=False)
     m.box([14, 10, 6], [18, 12, 10], "frame", split=False)
     return m
 

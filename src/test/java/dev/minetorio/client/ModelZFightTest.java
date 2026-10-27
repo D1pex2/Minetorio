@@ -1,0 +1,465 @@
+package dev.minetorio.client;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+
+/**
+ * No two faces of our JSON models z-fight: same plane (within 0.001 px), same facing, overlapping
+ * area. Faces facing opposite ways are never seen together (back faces are culled); an overlap whose
+ * front is filled by a third element is covered. Besides every model on its own, models drawn
+ * together by a block entity renderer or a multipart blockstate are checked with the renderer's
+ * offsets ({@link #composites()}). Java port of {@code art/check_zfight.py}, which prints the
+ * findings as a table; both must agree.
+ */
+class ModelZFightTest {
+    private static final Path MODELS = Paths.get(System.getProperty("minetorio.projectDir", "."),
+            "src/main/resources/assets/minetorio/models");
+    private static final double PLANE_EPS = 0.001;
+    private static final double AREA_EPS = 1e-4;
+
+    // ------------------------------------------------------------------ geometry
+
+    record V(double x, double y, double z) {
+        V add(V o) { return new V(x + o.x, y + o.y, z + o.z); }
+        V sub(V o) { return new V(x - o.x, y - o.y, z - o.z); }
+        V mul(double k) { return new V(x * k, y * k, z * k); }
+        double dot(V o) { return x * o.x + y * o.y + z * o.z; }
+        V cross(V o) { return new V(y * o.z - z * o.y, z * o.x - x * o.z, x * o.y - y * o.x); }
+        V norm() { return mul(1 / Math.sqrt(dot(this))); }
+        double get(int i) { return i == 0 ? x : i == 1 ? y : z; }
+    }
+
+    private static final V ZERO = new V(0, 0, 0);
+    private static final V X = new V(1, 0, 0);
+    private static final V Y = new V(0, 1, 0);
+
+    /** A translation (axis 't', offset v) or a right-handed rotation about axis x/y/z through origin v. */
+    record Tr(char axis, double deg, V v) {
+        static Tr t(double dx, double dy, double dz) { return new Tr('t', 0, new V(dx, dy, dz)); }
+        static Tr r(char axis, double deg, V origin) { return new Tr(axis, deg, origin); }
+
+        V apply(V p, boolean vector, boolean inverse) {
+            if (axis == 't') return vector ? p : inverse ? p.sub(v) : p.add(v);
+            double a = Math.toRadians(inverse ? -deg : deg);
+            double c = Math.cos(a), s = Math.sin(a);
+            V o = vector ? ZERO : v;
+            V q = p.sub(o);
+            V r = switch (axis) {
+                case 'x' -> new V(q.x, q.y * c - q.z * s, q.y * s + q.z * c);
+                case 'y' -> new V(q.z * s + q.x * c, q.y, q.z * c - q.x * s);
+                default -> new V(q.x * c - q.y * s, q.x * s + q.y * c, q.z);
+            };
+            return r.add(o);
+        }
+    }
+
+    record Face(String name, V n, List<V> pts) {}
+
+    private static final Map<String, int[][]> CORNERS = Map.of(
+            "north", new int[][] {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}},
+            "south", new int[][] {{0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
+            "west", new int[][] {{0, 0, 0}, {0, 0, 1}, {0, 1, 1}, {0, 1, 0}},
+            "east", new int[][] {{1, 0, 0}, {1, 0, 1}, {1, 1, 1}, {1, 1, 0}},
+            "down", new int[][] {{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}},
+            "up", new int[][] {{0, 1, 0}, {1, 1, 0}, {1, 1, 1}, {0, 1, 1}});
+    private static final Map<String, V> NORMAL = Map.of("up", Y, "down", new V(0, -1, 0), "north", new V(0, 0, -1),
+            "south", new V(0, 0, 1), "east", X, "west", new V(-1, 0, 0));
+
+    /** An element in model space (or a procedural part without volume when {@code from} is null). */
+    static final class Solid {
+        final String label;
+        final V from, to;
+        final List<Tr> trs;
+        final List<String> faceNames;
+        final List<Face> faces = new ArrayList<>();
+
+        Solid(String label, V from, V to, List<Tr> trs, List<String> faceNames) {
+            this.label = label;
+            this.from = from;
+            this.to = to;
+            this.trs = trs;
+            this.faceNames = faceNames;
+            for (String name : faceNames) {
+                List<V> pts = new ArrayList<>();
+                for (int[] pick : CORNERS.get(name)) {
+                    V p = new V(pick[0] == 0 ? from.x : to.x, pick[1] == 0 ? from.y : to.y, pick[2] == 0 ? from.z : to.z);
+                    for (Tr t : trs) p = t.apply(p, false, false);
+                    pts.add(p);
+                }
+                V n = NORMAL.get(name);
+                for (Tr t : trs) n = t.apply(n, true, false);
+                faces.add(new Face(name, n, pts));
+            }
+        }
+
+        Solid(String label, List<Face> quads) {
+            this.label = label;
+            this.from = this.to = null;
+            this.trs = List.of();
+            this.faceNames = List.of();
+            this.faces.addAll(quads);
+        }
+
+        Solid moved(String newLabel, List<Tr> more) {
+            if (from == null) return this;
+            List<Tr> all = new ArrayList<>(trs);
+            all.addAll(more);
+            return new Solid(newLabel, from, to, all, faceNames);
+        }
+
+        boolean contains(V p) {
+            if (from == null) return false;
+            for (int i = trs.size() - 1; i >= 0; i--) p = trs.get(i).apply(p, false, true);
+            for (int i = 0; i < 3; i++) {
+                if (p.get(i) < from.get(i) - 1e-4 || p.get(i) > to.get(i) + 1e-4) return false;
+            }
+            return true;
+        }
+    }
+
+    // ------------------------------------------------------------------ models
+
+    private static JsonObject load(String rl) throws IOException {
+        if (!rl.startsWith("minetorio:")) return null;
+        Path p = MODELS.resolve(rl.substring("minetorio:".length()) + ".json");
+        if (!Files.exists(p)) return null;
+        try (Reader r = Files.newBufferedReader(p, StandardCharsets.UTF_8)) {
+            return JsonParser.parseReader(r).getAsJsonObject();
+        }
+    }
+
+    /** The model's elements, or those of the nearest parent that has any. */
+    static List<Solid> solids(String rl, String label) throws IOException {
+        String cur = rl;
+        while (cur != null) {
+            JsonObject j = load(cur);
+            if (j == null) return List.of();
+            if (j.has("elements")) {
+                List<Solid> out = new ArrayList<>();
+                JsonArray els = j.getAsJsonArray("elements");
+                for (int i = 0; i < els.size(); i++) {
+                    JsonObject el = els.get(i).getAsJsonObject();
+                    List<Tr> trs = new ArrayList<>();
+                    if (el.has("rotation")) {
+                        JsonObject r = el.getAsJsonObject("rotation");
+                        double angle = r.get("angle").getAsDouble();
+                        if (angle != 0) trs.add(Tr.r(r.get("axis").getAsString().charAt(0), angle, vec(r.getAsJsonArray("origin"))));
+                    }
+                    List<String> faces = el.has("faces") ? new ArrayList<>(el.getAsJsonObject("faces").keySet()) : List.of();
+                    out.add(new Solid(label + "#" + i, vec(el.getAsJsonArray("from")), vec(el.getAsJsonArray("to")), trs, faces));
+                }
+                return out;
+            }
+            JsonElement parent = j.get("parent");
+            cur = parent == null ? null : parent.getAsString();
+        }
+        return List.of();
+    }
+
+    private static V vec(JsonArray a) {
+        return new V(a.get(0).getAsDouble(), a.get(1).getAsDouble(), a.get(2).getAsDouble());
+    }
+
+    // ------------------------------------------------------------------ overlap
+
+    private record P2(double x, double y) {}
+
+    private static double area(List<P2> poly) {
+        double s = 0;
+        for (int i = 0; i < poly.size(); i++) {
+            P2 a = poly.get(i), b = poly.get((i + 1) % poly.size());
+            s += a.x * b.y - b.x * a.y;
+        }
+        return s / 2;
+    }
+
+    private static List<P2> to2d(List<V> pts, V u, V v) {
+        List<P2> poly = new ArrayList<>();
+        for (V p : pts) poly.add(new P2(p.dot(u), p.dot(v)));
+        if (area(poly) < 0) java.util.Collections.reverse(poly);
+        return poly;
+    }
+
+    /** Sutherland-Hodgman intersection of two convex counter-clockwise polygons. */
+    private static List<P2> clip(List<P2> subject, List<P2> clipper) {
+        List<P2> out = subject;
+        for (int i = 0; i < clipper.size() && !out.isEmpty(); i++) {
+            P2 a = clipper.get(i), b = clipper.get((i + 1) % clipper.size());
+            List<P2> in = out;
+            out = new ArrayList<>();
+            for (int j = 0; j < in.size(); j++) {
+                P2 p = in.get(j), q = in.get((j + 1) % in.size());
+                double sp = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+                double sq = (b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x);
+                if (sp >= 0) out.add(p);
+                if ((sp >= 0) != (sq >= 0)) {
+                    double k = sp / (sp - sq);
+                    out.add(new P2(p.x + (q.x - p.x) * k, p.y + (q.y - p.y) * k));
+                }
+            }
+        }
+        return out;
+    }
+
+    /** The 3D overlap polygon of two coplanar same-facing faces, or null. */
+    static List<V> overlap(Face a, Face b) {
+        if (a.n.dot(b.n) < 1 - 1e-6) return null;
+        double d = a.n.dot(a.pts.get(0));
+        if (Math.abs(d - a.n.dot(b.pts.get(0))) > PLANE_EPS) return null;
+        V u = a.n.cross(Math.abs(a.n.x) < 0.9 ? X : Y).norm();
+        V v = a.n.cross(u);
+        List<P2> poly = clip(to2d(a.pts, u, v), to2d(b.pts, u, v));
+        if (poly.size() < 3 || area(poly) <= AREA_EPS) return null;
+        List<V> pts = new ArrayList<>();
+        for (P2 p : poly) pts.add(u.mul(p.x).add(v.mul(p.y)).add(a.n.mul(d)));
+        return pts;
+    }
+
+    /** The space just in front of the overlap is filled by one other element. */
+    private static boolean covered(List<V> pts, V n, List<Solid> others) {
+        List<V> probe = new ArrayList<>(pts);
+        probe.add(pts.get(0).add(pts.get(1)).add(pts.get(2)).mul(1 / 3.0));
+        for (Solid s : others) {
+            if (probe.stream().allMatch(p -> s.contains(p.add(n.mul(0.005))))) return true;
+        }
+        return false;
+    }
+
+    record Finding(String a, String b, V n) {}
+
+    /** Findings between solids of ga and gb; pass the same list twice for pairs within one model. */
+    static List<Finding> pairs(List<Solid> ga, List<Solid> gb, List<Solid> all) {
+        List<Finding> found = new ArrayList<>();
+        boolean same = ga == gb;
+        for (int i = 0; i < ga.size(); i++) {
+            for (int j = same ? i + 1 : 0; j < gb.size(); j++) {
+                Solid sa = ga.get(i), sb = gb.get(j);
+                for (Face fa : sa.faces) {
+                    for (Face fb : sb.faces) {
+                        List<V> o = overlap(fa, fb);
+                        if (o == null) continue;
+                        List<Solid> others = all.stream().filter(s -> s != sa && s != sb).toList();
+                        if (covered(o, fa.n, others)) continue;
+                        found.add(new Finding(sa.label + "." + fa.name, sb.label + "." + fb.name, fa.n));
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    // ------------------------------------------------------------------ composites
+
+    /** A part: a model (or procedural solids) in sampled poses; a turning part names its spin axis. */
+    record Part(String label, String model, List<List<Tr>> poses, V spin, Supplier<List<Solid>> procedural) {
+        static Part fixed(String label, String model, Tr... trs) {
+            return new Part(label, model, List.of(List.of(trs)), null, null);
+        }
+
+        List<List<Solid>> expand() throws IOException {
+            if (procedural != null) return procedural.get().stream().map(List::of).toList();
+            List<Solid> base = solids("minetorio:block/" + model, label);
+            List<List<Solid>> out = new ArrayList<>();
+            for (List<Tr> pose : poses) out.add(pose.isEmpty() ? base : base.stream().map(s -> s.moved(s.label, pose)).toList());
+            return out;
+        }
+    }
+
+    record Composite(String name, List<Part> parts) {}
+
+    private static final double[] SPIN = {0, 11.25, 22.5, 33.75, 45, 67.5};
+
+    private static Part spinning(String label, String model, char axis, V origin, Tr... after) {
+        List<List<Tr>> poses = new ArrayList<>();
+        for (double a : SPIN) {
+            List<Tr> pose = new ArrayList<>();
+            if (a != 0) pose.add(Tr.r(axis, a, origin));
+            pose.addAll(List.of(after));
+            poses.add(pose);
+        }
+        return new Part(label, model, poses, axis == 'x' ? X : Y, null);
+    }
+
+    /** Shoulder, upper arm and hand boxes of InserterRenderer.render (lines 84-94), in pixels, facing north. */
+    static Solid inserterArm(int reach, double arm) {
+        double a = Math.PI * arm;
+        double c = -Math.cos(a), s = Math.sin(a);
+        double hx = s, hz = -c; // facing north (0, -1), right = east (1, 0)
+        double radius = 0.85 * reach, shoulderY = 5 / 16.0;
+        V shoulder = new V(0.5, shoulderY, 0.5);
+        V elbow = new V(0.5 + hx * radius * 0.45, shoulderY + 0.45, 0.5 + hz * radius * 0.45);
+        V hand = new V(0.5 + hx * radius, shoulderY + 0.12, 0.5 + hz * radius);
+        V side = new V(-hz, 0, hx);
+        List<Face> quads = new ArrayList<>();
+        Object[][] boxes = {{shoulder, elbow, 0.05}, {elbow, hand, 0.04}, {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.02, 0)), 0.07}};
+        for (Object[] box : boxes) {
+            V a0 = (V) box[0], b0 = (V) box[1];
+            double half = (double) box[2];
+            V u = b0.sub(a0).norm();
+            V sv = side.norm();
+            V vv = u.cross(sv).norm();
+            sv = vv.cross(u).norm();
+            V[] k = new V[8];
+            for (int i = 0; i < 8; i++) {
+                V base = (i & 4) != 0 ? b0 : a0;
+                base = base.add(sv.mul((i & 2) != 0 ? half : -half)).add(vv.mul((i & 1) != 0 ? half : -half));
+                k[i] = base.mul(16);
+            }
+            int[][] idx = {{2, 3, 7, 6}, {0, 4, 5, 1}, {1, 5, 7, 3}, {0, 2, 6, 4}, {4, 6, 7, 5}, {0, 1, 3, 2}};
+            V[] ns = {sv, sv.mul(-1), vv, vv.mul(-1), u, u.mul(-1)};
+            for (int q = 0; q < 6; q++) {
+                quads.add(new Face("q" + (quads.size()), ns[q], List.of(k[idx[q][0]], k[idx[q][1]], k[idx[q][2]], k[idx[q][3]])));
+            }
+        }
+        return new Solid("inserter_arm(reach=" + reach + ",arm=" + arm + ")", quads);
+    }
+
+    /** Same table as COMPOSITES in art/check_zfight.py. */
+    static List<Composite> composites() {
+        V center = new V(8, 0, 8);
+        List<Composite> c = new ArrayList<>();
+        // AssemblerRenderer.java:36-41: body and gear at the center, the gear turning about the vertical axis.
+        for (int t = 1; t <= 2; t++) {
+            c.add(new Composite("assembling_machine_" + t, List.of(Part.fixed("body", "assembling_machine_" + t + "_body"),
+                    spinning("gear", "assembling_machine_gear", 'y', center))));
+        }
+        // DrillRenderer.java:44-50: electric body and turning head at the center.
+        c.add(new Composite("electric_mining_drill", List.of(Part.fixed("body", "electric_mining_drill_body"),
+                spinning("head", "electric_mining_drill_head", 'y', center))));
+        // Burner drill: body on the controller's blockstate; DrillRenderer.java:41,49 puts the head at (+8, 0, -8) px.
+        c.add(new Composite("burner_mining_drill", List.of(Part.fixed("body", "burner_mining_drill"),
+                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)))));
+        // LabRenderer.java:37-43: body and turning dome (glowing or idle).
+        for (String dome : List.of("lab_dome", "lab_dome_idle")) {
+            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), spinning("dome", dome, 'y', center))));
+        }
+        // SteamMachineRenderer.java:73-74: boiler body and fire.
+        c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
+        // SteamMachineRenderer.java:91-100: body at dz -1 and +1.5 blocks, center, piston +-3 px, flywheel about x at y 16, z 8.
+        List<List<Tr>> piston = new ArrayList<>();
+        for (double dz : new double[] {-3, -1.5, 0, 1.5, 3}) piston.add(List.of(Tr.t(0, 0, dz)));
+        c.add(new Composite("steam_engine", List.of(Part.fixed("body_front", "steam_engine_body", Tr.t(0, 0, -16)),
+                Part.fixed("body_back", "steam_engine_body", Tr.t(0, 0, 24)), Part.fixed("center", "steam_engine_center"),
+                new Part("piston", "steam_engine_piston", piston, null, null),
+                spinning("flywheel", "steam_engine_flywheel", 'x', new V(0, 16, 8)))));
+        // InserterRenderer.java:84-94: procedural arm over the base.
+        for (Object[] ins : new Object[][] {{"burner_inserter", 1}, {"inserter", 1}, {"long_handed_inserter", 2}, {"fast_inserter", 1}}) {
+            int reach = (int) ins[1];
+            Supplier<List<Solid>> arms = () -> Stream.of(0.0, 0.25, 0.5, 0.75, 1.0).map(a -> inserterArm(reach, a)).toList();
+            c.add(new Composite(ins[0] + "+arm", List.of(Part.fixed("base", (String) ins[0]), new Part("arm", null, null, null, arms))));
+        }
+        // blockstates/pipe.json: core + four sides (y 0/90/180/270, clockwise about the block center) + up + down.
+        List<Part> pipe = new ArrayList<>(List.of(Part.fixed("core", "pipe_core")));
+        for (int y : new int[] {0, 90, 180, 270}) {
+            pipe.add(y == 0 ? Part.fixed("side0", "pipe_side") : Part.fixed("side" + y, "pipe_side", Tr.r('y', -y, new V(8, 8, 8))));
+        }
+        pipe.add(Part.fixed("up", "pipe_up"));
+        pipe.add(Part.fixed("down", "pipe_down"));
+        c.add(new Composite("pipe(all arms)", pipe));
+        // Neighbours.
+        for (String pre : List.of("", "fast_", "express_")) {
+            c.add(new Composite(pre + "underground_belt_input+belt", List.of(Part.fixed("ug", pre + "underground_belt_input"),
+                    Part.fixed("belt", pre + "transport_belt", Tr.t(0, 0, 16)))));
+            c.add(new Composite(pre + "underground_belt_output+belt", List.of(Part.fixed("ug", pre + "underground_belt_output"),
+                    Part.fixed("belt", pre + "transport_belt", Tr.t(0, 0, -16)))));
+        }
+        c.add(new Composite("belt+belt", List.of(Part.fixed("a", "transport_belt"), Part.fixed("b", "transport_belt", Tr.t(0, 0, -16)))));
+        c.add(new Composite("splitter+belts", List.of(Part.fixed("splitter", "splitter"),
+                Part.fixed("belt0", "transport_belt", Tr.t(0, 0, 16)), Part.fixed("belt1", "transport_belt", Tr.t(16, 0, 16)))));
+        c.add(new Composite("inserter+belt", List.of(Part.fixed("inserter", "inserter"), Part.fixed("belt", "transport_belt", Tr.t(0, 0, -16)))));
+        return c;
+    }
+
+    static List<String> checkComposite(Composite comp) throws IOException {
+        List<List<List<Solid>>> expanded = new ArrayList<>();
+        for (Part p : comp.parts) expanded.add(p.expand());
+        Map<String, String> found = new LinkedHashMap<>();
+        for (int i = 0; i < expanded.size(); i++) {
+            for (int j = i + 1; j < expanded.size(); j++) {
+                for (int ia = 0; ia < expanded.get(i).size(); ia++) {
+                    for (int ib = 0; ib < expanded.get(j).size(); ib++) {
+                        List<V> axes = new ArrayList<>();
+                        if (ia > 0 && comp.parts.get(i).spin != null) axes.add(comp.parts.get(i).spin);
+                        if (ib > 0 && comp.parts.get(j).spin != null) axes.add(comp.parts.get(j).spin);
+                        List<Solid> a = expanded.get(i).get(ia), b = expanded.get(j).get(ib);
+                        List<Solid> all = new ArrayList<>(a);
+                        all.addAll(b);
+                        for (int k = 0; k < expanded.size(); k++) if (k != i && k != j) all.addAll(expanded.get(k).get(0));
+                        for (Finding f : pairs(a, b, all)) {
+                            if (axes.stream().allMatch(ax -> Math.abs(f.n.dot(ax)) > 1 - 1e-6)) {
+                                found.putIfAbsent(f.a + " / " + f.b, comp.name + ": " + f.a + " / " + f.b + " normal " + f.n);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(found.values());
+    }
+
+    // ------------------------------------------------------------------ tests
+
+    @Test
+    void detectsOverlappingCoplanarFaces() {
+        Solid a = new Solid("a", new V(0, 0, 0), new V(4, 2, 4), List.of(), List.of("up", "down"));
+        Solid b = new Solid("b", new V(2, 0, 2), new V(6, 2, 6), List.of(), List.of("up"));
+        Solid turned = new Solid("t", new V(0, 0, 0), new V(4, 2, 4), List.of(Tr.r('y', 45, new V(2, 0, 2))), List.of("up"));
+        Solid lid = new Solid("lid", new V(-2, 2, -2), new V(8, 3, 8), List.of(), List.of());
+        Solid lower = new Solid("l", new V(2, 0, 2), new V(6, 1.98, 6), List.of(), List.of("up"));
+        List<Solid> ab = List.of(a, b);
+        List<Solid> at = List.of(a, turned);
+        List<Solid> al = List.of(a, lower);
+        assertEquals(1, pairs(ab, ab, ab).size(), "flush tops overlap");
+        assertEquals(1, pairs(at, at, at).size(), "turned copy shares the top");
+        assertEquals(0, pairs(ab, ab, List.of(a, b, lid)).size(), "a lid covers the overlap");
+        assertEquals(0, pairs(al, al, al).size(), "0.02 px apart is fine");
+    }
+
+    @Test
+    void noModelHasZFightingFaces() throws IOException {
+        List<String> problems = new ArrayList<>();
+        for (String kind : List.of("block", "item")) {
+            try (Stream<Path> files = Files.list(MODELS.resolve(kind))) {
+                for (Path f : files.filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
+                    String name = kind + "/" + f.getFileName().toString().replace(".json", "");
+                    List<Solid> s = solids("minetorio:" + name, "");
+                    for (Finding x : pairs(s, s, s)) problems.add(name + ": " + x.a + " / " + x.b + " normal " + x.n);
+                }
+            }
+        }
+        assertTrue(problems.isEmpty(), problems.size() + " z-fighting face pairs (python -I art/check_zfight.py):\n"
+                + String.join("\n", problems));
+    }
+
+    @Test
+    void partsDrawnTogetherDoNotZFight() throws IOException {
+        List<String> problems = new ArrayList<>();
+        for (Composite c : composites()) problems.addAll(checkComposite(c));
+        assertTrue(problems.isEmpty(), problems.size() + " z-fighting face pairs (python -I art/check_zfight.py):\n"
+                + String.join("\n", problems));
+    }
+
+    @Test
+    void compositeCheckSeesTheRenderersOffsets() throws IOException {
+        // the lab body drawn twice in the same place must be reported
+        Composite twice = new Composite("lab twice", List.of(Part.fixed("a", "lab_body"), Part.fixed("b", "lab_body")));
+        assertFalse(checkComposite(twice).isEmpty());
+    }
+}
