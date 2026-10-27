@@ -2,8 +2,9 @@ package dev.minetorio.content.demo;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
-import dev.minetorio.content.deposit.Deposits;
+import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.research.ResearchSavedData;
+import dev.minetorio.core.orefield.OrePatch;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
@@ -20,7 +21,7 @@ import org.slf4j.Logger;
  * {@code /minetorio demo [<pos>]} (permission level 2): builds the demo showcase ({@link DemoBuilder})
  * around the executor's position, or around {@code pos} (the feet position: the floor is the block
  * below), and teleports a player executor to its entrance. The position form works from the server
- * console. Overworld only (the showcase needs a deposit). If the build fails, the command fails
+ * console. Overworld only (ore fields exist only there). If the build fails, the command fails
  * with the reason and registers nothing. {@code /minetorio demo off} turns every demo effect off.
  */
 public final class DemoCommand {
@@ -72,13 +73,24 @@ public final class DemoCommand {
         return 1;
     }
 
-    /** Stops every demo effect in this world: endless chests and belt feeds, the research autopilot, the placed deposits. */
+    /**
+     * Stops every demo effect in this world: endless chests and belt feeds, the research autopilot;
+     * the demo ore fields turn into dirt.
+     */
     private static int off(CommandSourceStack source) {
         ServerLevel overworld = source.getServer().overworld();
         DemoSavedData data = DemoSavedData.getIfPresent(source.getServer());
-        if (data != null) data.clear();
-        int deposits = Deposits.removeAllPlacedDeposits(overworld);
-        source.sendSuccess(() -> Component.translatable("minetorio.demo.off", deposits), true);
+        int fields = 0;
+        if (data != null) {
+            for (DemoSavedData.Field f : data.fields()) {
+                OrePatch disk = new OrePatch(f.type(), f.center().getX(), f.center().getZ(), f.radius());
+                OreFields.clear(overworld, disk, f.center().getY());
+                fields++;
+            }
+            data.clear();
+        }
+        int removed = fields;
+        source.sendSuccess(() -> Component.translatable("minetorio.demo.off", removed), true);
         return 1;
     }
 }

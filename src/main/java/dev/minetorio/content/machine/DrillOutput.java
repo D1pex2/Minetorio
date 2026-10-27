@@ -12,7 +12,7 @@ import net.minecraft.world.level.Level;
 /**
  * A drill's one-item output buffer. Each mined item (a stack key) is held here and pushed into the
  * cell in front of the drill exactly like an inserter drops ({@link InserterEndpoints#target}: a
- * machine, a belt lane, or a container); while that refuses, the item waits here. The deposit was
+ * machine, a belt lane, or a container); while that refuses, the item waits here. The field block was
  * already debited, so the buffer is saved and dropped when the drill is broken.
  */
 public final class DrillOutput {

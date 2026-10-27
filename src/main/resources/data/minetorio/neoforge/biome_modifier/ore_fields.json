@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "#minecraft:is_overworld",
+  "features": "minetorio:ore_fields",
+  "step": "top_layer_modification"
+}

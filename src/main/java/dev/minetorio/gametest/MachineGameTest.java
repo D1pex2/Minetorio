@@ -16,7 +16,7 @@ import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.data.Phase1Data;
-import dev.minetorio.core.deposit.OreType;
+import dev.minetorio.core.orefield.OreType;
 import dev.minetorio.core.recipe.Recipe;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -128,11 +128,11 @@ public class MachineGameTest {
     }
 
     /**
-     * Deposit ore and cobblestone: iron_ore → iron_plate, 2 cobblestone → stone_brick. Automated
+     * Field ore and cobblestone: iron_ore → iron_plate, 2 cobblestone → stone_brick. Automated
      * inserts stop at 2 crafts of input and 5 fuel; the furnace's state survives save/load.
      */
     @GameTest(template = "empty16", timeoutTicks = 100)
-    public static void furnaceSmeltsDepositOre(GameTestHelper h) {
+    public static void furnaceSmeltsFieldOre(GameTestHelper h) {
         StoneFurnaceBlockEntity ore = furnace(h, FURNACE);
         BlockPos bricksAt = new BlockPos(6, 1, 2);
         StoneFurnaceBlockEntity bricks = furnace(h, bricksAt);
@@ -513,12 +513,12 @@ public class MachineGameTest {
     // --- integration -----------------------------------------------------------------------------
 
     /**
-     * Deposit → burner drill → belt → inserter → furnace → inserter → assembler (gear) → inserter →
+     * Ore field → burner drill → belt → inserter → furnace → inserter → assembler (gear) → inserter →
      * chest: gears arrive in the chest.
      */
     @GameTest(template = "empty16", timeoutTicks = 1200)
     public static void fullFactoryLine(GameTestHelper h) {
-        DrillGameTest.deposit(h, OreType.IRON, new BlockPos(2, 1, 3), 1000);
+        DrillGameTest.field(h, OreType.IRON, 1, 2, 2, 3, 1000); // under the drill
         place(h, ModItems.BURNER_MINING_DRILL.get(), new BlockPos(1, 1, 2), Direction.EAST); // output cell (3,1,2)
         var drill = (BurnerDrillBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(1, 1, 2)));
         h.assertTrue(drill.addFuel("minecraft:coal", 5) == 5, "drill fuel refused");

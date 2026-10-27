@@ -11,6 +11,7 @@ import dev.minetorio.content.machine.BurnerDrillBlock;
 import dev.minetorio.content.machine.ElectricDrillBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
+import dev.minetorio.content.orefield.OreFieldBlock;
 import dev.minetorio.content.power.BoilerBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.OffshorePumpBlock;
@@ -19,6 +20,7 @@ import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
 import dev.minetorio.core.belt.BeltTier;
 import dev.minetorio.core.inserter.InserterType;
+import dev.minetorio.core.orefield.OreType;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -99,7 +101,28 @@ public final class ModBlocks {
             ElectricPoleBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f)
                     .sound(SoundType.WOOD).noOcclusion().pushReaction(PushReaction.BLOCK));
 
+    // Ore fields (no items: placed by world generation and commands only)
+    public static final DeferredBlock<OreFieldBlock> IRON_ORE_FIELD = oreField("iron_ore_field", OreType.IRON, MapColor.COLOR_CYAN);
+    public static final DeferredBlock<OreFieldBlock> COPPER_ORE_FIELD = oreField("copper_ore_field", OreType.COPPER, MapColor.COLOR_ORANGE);
+    public static final DeferredBlock<OreFieldBlock> COAL_ORE_FIELD = oreField("coal_ore_field", OreType.COAL, MapColor.COLOR_BLACK);
+    public static final DeferredBlock<OreFieldBlock> STONE_ORE_FIELD = oreField("stone_ore_field", OreType.STONE, MapColor.SAND);
+
     private ModBlocks() {}
+
+    /**
+     * An ore field block: mined like stone (any pickaxe; bare hands slowly, still yielding ore), as
+     * blast resistant as obsidian, never moved by pistons, no loot table (mining yields ore itself).
+     * The map color is the ore's (iron blue-grey, copper orange, coal black, stone beige).
+     */
+    private static DeferredBlock<OreFieldBlock> oreField(String id, OreType type, MapColor color) {
+        return BLOCKS.registerBlock(id, p -> new OreFieldBlock(type, p), BlockBehaviour.Properties.of()
+                .mapColor(color)
+                .strength(1.5f, 1200f)
+                .requiresCorrectToolForDrops()
+                .sound(SoundType.STONE)
+                .pushReaction(PushReaction.BLOCK)
+                .noLootTable());
+    }
 
     /** Properties shared by belts, underground belts, splitters and inserters: low, metal, quick to mine. */
     private static BlockBehaviour.Properties belt(MapColor color) {

@@ -359,7 +359,7 @@ belt_strip('belt_blue',BELTP['express_'],8,3)
 for n,im in items.items(): assert im.size==(16,16); im.save(f"{ROOT}/item/{n}.png")
 # flat icons used by the mod (machines, belts, pipes, poles and inserters use 3D block-item models)
 FLAT=('iron_ore','copper_ore','iron_plate','copper_plate','stone_brick','iron_gear_wheel','copper_cable',
-      'electronic_circuit','automation_science_pack','logistic_science_pack','scanner')
+      'electronic_circuit','automation_science_pack','logistic_science_pack')
 for n in FLAT: items[n].save(f"{ROOT}/../src/main/resources/assets/minetorio/textures/item/{n}.png")
 for n,im in blocks.items():
     im.save(f"{ROOT}/block/{n}.png")

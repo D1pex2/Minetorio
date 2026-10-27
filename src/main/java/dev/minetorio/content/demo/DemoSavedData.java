@@ -4,6 +4,7 @@ import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.LaneSide;
 import dev.minetorio.content.research.ResearchSavedData;
 import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.core.orefield.OreType;
 import dev.minetorio.core.research.Technology;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +43,7 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
  *
  * <ul>
  *   <li><b>Sources</b>: chests topped up to {@code keep} items of one kind every
- *       {@value #CHEST_INTERVAL} ticks (coal for the fuel lines, plates, science packs, scanners).</li>
+ *       {@value #CHEST_INTERVAL} ticks (coal for the fuel lines, plates, science packs).</li>
  *   <li><b>Sinks</b>: chests trimmed to at most {@code keep} items every {@value #CHEST_INTERVAL}
  *       ticks: 0 for the ends of the showcase belts, a stack for output chests (output stays
  *       visible, lines never block).</li>
@@ -51,6 +52,8 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
  *   <li><b>Research autopilot</b>: whenever nothing is being researched, {@code automation} or else
  *       the first researchable technology needing only red packs is selected. It turns itself off
  *       the first time a player selects research.</li>
+ *   <li><b>Ore fields</b>: the iron and coal fields stamped on the showcase floor (their disks at
+ *       the floor height); {@code /minetorio demo off} turns them into dirt.</li>
  * </ul>
  *
  * <p>Only chests the demo placed are touched: they carry a demo custom name ({@link #tag}). An entry
@@ -70,9 +73,13 @@ public final class DemoSavedData extends SavedData {
 
     public record Feed(BlockPos pos, @Nullable String left, @Nullable String right) {}
 
+    /** An ore field stamped on the floor: the disk of {@code radius} around {@code center} (y = the floor). */
+    public record Field(OreType type, BlockPos center, int radius) {}
+
     private final List<Source> sources = new ArrayList<>();
     private final List<Sink> sinks = new ArrayList<>();
     private final List<Feed> feeds = new ArrayList<>();
+    private final List<Field> fields = new ArrayList<>();
     private boolean research;
 
     private DemoSavedData() {}
@@ -119,9 +126,11 @@ public final class DemoSavedData extends SavedData {
 
     public List<Feed> feeds() { return List.copyOf(feeds); }
 
+    public List<Field> fields() { return List.copyOf(fields); }
+
     public boolean research() { return research; }
 
-    public boolean isEmpty() { return sources.isEmpty() && sinks.isEmpty() && feeds.isEmpty() && !research; }
+    public boolean isEmpty() { return sources.isEmpty() && sinks.isEmpty() && feeds.isEmpty() && fields.isEmpty() && !research; }
 
     public void addSource(BlockPos pos, String item, int keep) {
         sources.add(new Source(pos.immutable(), item, keep));
@@ -138,16 +147,22 @@ public final class DemoSavedData extends SavedData {
         setDirty();
     }
 
+    public void addField(OreType type, BlockPos center, int radius) {
+        fields.add(new Field(type, center.immutable(), radius));
+        setDirty();
+    }
+
     public void setResearch(boolean on) {
         research = on;
         setDirty();
     }
 
-    /** Forgets every source, sink and feed inside {@code box} (a showcase being rebuilt). */
+    /** Forgets every source, sink, feed and field centered inside {@code box} (a showcase being rebuilt). */
     public void removeIn(BoundingBox box) {
         sources.removeIf(s -> box.isInside(s.pos()));
         sinks.removeIf(s -> box.isInside(s.pos()));
         feeds.removeIf(f -> box.isInside(f.pos()));
+        fields.removeIf(f -> box.isInside(f.center()));
         setDirty();
     }
 
@@ -156,6 +171,7 @@ public final class DemoSavedData extends SavedData {
         sources.clear();
         sinks.clear();
         feeds.clear();
+        fields.clear();
         research = false;
         setDirty();
     }
@@ -262,6 +278,17 @@ public final class DemoSavedData extends SavedData {
             String right = e.contains("right", Tag.TAG_STRING) ? e.getString("right") : null;
             NbtUtils.readBlockPos(e, "pos").ifPresent(p -> d.feeds.add(new Feed(p, left, right)));
         }
+        ListTag fl = tag.getList("fields", Tag.TAG_COMPOUND);
+        for (int i = 0; i < fl.size(); i++) {
+            CompoundTag e = fl.getCompound(i);
+            OreType type;
+            try {
+                type = OreType.valueOf(e.getString("type"));
+            } catch (IllegalArgumentException unknown) {
+                continue;
+            }
+            NbtUtils.readBlockPos(e, "center").ifPresent(p -> d.fields.add(new Field(type, p, e.getInt("radius"))));
+        }
         d.research = tag.getBoolean("research");
         return d;
     }
@@ -294,6 +321,15 @@ public final class DemoSavedData extends SavedData {
             fd.add(e);
         }
         tag.put("feeds", fd);
+        ListTag fl = new ListTag();
+        for (Field f : fields) {
+            CompoundTag e = new CompoundTag();
+            e.putString("type", f.type().name());
+            e.put("center", NbtUtils.writeBlockPos(f.center()));
+            e.putInt("radius", f.radius());
+            fl.add(e);
+        }
+        tag.put("fields", fl);
         tag.putBoolean("research", research);
         return tag;
     }

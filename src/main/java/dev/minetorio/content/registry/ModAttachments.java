@@ -2,6 +2,7 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.handcraft.HandcraftAttachment;
+import dev.minetorio.content.orefield.OreFieldData;
 import java.util.function.Supplier;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -20,6 +21,10 @@ public final class ModAttachments {
      */
     public static final Supplier<AttachmentType<HandcraftAttachment>> HANDCRAFT = TYPES.register("handcraft",
             () -> AttachmentType.builder(() -> new HandcraftAttachment()).serialize(HandcraftAttachment.SERIALIZER).build());
+
+    /** A chunk's ore field amounts (set at world generation on the proto-chunk, carried over to the level chunk). */
+    public static final Supplier<AttachmentType<OreFieldData>> ORE_FIELD = TYPES.register("ore_field",
+            () -> AttachmentType.serializable(OreFieldData::new).build());
 
     private ModAttachments() {}
 

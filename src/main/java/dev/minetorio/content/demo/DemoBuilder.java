@@ -1,16 +1,16 @@
 package dev.minetorio.content.demo;
 
-import dev.minetorio.content.deposit.Deposits;
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
+import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.data.Phase1Data;
-import dev.minetorio.core.deposit.Deposit;
-import dev.minetorio.core.deposit.OreType;
+import dev.minetorio.core.orefield.OrePatch;
+import dev.minetorio.core.orefield.OreType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -23,7 +23,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
@@ -58,15 +57,18 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
  *
  * <p>Machines are placed through their items, like a player placing them (so multiblock parts and
  * belt shapes come out the same), with explicit facings. The endless parts (source/sink chests, belt
- * feeds, research selection) are {@link DemoSavedData}; the iron ore is a placed deposit
- * ({@link Deposits#placeDemoDeposit}).
+ * feeds, research selection) are {@link DemoSavedData}. The mining station stands on an iron and a
+ * coal ore field stamped into the floor with a fixed amount per block ({@value #FIELD_AMOUNT});
+ * {@code /minetorio demo off} turns them into dirt.
  */
 public final class DemoBuilder {
     public static final int SIZE = 96;
     /** Blocks cleared above the floor. */
     public static final int CLEAR_HEIGHT = 20;
-    public static final long DEPOSIT_AMOUNT = 1_000_000;
-    private static final int DEPOSIT_X = 58, DEPOSIT_Z = 34, DEPOSIT_RADIUS = 10;
+    /** Ore per block of the demo fields. */
+    public static final long FIELD_AMOUNT = 10_000;
+    private static final int IRON_X = 58, IRON_Z = 34, IRON_RADIUS = 10;
+    private static final int COAL_X = 70, COAL_Z = 26, COAL_RADIUS = 3;
     private static final String IRON = "minetorio:iron_plate";
     private static final String COPPER = "minetorio:copper_plate";
     private static final String COAL = "minecraft:coal";
@@ -77,7 +79,7 @@ public final class DemoBuilder {
     public static final int OUTPUT_KEEP = 64;
 
     /** Where the parts of a showcase are, in world coordinates (the GameTest checks these). */
-    public record Layout(BlockPos origin, BoundingBox area, BlockPos entrance, BlockPos depositCenter, BlockPos smeltingOutput,
+    public record Layout(BlockPos origin, BoundingBox area, BlockPos entrance, BlockPos ironField, BlockPos coalField, BlockPos smeltingOutput,
                          BlockPos gearAssembler, BlockPos gearChest, BlockPos redAssembler, List<BlockPos> labs,
                          List<BlockPos> engines) {}
 
@@ -105,7 +107,8 @@ public final class DemoBuilder {
     /** The layout of a showcase with floor corner {@code origin}. */
     public static Layout layout(BlockPos origin) {
         BlockPos o = origin.above();
-        return new Layout(origin, area(origin), o.offset(1, 0, 47), o.offset(DEPOSIT_X, 0, DEPOSIT_Z), o.offset(80, 0, 37),
+        return new Layout(origin, area(origin), o.offset(1, 0, 47), origin.offset(IRON_X, 0, IRON_Z), origin.offset(COAL_X, 0, COAL_Z),
+                o.offset(80, 0, 37),
                 o.offset(52, 0, 57), o.offset(56, 0, 58), o.offset(58, 0, 57), List.of(o.offset(30, 0, 58), o.offset(36, 0, 58)),
                 List.of(o.offset(77, 0, 61), o.offset(77, 0, 56)));
     }
@@ -117,31 +120,26 @@ public final class DemoBuilder {
     }
 
     /**
-     * Clears the area, then builds. If anything fails the placed deposit is removed again and no
-     * demo data is registered (the half-built blocks stay; the exception propagates).
+     * Clears the area, then builds. If anything fails no demo data is registered (the half-built
+     * blocks and fields stay; the exception propagates).
      */
     private void build() {
         BoundingBox area = area(origin);
         clear(area);
-        BlockPos center = abs(DEPOSIT_X, DEPOSIT_Z);
-        Deposit deposit = Deposits.placeDemoDeposit(level, OreType.IRON, center.getX(), center.getZ(), DEPOSIT_RADIUS, DEPOSIT_AMOUNT);
-        try {
-            floor(deposit);
-            backbone();
-            signs();
-            belts();
-            inserters();
-            mining();
-            smelting();
-            power();
-            assembly();
-            research();
-            handcraft();
-            discardBlockers(AABB.of(area).inflate(0, 2, 0)); // any that became visible during the build
-        } catch (RuntimeException e) {
-            Deposits.removePlacedDeposit(level, deposit);
-            throw e;
-        }
+        floor();
+        field(OreType.IRON, IRON_X, IRON_Z, IRON_RADIUS);
+        field(OreType.COAL, COAL_X, COAL_Z, COAL_RADIUS);
+        backbone();
+        signs();
+        belts();
+        inserters();
+        mining();
+        smelting();
+        power();
+        assembly();
+        research();
+        handcraft();
+        discardBlockers(AABB.of(area).inflate(0, 2, 0)); // any that became visible during the build
         DemoSavedData data = DemoSavedData.get(level);
         data.removeIn(area);
         for (Consumer<DemoSavedData> entry : pending) entry.accept(data);
@@ -190,18 +188,30 @@ public final class DemoBuilder {
         for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> e.blocksBuilding && !(e instanceof Player))) e.discard();
     }
 
-    private void floor(Deposit deposit) {
+    private void floor() {
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = 0; x < SIZE; x++) {
             for (int z = 0; z < SIZE; z++) {
                 BlockPos f = origin.offset(x, 0, z);
-                Block top = z >= 46 && z <= 49 ? Blocks.DIRT_PATH
-                        : deposit.contains(f.getX(), f.getZ()) ? Blocks.RAW_IRON_BLOCK : Blocks.GRASS_BLOCK;
+                Block top = z >= 46 && z <= 49 ? Blocks.DIRT_PATH : Blocks.GRASS_BLOCK;
                 level.setBlock(f, top.defaultBlockState(), Block.UPDATE_CLIENTS);
                 p.set(f.getX(), f.getY() - 1, f.getZ());
                 if (!level.getBlockState(p).isSolid()) level.setBlock(p, Blocks.DIRT.defaultBlockState(), Block.UPDATE_CLIENTS);
             }
         }
+    }
+
+    /** Stamps an ore field of {@code type} into the floor: a disk of {@code radius} around (x, z), {@value #FIELD_AMOUNT} ore per block. */
+    private void field(OreType type, int x, int z, int radius) {
+        BlockPos center = origin.offset(x, 0, z);
+        OrePatch disk = new OrePatch(type, center.getX(), center.getZ(), radius);
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int fx = center.getX() - radius; fx <= center.getX() + radius; fx++) {
+            for (int fz = center.getZ() - radius; fz <= center.getZ() + radius; fz++) {
+                if (disk.contains(fx, fz)) OreFields.place(level, p.set(fx, center.getY(), fz).immutable(), type, FIELD_AMOUNT);
+            }
+        }
+        pending.add(d -> d.addField(type, center, radius));
     }
 
     /** Poles along the walkway's north edge, 7 apart: the wire backbone every station links to. */
@@ -309,13 +319,13 @@ public final class DemoBuilder {
         place(ModItems.ELECTRIC_MINING_DRILL.get(), 56, 36, Direction.EAST);
         for (int x = 59; x <= 75; x++) place(ModItems.TRANSPORT_BELT.get(), x, 37, Direction.EAST);
         pole(56, 40);
-        // the scanner: in a frame and in a chest
-        set(63, 1, 43, Blocks.POLISHED_ANDESITE);
-        ItemFrame frame = new ItemFrame(level, abs(63, 44), Direction.SOUTH);
-        frame.setItem(new ItemStack(ModItems.SCANNER.get()), false);
-        level.addFreshEntity(frame);
-        source(65, 44, "minetorio:scanner", 4);
-        sign(61, 44, 0, "scanner", 4);
+        // coal field (x 67..73, z 23..29): burner drill (x 69..70, z 25..26) → chest, fed coal like the iron one
+        place(ModItems.BURNER_MINING_DRILL.get(), 69, 25, Direction.EAST);
+        ((BurnerDrillBlockEntity) be(69, 25)).addFuel(COAL, 5);
+        output(71, 25);
+        source(67, 25, COAL, KEEP);
+        inserter(ModItems.BURNER_INSERTER.get(), 68, 25, Direction.EAST);
+        sign(61, 44, 0, "ore_fields", 4);
     }
 
     // --- 4: smelting -----------------------------------------------------------------------------

@@ -15,7 +15,7 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * Controller block shared by the mining drills: ticking, the status line on right-click with an
- * empty hand (parts delegate here), and dropping the cached deposit when a neighbor changes.
+ * empty hand (parts delegate here), and searching the mining area again when a neighbor changes.
  */
 public abstract class MiningDrillBlock extends MultiblockControllerBlock {
     protected MiningDrillBlock(Properties properties) {
@@ -43,6 +43,6 @@ public abstract class MiningDrillBlock extends MultiblockControllerBlock {
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
-        if (level.getBlockEntity(pos) instanceof MiningDrillBlockEntity be) be.invalidateDeposit();
+        if (level.getBlockEntity(pos) instanceof MiningDrillBlockEntity be) be.invalidateTarget();
     }
 }

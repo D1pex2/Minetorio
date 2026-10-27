@@ -21,6 +21,10 @@
     "minetorio:boiler",
     "minetorio:steam_engine",
     "minetorio:assembling_machine_1",
-    "minetorio:assembling_machine_2"
+    "minetorio:assembling_machine_2",
+    "minetorio:iron_ore_field",
+    "minetorio:copper_ore_field",
+    "minetorio:coal_ore_field",
+    "minetorio:stone_ore_field"
   ]
 }

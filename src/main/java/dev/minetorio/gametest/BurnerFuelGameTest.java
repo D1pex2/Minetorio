@@ -59,9 +59,8 @@ public class BurnerFuelGameTest {
         return n;
     }
 
-    /** A burner drill without a deposit under it (so it never burns its fuel). */
+    /** A burner drill without an ore field under it (so it never burns its fuel). */
     private static BurnerDrillBlockEntity drill(GameTestHelper h) {
-        DrillGameTest.deposit(h, null, DRILL, 0);
         place(h, ModItems.BURNER_MINING_DRILL.get(), DRILL, Direction.EAST);
         return (BurnerDrillBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(DRILL));
     }
