@@ -207,6 +207,29 @@ public class DrillGameTest {
     }
 
     /**
+     * On stepped ground the mining area stays a flat 5×5 footprint: the drill (at y = 4, standing on
+     * the layer y = 3) mines each column's field block from one step up (y = 4, beside the drill) down
+     * to two steps down (y = 1); a field block three below or two above its layer is out of reach.
+     */
+    @GameTest(template = "empty16", timeoutTicks = 300)
+    public static void electricDrillMinesASteppedField(GameTestHelper h) {
+        BlockPos drill = new BlockPos(2, 4, 2), out = new BlockPos(5, 4, 3);
+        List<BlockPos> reached = List.of(new BlockPos(1, 3, 1), new BlockPos(5, 2, 1), new BlockPos(1, 1, 5), new BlockPos(5, 4, 5));
+        List<BlockPos> unreached = List.of(new BlockPos(3, 0, 1), new BlockPos(3, 5, 5));
+        for (BlockPos c : reached) OreFields.place(h.getLevel(), h.absolutePos(c), OreType.STONE, 1);
+        for (BlockPos c : unreached) OreFields.place(h.getLevel(), h.absolutePos(c), OreType.STONE, 1);
+        h.setBlock(out, Blocks.CHEST);
+        place(h, ModItems.ELECTRIC_MINING_DRILL.get(), drill, Direction.EAST);
+        TestPower.powerAt(h, new BlockPos(3, 4, 6)); // supply area x 1..5, y 2..6, z 4..8: covers the drill's z=4 row
+        h.runAtTickTime(280, () -> {
+            h.assertTrue(count(h, out, Items.COBBLESTONE) == 4, "mined " + count(h, out, Items.COBBLESTONE));
+            for (BlockPos c : reached) h.assertTrue(h.getBlockState(c).is(Blocks.DIRT), "step not mined: " + c);
+            for (BlockPos c : unreached) h.assertTrue(isField(h, c), "mined out of reach: " + c);
+            h.succeed();
+        });
+    }
+
+    /**
      * The electric drill's area is 5×5 around its center: field blocks of 1 ore at the four corners of
      * that area are mined (and turn into dirt), blocks just outside it are not.
      */

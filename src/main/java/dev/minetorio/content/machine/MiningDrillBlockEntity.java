@@ -25,8 +25,9 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Shared state and logic of the mining drills (controller block entity).
  *
- * <p><b>Mining.</b> The drill stands on an ore field and mines the field blocks in the layer right
- * below it, inside its mining area ({@link #areaSize()} square centered on the machine): it takes
+ * <p><b>Mining.</b> The drill stands on an ore field and mines the field blocks inside its mining
+ * area ({@link #areaSize()} square centered on the machine), one per column: the topmost within a
+ * step up or two down from the layer it stands on ({@link #fieldAt}), so slopes are covered. It takes
  * ore from its current block until that block is empty (and has turned into dirt), then moves on to
  * the next field block, nearest to the center first ({@link MiningOrder}). The current block is kept
  * between ticks; without one the area is searched again at most every {@value #RESCAN_TICKS} ticks
@@ -119,8 +120,23 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
         };
     }
 
-    /** Height of the layer the drill mines: the blocks it stands on. */
+    /** Height of the layer the drill stands on. */
     public int fieldY() { return worldPosition.getY() - 1; }
+
+    /** How far above {@link #fieldY()} a column's field block may be (a step up beside the drill). */
+    public static final int REACH_UP = 1;
+    /** How far below {@link #fieldY()} a column's field block may be (steps down a slope). */
+    public static final int REACH_DOWN = 2;
+
+    /**
+     * The field block the drill mines in column (x, z): the topmost one from {@link #REACH_UP} above
+     * the layer it stands on down to {@link #REACH_DOWN} below it, so the mining area stays a flat
+     * footprint on stepped ground. Null if the column has none.
+     */
+    @Nullable
+    public BlockPos fieldAt(Level level, int x, int z) {
+        return OreFields.fieldInColumn(level, x, z, fieldY() + REACH_UP, fieldY() - REACH_DOWN);
+    }
 
     /** The field block being mined (server side), if any. */
     @Nullable
@@ -136,9 +152,9 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     @Nullable
     private BlockPos findTarget(Level level) {
         int[] a = miningArea();
-        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int[] c : MiningOrder.nearestFirst(a[0], a[1], a[2], a[3])) {
-            if (OreFields.typeOf(level.getBlockState(p.set(c[0], fieldY(), c[1]))) != null) return p.immutable();
+            BlockPos f = fieldAt(level, c[0], c[1]);
+            if (f != null) return f;
         }
         return null;
     }
@@ -212,9 +228,11 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     public long areaRemaining(Level level) {
         int[] a = miningArea();
         long sum = 0;
-        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = a[0]; x <= a[2]; x++) {
-            for (int z = a[1]; z <= a[3]; z++) sum += OreFields.remaining(level, p.set(x, fieldY(), z));
+            for (int z = a[1]; z <= a[3]; z++) {
+                BlockPos f = fieldAt(level, x, z);
+                if (f != null) sum += OreFields.remaining(level, f);
+            }
         }
         return sum;
     }
