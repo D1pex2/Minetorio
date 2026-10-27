@@ -73,6 +73,14 @@ Things to check closely:
 - [ ] Below 10 % of its initial amount a block turns paler; at 0 it becomes dirt.
 - [ ] Pistons don't move field blocks; TNT and creepers don't destroy them. Field blocks have no item (pick-block gives nothing).
 
+### Radar and map (demo showcase)
+
+- [ ] In the demo showcase, the radar stop sits on the south side of the walkway, between assembly (6) and research (7), with two signs (radar; M for the map, minimap top right) in your client's language.
+- [ ] The radar dish turns (it is powered from the steam plant through the pole next to it). Right-click it: the action bar shows the explored chunk count and the seconds until the next chunk.
+- [ ] The minimap in the top right corner shows the showcase area; over a few minutes the explored area grows chunk by chunk beyond the 7×7 chunks around the radar.
+- [ ] Press **M**: the full map opens and shows the same explored area.
+- [ ] Break the radar's pole: the dish stops and the status says there is no power.
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
 1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.
