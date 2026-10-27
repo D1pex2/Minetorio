@@ -1,11 +1,13 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.belt.BeltItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import java.util.List;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -36,9 +38,9 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> RADAR = multiblock(ModBlocks.RADAR);
 
     // Belts (express_* have no recipe: creative tab only)
-    public static final DeferredItem<BlockItem> TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.TRANSPORT_BELT);
-    public static final DeferredItem<BlockItem> FAST_TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_TRANSPORT_BELT);
-    public static final DeferredItem<BlockItem> EXPRESS_TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_TRANSPORT_BELT);
+    public static final DeferredItem<BlockItem> TRANSPORT_BELT = belt(ModBlocks.TRANSPORT_BELT);
+    public static final DeferredItem<BlockItem> FAST_TRANSPORT_BELT = belt(ModBlocks.FAST_TRANSPORT_BELT);
+    public static final DeferredItem<BlockItem> EXPRESS_TRANSPORT_BELT = belt(ModBlocks.EXPRESS_TRANSPORT_BELT);
     public static final DeferredItem<BlockItem> UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.UNDERGROUND_BELT);
     public static final DeferredItem<BlockItem> FAST_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_UNDERGROUND_BELT);
     public static final DeferredItem<BlockItem> EXPRESS_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_UNDERGROUND_BELT);
@@ -74,6 +76,10 @@ public final class ModItems {
     private ModItems() {}
 
     /** Item of a multiblock machine: placed centered on the targeted cell (R26). */
+    private static DeferredItem<BlockItem> belt(DeferredBlock<? extends Block> block) {
+        return ITEMS.registerItem(block.getId().getPath(), p -> new BeltItem(block.get(), p));
+    }
+
     private static DeferredItem<BlockItem> multiblock(DeferredBlock<? extends MultiblockControllerBlock> block) {
         return ITEMS.registerItem(block.getId().getPath(), p -> new MultiblockBlockItem(block.get(), p));
     }

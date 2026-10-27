@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.drag.DragPayloads;
 import dev.minetorio.content.handcraft.HandcraftPayloads;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.map.MapPayloads;
@@ -36,7 +37,9 @@ public final class ModPayloads {
                 .playToServer(HandcraftPayloads.Cancel.TYPE, HandcraftPayloads.Cancel.STREAM_CODEC, HandcraftPayloads.Cancel::handle)
                 .playToClient(HandcraftPayloads.QueueSync.TYPE, HandcraftPayloads.QueueSync.STREAM_CODEC, HandcraftPayloads.QueueSync::handle)
                 .playToClient(MapPayloads.Chunks.TYPE, MapPayloads.Chunks.STREAM_CODEC, MapPayloads.Chunks::handle)
-                .playToClient(MapPayloads.Players.TYPE, MapPayloads.Players.STREAM_CODEC, MapPayloads.Players::handle);
+                .playToClient(MapPayloads.Players.TYPE, MapPayloads.Players.STREAM_CODEC, MapPayloads.Players::handle)
+                .playToServer(DragPayloads.Start.TYPE, DragPayloads.Start.STREAM_CODEC, DragPayloads.Start::handle)
+                .playToServer(DragPayloads.Steps.TYPE, DragPayloads.Steps.STREAM_CODEC, DragPayloads.Steps::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */
