@@ -28,7 +28,8 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p><b>Mining.</b> The drill mines the deposit under its mining area ({@link #areaSize()} square,
  * centered on the machine; see {@link Deposits#depositUnder}). The deposit is looked up once and
- * cached (reset on load and when a neighbor changes), never per tick. While the output buffer is
+ * cached (reset on load, when a neighbor changes and when deposits are placed or removed, see
+ * {@link Deposits#generation}), never per tick. While the output buffer is
  * empty and the deposit has ore left, each tick adds {@code rate / 20 × satisfaction} to the
  * progress (satisfaction from {@link #energy()}); at 1 one ore is taken from the ledger and goes
  * into the {@link DrillOutput} buffer, which pushes it into the cell in front of the drill
@@ -53,6 +54,8 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     @Nullable
     private Deposit deposit;
     private boolean depositKnown;
+    /** {@link Deposits#generation} the cached deposit was looked up in. */
+    private int depositGeneration;
     /** Whether the drill could mine this tick if it had energy (buffer empty, ore left). */
     private boolean active;
     private boolean working;
@@ -116,11 +119,16 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     /** The deposit under the mining area (server side), looked up once and cached. */
     @Nullable
     public Deposit deposit() {
-        if (!depositKnown && level instanceof ServerLevel server) {
-            int[] a = miningArea();
-            Optional<Deposit> d = Deposits.get(server).depositUnder(a[0], a[1], a[2], a[3]);
-            deposit = d.orElse(null);
-            depositKnown = true;
+        if (level instanceof ServerLevel server) {
+            Deposits deposits = Deposits.get(server);
+            if (depositKnown && depositGeneration != deposits.generation()) invalidateDeposit();
+            if (!depositKnown) {
+                int[] a = miningArea();
+                Optional<Deposit> d = deposits.depositUnder(a[0], a[1], a[2], a[3]);
+                deposit = d.orElse(null);
+                depositKnown = true;
+                depositGeneration = deposits.generation();
+            }
         }
         return deposit;
     }

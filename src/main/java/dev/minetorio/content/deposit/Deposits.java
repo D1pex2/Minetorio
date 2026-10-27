@@ -24,7 +24,9 @@ import net.neoforged.neoforge.gametest.GameTestHooks;
  * only in the Overworld; for every other dimension {@link #get} returns an instance without any.
  *
  * <p>{@link DepositGenerator#depositAt} builds RNGs for 9 regions per call: callers that need a
- * deposit every tick (drills) look it up once and cache it.
+ * deposit every tick (drills) look it up once and cache it, together with {@link #generation()};
+ * when the generation changes (a deposit was placed or removed) they look it up again. Mining a
+ * deposit that no longer exists ({@link #mine}) takes nothing.
  */
 public final class Deposits {
     /** Scanner search radius, in blocks. */
@@ -39,6 +41,8 @@ public final class Deposits {
     private final DepositSavedData data;
     /** GameTest overrides (see {@link #overrideForTest}); in memory only. */
     private final List<TestOverride> testOverrides = new ArrayList<>();
+    /** Bumped whenever a deposit is placed or removed (placed deposits, test overrides); in memory only. */
+    private int generation;
 
     private Deposits(@Nullable DepositGenerator generator, @Nullable DepositSavedData data) {
         this.generator = generator;
@@ -97,20 +101,36 @@ public final class Deposits {
         return PlacedDeposits.distSq(placed.get(), x, z) <= PlacedDeposits.distSq(generated.get(), x, z) ? placed : generated;
     }
 
+    /** Changes whenever deposits are placed or removed: cached deposits from an older generation may be stale. */
+    public int generation() { return generation; }
+
     public long remaining(Deposit d) {
         TestOverride o = overrideOf(d);
         if (o != null) return o.ledger.remaining(d);
         return data == null ? 0 : data.ledger().remaining(d);
     }
 
-    /** Removes up to {@code amount} from {@code d}; returns the amount actually mined. */
+    /**
+     * Removes up to {@code amount} from {@code d}; returns the amount actually mined. A deposit that
+     * no longer exists (a removed placed deposit, see {@link #exists}) yields nothing, so nothing is
+     * booked under its forgotten id.
+     */
     public long mine(Deposit d, long amount) {
         TestOverride o = overrideOf(d);
         if (o != null) return o.ledger.mine(d, amount);
-        if (data == null) return 0;
+        if (data == null || !exists(d)) return 0;
         long taken = data.ledger().mine(d, amount);
         if (taken > 0) data.setDirty();
         return taken;
+    }
+
+    /** Whether {@code d} is still one of this world's deposits: placed, generated or a test override. */
+    private boolean exists(Deposit d) {
+        if (overrideOf(d) != null) return true;
+        if (data != null && data.placed().all().contains(d)) return true;
+        if (generator == null) return false;
+        return generator.inRegion(Math.floorDiv(d.centerX(), DepositGenerator.REGION), Math.floorDiv(d.centerZ(), DepositGenerator.REGION))
+                .contains(d);
     }
 
     @Nullable
@@ -130,9 +150,12 @@ public final class Deposits {
      * a fixed spot whatever the world seed. Overworld only.
      */
     public static Deposit placeDemoDeposit(ServerLevel level, OreType type, int x, int z, int radius, long amount) {
+        Deposits deposits = get(level);
         DepositSavedData data = dataOf(level);
         PlacedDeposits.Placement p = data.placed().place(type, x, z, radius, amount);
         for (Deposit old : p.removed()) data.ledger().forget(old.id());
+        data.ledger().forget(p.added().id()); // ids are reused: a new deposit starts full
+        deposits.generation++;
         data.setDirty();
         return p.added();
     }
@@ -142,6 +165,7 @@ public final class Deposits {
         DepositSavedData data = dataOf(level);
         if (!data.placed().remove(d)) return false;
         data.ledger().forget(d.id());
+        get(level).generation++;
         data.setDirty();
         return true;
     }
@@ -155,7 +179,10 @@ public final class Deposits {
             data.ledger().forget(d.id());
             n++;
         }
-        if (n > 0) data.setDirty();
+        if (n > 0) {
+            get(level).generation++;
+            data.setDirty();
+        }
         return n;
     }
 
@@ -184,6 +211,16 @@ public final class Deposits {
         if (d != null) o.ledger.load(Map.of(d.id(), Math.max(0, d.initialAmount() - remaining)));
         deposits.testOverrides.removeIf(old -> old.intersects(o));
         deposits.testOverrides.add(o);
+        deposits.generation++;
+    }
+
+    /** GameTests only: drops the overrides intersecting {@code area}, so the world's own deposits apply there again. */
+    public static void clearTestOverrides(ServerLevel level, AABB area) {
+        if (!GameTestHooks.isGametestEnabled()) throw new IllegalStateException("Deposits.clearTestOverrides is for GameTests only");
+        Deposits deposits = get(level);
+        TestOverride probe = new TestOverride((int) Math.floor(area.minX), (int) Math.floor(area.minZ),
+                (int) Math.ceil(area.maxX) - 1, (int) Math.ceil(area.maxZ) - 1, null, new DepositLedger());
+        if (deposits.testOverrides.removeIf(old -> old.intersects(probe))) deposits.generation++;
     }
 
     private record TestOverride(int minX, int minZ, int maxX, int maxZ, @Nullable Deposit deposit, DepositLedger ledger) {

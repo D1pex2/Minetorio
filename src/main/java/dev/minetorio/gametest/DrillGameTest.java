@@ -21,9 +21,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -223,5 +225,45 @@ public class DrillGameTest {
         String text = ScannerItem.message(nether, 0, 0).getString();
         h.assertTrue(text.contains("256"), "unexpected scan in the nether: " + text);
         h.succeed();
+    }
+
+    @AfterBatch(batch = "demo_deposit_off")
+    public static void removePlacedDeposits(ServerLevel level) {
+        Deposits.removeAllPlacedDeposits(level);
+    }
+
+    /**
+     * A burner drill on a placed (demo) deposit: {@code /minetorio demo off} removes the deposit and
+     * the drill lets go of it within a few ticks, mining nothing more under the forgotten id; placing
+     * the deposit again (same id) starts it with its full amount.
+     */
+    @GameTest(template = "empty16", batch = "demo_deposit_off", timeoutTicks = 400)
+    public static void demoOffStopsDrillsOnPlacedDeposit(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        MinecraftServer server = level.getServer();
+        Deposits.clearTestOverrides(level, h.getBounds());
+        BlockPos c = h.absolutePos(new BlockPos(3, 1, 3));
+        long amount = 1000;
+        Deposit placed = Deposits.placeDemoDeposit(level, OreType.IRON, c.getX(), c.getZ(), 4, amount);
+        h.setBlock(BURNER_OUT, Blocks.CHEST);
+        BurnerDrillBlockEntity be = burnerDrill(h, 5);
+        h.runAtTickTime(100, () -> { // 0.25 ore/s: one ore per 80 ticks
+            h.assertTrue(placed.equals(be.deposit()), "drill not on the placed deposit: " + be.deposit());
+            h.assertTrue(remaining(h, placed) < amount, "nothing mined before off");
+            try {
+                server.getCommands().getDispatcher().execute("minetorio demo off", server.createCommandSourceStack().withSuppressedOutput());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        h.runAtTickTime(105, () -> h.assertFalse(placed.equals(be.deposit()), "drill still on the removed deposit"));
+        h.runAtTickTime(300, () -> {
+            h.assertTrue(remaining(h, placed) == amount, "mined under the forgotten id: " + remaining(h, placed) + " left");
+            Deposit again = Deposits.placeDemoDeposit(level, OreType.IRON, c.getX(), c.getZ(), 4, amount);
+            h.assertTrue(again.id() == placed.id(), "id not reused: " + again.id());
+            h.assertTrue(remaining(h, again) == amount, "rebuilt deposit starts with " + remaining(h, again));
+            Deposits.removePlacedDeposit(level, again);
+            h.succeed();
+        });
     }
 }
