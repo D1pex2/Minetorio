@@ -97,6 +97,7 @@ public final class Phase1Data {
         r.add(craft("assembling_machine_2",
                 "2 iron_plate, 3 electronic_circuit, 5 iron_gear_wheel, 1 assembling_machine_1", 1, 0.5));
         r.add(craft("lab", "10 electronic_circuit, 10 iron_gear_wheel, 4 transport_belt", 1, 2));
+        r.add(craft("radar", "5 electronic_circuit, 5 iron_gear_wheel, 10 iron_plate", 1, 0.5));
         r.add(craft("offshore_pump", "2 electronic_circuit, 1 pipe, 1 iron_gear_wheel", 1, 0.5));
         r.add(craft("boiler", "1 stone_furnace, 4 pipe", 1, 0.5));
         r.add(craft("steam_engine", "8 iron_gear_wheel, 5 pipe, 10 iron_plate", 1, 0.5));

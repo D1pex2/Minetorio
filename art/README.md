@@ -10,6 +10,7 @@ downscaled diffusion output at 16×16.
 | `gen_blocks.py` | All block textures in `src/main/resources/assets/minetorio/textures/block/` (plus `.mcmeta` for animated strips) and `blocks-preview.png`. |
 | `gen_models.py` | All block and item JSON models in `models/{block,item}/`: Create-style multi-element machines, belts, pipes, poles and inserters, plus fitted item display transforms for the multiblocks. |
 | `render_models.py` | `models-preview.png`: an offline isometric render of every model (two views each) for checking shapes without the game, plus the multi-part machines (steam engine, mining drills) assembled as their block entity renderers draw them. |
+| `gen_radar.py` | The radar (after the Factorio 1.1 radar): its own `radar_*` textures, `radar`, `radar_base`, `radar_dish` block models, the item model and `radar-preview.png`. Self-contained; the dish turns in `RadarRenderer`. |
 
 Order: `python art/gen_blocks.py && python art/gen_models.py && python art/render_models.py`
 

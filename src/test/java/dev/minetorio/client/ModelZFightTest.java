@@ -358,6 +358,9 @@ class ModelZFightTest {
             c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), Part.fixed("shell", "lab_shell"),
                     spinning("dome", dome, 'y', center))));
         }
+        // RadarRenderer: base at the center, the dish one block up turning about the vertical center axis.
+        c.add(new Composite("radar", List.of(Part.fixed("base", "radar_base"),
+                spinning("dish", "radar_dish", 'y', center, Tr.t(0, 16, 0)))));
         // SteamMachineRenderer.java:73-74: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
         // SteamMachineRenderer.java:93-102: body at dz -1 block, rear at +1.5, piston at +1.5 block +-3 px, flywheel at

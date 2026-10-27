@@ -182,5 +182,19 @@
   "minetorio.demo.failed": "Could not build the demo: %s",
   "minetorio.demo.off": "Demo turned off: endless chests, belt feeds and the research autopilot stopped; %s demo deposit(s) removed.",
   "minetorio.demo.chest.source": "Demo source",
-  "minetorio.demo.chest.sink": "Demo sink"
+  "minetorio.demo.chest.sink": "Demo sink",
+  "block.minetorio.radar": "Radar",
+  "key.minetorio.map": "Map",
+  "key.minetorio.minimap": "Show/hide minimap",
+  "key.minetorio.minimap_zoom_in": "Minimap: zoom in",
+  "key.minetorio.minimap_zoom_out": "Minimap: zoom out",
+  "minetorio.map.title": "Map",
+  "minetorio.map.unavailable": "The map is only available in the Overworld",
+  "minetorio.map.coords": "X %s, Z %s",
+  "minetorio.map.unexplored": "Unexplored",
+  "minetorio.map.help": "Drag to move · scroll to zoom · %s to close",
+  "minetorio.radar.no_power": "Radar: no power",
+  "minetorio.radar.scanning": "Radar: %s chunks explored, next in %s s",
+  "minetorio.radar.done": "Radar: %s chunks explored, scan range fully explored",
+  "minetorio.radar.wrong_dimension": "Radar: works only in the Overworld"
 }

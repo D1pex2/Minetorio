@@ -47,6 +47,7 @@ public final class HandcraftGroups {
             Map.entry("assembling_machine_1", Group.PRODUCTION),
             Map.entry("assembling_machine_2", Group.PRODUCTION),
             Map.entry("lab", Group.PRODUCTION),
+            Map.entry("radar", Group.PRODUCTION),
             Map.entry("offshore_pump", Group.PRODUCTION),
             Map.entry("boiler", Group.PRODUCTION),
             Map.entry("steam_engine", Group.PRODUCTION),
