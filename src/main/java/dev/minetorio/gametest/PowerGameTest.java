@@ -25,6 +25,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -350,6 +351,27 @@ public class PowerGameTest {
         h.setBlock(pole.above(2), Blocks.STONE);
         h.assertFalse(tryPlace(h, (BlockItem) ModItems.SMALL_ELECTRIC_POLE.get(), pole, Direction.NORTH), "placed under stone");
         h.assertBlockNotPresent(ModBlocks.SMALL_ELECTRIC_POLE.get(), pole);
+        h.succeed();
+    }
+
+    /** An entity standing where the upper parts go blocks placing the pole. */
+    @GameTest(template = "empty16")
+    public static void poleNeedsNoEntityAbove(GameTestHelper h) {
+        BlockPos pole = new BlockPos(4, 1, 4);
+        h.spawn(EntityType.ARMOR_STAND, pole.above(2));
+        h.assertFalse(tryPlace(h, (BlockItem) ModItems.SMALL_ELECTRIC_POLE.get(), pole, Direction.NORTH), "placed into an entity");
+        h.assertBlockNotPresent(ModBlocks.SMALL_ELECTRIC_POLE.get(), pole);
+        h.succeed();
+    }
+
+    /** A placed pole stands full height; a lone lower block (a pole from an older world) does not. */
+    @GameTest(template = "empty16")
+    public static void poleFullHeightOnlyWithItsUpperParts(GameTestHelper h) {
+        BlockPos placed = new BlockPos(3, 1, 3), lone = new BlockPos(8, 1, 3);
+        place(h, ModItems.SMALL_ELECTRIC_POLE.get(), placed, Direction.NORTH);
+        h.setBlock(lone, ModBlocks.SMALL_ELECTRIC_POLE.get());
+        h.assertTrue(ElectricPoleBlock.isFullHeight(h.getLevel(), h.absolutePos(placed)), "placed pole not full height");
+        h.assertFalse(ElectricPoleBlock.isFullHeight(h.getLevel(), h.absolutePos(lone)), "lone lower block full height");
         h.succeed();
     }
 

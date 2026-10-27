@@ -30,7 +30,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  *
  * <p>The pole is one block per {@link #PART}: part 0 (the lower block, placed by the item) holds the
  * block entity; parts 1 and 2 above it are its middle and top, placed with it. Placing needs the two
- * cells above free. Breaking any part breaks the whole pole, which drops one item (the loot table
+ * cells above free of blocks and entities. Breaking any part breaks the whole pole, which drops one item (the loot table
  * drops only for part 0): an upper part's removal destroys the lower block with drops, and parts whose
  * block below is gone turn to air.
  */
@@ -76,9 +76,18 @@ public class ElectricPoleBlock extends BaseEntityBlock {
         Level level = ctx.getLevel();
         if (pos.getY() + HEIGHT - 1 >= level.getMaxBuildHeight()) return null;
         for (int i = 1; i < HEIGHT; i++) {
-            if (!level.getBlockState(pos.above(i)).canBeReplaced(ctx)) return null;
+            BlockPos cell = pos.above(i);
+            if (!level.getBlockState(cell).canBeReplaced(ctx)) return null;
+            // no entity (the player included) may stand where the upper parts go
+            if (!level.isUnobstructed(defaultBlockState().setValue(PART, i), cell, CollisionContext.empty())) return null;
         }
         return defaultBlockState();
+    }
+
+    /** Whether the pole whose lower block is at {@code lower} stands full height (a pole from an older world is one block). */
+    public static boolean isFullHeight(BlockGetter level, BlockPos lower) {
+        BlockState above = level.getBlockState(lower.above());
+        return above.getBlock() instanceof ElectricPoleBlock && above.getValue(PART) == 1;
     }
 
     @Override
