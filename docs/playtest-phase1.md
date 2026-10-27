@@ -25,7 +25,7 @@ Keys: **R** hand crafting, **Y** research.
 To see every mechanic running at once, use the demo showcase first: `/minetorio demo` or the saved world `demo/Minetorio-Demo.zip` (see `docs/demo-world.md`).
 
 - [ ] The log (`run/logs/latest.log`) has no `Missing textures in model` or `Unable to load model` lines, and no `minetorio` errors.
-- [ ] Creative inventory, Minetorio tab: every one of the 35 items has an icon and a name, with no purple-black squares and no raw keys like `item.minetorio.x`. Machines show as small 3D models. Ores, plates, gear, cable, circuit, science packs and scanner show as flat icons. Check again with the language set to Russian.
+- [ ] Creative inventory, Minetorio tab: every one of the 34 items has an icon and a name, with no purple-black squares and no raw keys like `item.minetorio.x`. Machines show as small 3D models. Ores, plates, gear, cable, circuit and science packs show as flat icons. Check again with the language set to Russian.
 - [ ] Hold each machine item in your hand (first and third person) and throw one on the ground. It should be scaled down, not clip into the camera, and not float far away.
 
 ## 1. What every machine should look like
@@ -64,12 +64,21 @@ Things to check closely:
 - [ ] Placing a multiblock machine: it is centered on the block you aim at (where a normal block would go), on that block's layer. For even sizes the aimed block is the left-front one of the middle 2×2 (2×2 furnace and burner drill: the aimed block is their near-left corner; boiler: centered across, extending away from you). Splitters are the exception: the aimed block is their left column, so they line up with the belt you click. While holding a machine, a translucent box shows the footprint: green if it fits, red if something is in the way (and then right-click places nothing and keeps the item).
 - [ ] Breaking particles show machine-coloured fragments, not missing-texture squares.
 
+### Ore fields
+
+- [ ] In a new world, 48 blocks from spawn lie the four starting fields (iron east, copper west, coal south, stone north): round patches of ground blocks with ore lumps, each block at its own height on slopes. Iron lumps are blue-silver, copper orange, coal black, stone beige, on brown ground (compare `art/ore-fields-preview.png`). Neighbouring blocks look turned, not like a grid.
+- [ ] Walking further (new chunks), more fields appear on grass, sand, gravel, stone and the like; never on water, lava, leaves, under tree trunks or inside villages.
+- [ ] Right-click a field block with an empty hand, or start breaking it: the action bar says the ore and how much is left in that block.
+- [ ] Breaking a field block (any pickaxe; bare hands work but slowly) drops exactly one ore and the block stays. Silk touch and fortune change nothing. In creative mode breaking turns the block into dirt at once.
+- [ ] Below 10 % of its initial amount a block turns paler; at 0 it becomes dirt.
+- [ ] Pistons don't move field blocks; TNT and creepers don't destroy them. Field blocks have no item (pick-block gives nothing).
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
-1. [ ] With a pickaxe, mine vanilla iron and copper ore, cobblestone and coal.
-2. [ ] Press **R** and hand-craft a stone furnace (5 cobblestone). Place it, add coal, and smelt `raw_iron` into iron plates. **Look:** the furnace mouth lights up and flickers.
-3. [ ] Hand-craft a deposit scanner (5 circuits, 10 iron plates, 5 cables; smelt some copper first). Use it to find the starting iron deposit. Place a burner mining drill on it, then a belt from the drill's chute into a stone furnace (use a burner inserter). **Look:** the drill rotor spins and the belt animates.
-4. [ ] Place an offshore pump on a shore facing the water, then pipes to a boiler (fuel it with coal) and a steam engine. Place small electric poles (1 stick + 2 copper cable → 2 poles) and an electric mining drill (3 circuits, 5 gears, 10 iron plates). **Everything electric must be inside a pole's supply area:** labs, assemblers, electric drills and the non-burner inserters. **Look:** the boiler fire flickers, the engine flywheel turns and its piston slides, wires sag between poles, and the drill head spins.
+1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.
+2. [ ] Press **R** and hand-craft a stone furnace (5 cobblestone). Place it, add coal, and smelt iron ore into iron plates. **Look:** the furnace mouth lights up and flickers.
+3. [ ] Place a burner mining drill on the iron field (it mines the 2×2 field blocks under itself, one block after the other; emptied blocks turn into dirt), then a belt from the drill's chute into a stone furnace (use a burner inserter). Right-click the drill: the status says the ore and how much is left under it; on plain ground it says there is no ore field. **Look:** the drill rotor spins and the belt animates.
+4. [ ] Place an offshore pump on a shore facing the water, then pipes to a boiler (fuel it with coal) and a steam engine. Place small electric poles (1 stick + 2 copper cable → 2 poles) and an electric mining drill (3 circuits, 5 gears, 10 iron plates) on a field (it mines the 5×5 field blocks under and around it). **Everything electric must be inside a pole's supply area:** labs, assemblers, electric drills and the non-burner inserters. **Look:** the boiler fire flickers, the engine flywheel turns and its piston slides, wires sag between poles, and the drill head spins.
 5. [ ] Hand-craft (R) a lab (10 circuits, 10 gears, 4 transport belts) and 10 automation (red) science packs (1 copper plate + 1 gear each, 5 s). Place the lab in pole coverage, insert the packs, press **Y** and research `automation` (10 red packs; unlocks assembling machine 1 and the long-handed inserter). Assemblers stay locked until this research is done. **Look:** the lab dome glows and pulses while researching.
 6. [ ] Craft assembling machines 1 (3 circuits, 5 gears, 9 iron plates) and place them powered.
    1. Automate gears and red science with inserters and belts. **Look:** the assembler gears turn only while crafting.
