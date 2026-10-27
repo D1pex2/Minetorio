@@ -393,6 +393,18 @@ class ModelZFightTest {
         c.add(new Composite("splitter+belts", List.of(Part.fixed("splitter", "splitter"),
                 Part.fixed("belt0", "transport_belt", Tr.t(0, 0, 16)), Part.fixed("belt1", "transport_belt", Tr.t(16, 0, 16)))));
         c.add(new Composite("inserter+belt", List.of(Part.fixed("inserter", "inserter"), Part.fixed("belt", "transport_belt", Tr.t(0, 0, -16)))));
+        // Belt ramps (R25, north-facing, travel -z): flat belt at the low end, flat belt at the high end, the
+        // next ramp of a chain, a flat belt beside the ramp.
+        String up = "transport_belt_ascending";
+        String down = "transport_belt_descending";
+        c.add(new Composite("ramp_up+flat_bottom", List.of(Part.fixed("ramp", up), Part.fixed("flat", "transport_belt", Tr.t(0, 0, 16)))));
+        c.add(new Composite("ramp_up+flat_top", List.of(Part.fixed("ramp", up), Part.fixed("flat", "transport_belt", Tr.t(0, 16, -16)))));
+        c.add(new Composite("ramp_up+ramp_up", List.of(Part.fixed("a", up), Part.fixed("b", up, Tr.t(0, 16, -16)))));
+        c.add(new Composite("ramp_up+flat_beside", List.of(Part.fixed("ramp", up), Part.fixed("flat", "transport_belt", Tr.t(16, 0, 0)))));
+        c.add(new Composite("ramp_down+flat_top", List.of(Part.fixed("ramp", down), Part.fixed("flat", "transport_belt", Tr.t(0, 16, 16)))));
+        c.add(new Composite("ramp_down+flat_bottom", List.of(Part.fixed("ramp", down), Part.fixed("flat", "transport_belt", Tr.t(0, 0, -16)))));
+        c.add(new Composite("ramp_down+ramp_down", List.of(Part.fixed("a", down), Part.fixed("b", down, Tr.t(0, -16, -16)))));
+        c.add(new Composite("ramp_down+flat_beside", List.of(Part.fixed("ramp", down), Part.fixed("flat", "transport_belt", Tr.t(16, 0, 0)))));
         return c;
     }
 

@@ -370,6 +370,24 @@ COMPOSITES = [
                         ("belt0", M("transport_belt"), [[("t", (0, 0, 16), None)]]),
                         ("belt1", M("transport_belt"), [[("t", (16, 0, 16), None)]])]),
     ("inserter+belt", [("inserter", M("inserter"), [[]]), ("belt", M("transport_belt"), [[("t", (0, 0, -16), None)]])]),
+    # Belt ramps (R25, north-facing, travel -z): the flat belt feeding the low end, the flat belt at the high
+    # end, the next ramp of a chain, and a flat belt beside the ramp.
+    ("ramp_up+flat_bottom", [("ramp", M("transport_belt_ascending"), [[]]),
+                             ("flat", M("transport_belt"), [[("t", (0, 0, 16), None)]])]),
+    ("ramp_up+flat_top", [("ramp", M("transport_belt_ascending"), [[]]),
+                          ("flat", M("transport_belt"), [[("t", (0, 16, -16), None)]])]),
+    ("ramp_up+ramp_up", [("a", M("transport_belt_ascending"), [[]]),
+                         ("b", M("transport_belt_ascending"), [[("t", (0, 16, -16), None)]])]),
+    ("ramp_up+flat_beside", [("ramp", M("transport_belt_ascending"), [[]]),
+                             ("flat", M("transport_belt"), [[("t", (16, 0, 0), None)]])]),
+    ("ramp_down+flat_top", [("ramp", M("transport_belt_descending"), [[]]),
+                            ("flat", M("transport_belt"), [[("t", (0, 16, 16), None)]])]),
+    ("ramp_down+flat_bottom", [("ramp", M("transport_belt_descending"), [[]]),
+                               ("flat", M("transport_belt"), [[("t", (0, 0, -16), None)]])]),
+    ("ramp_down+ramp_down", [("a", M("transport_belt_descending"), [[]]),
+                             ("b", M("transport_belt_descending"), [[("t", (0, -16, -16), None)]])]),
+    ("ramp_down+flat_beside", [("ramp", M("transport_belt_descending"), [[]]),
+                               ("flat", M("transport_belt"), [[("t", (16, 0, 0), None)]])]),
 ]
 
 
