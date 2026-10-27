@@ -265,7 +265,7 @@ def pairs(group_a, group_b, everything):
 def inserter_arm(reach, arm, facing_deg=0):
     """Joint, arm and hand boxes of InserterRenderer.render (client/inserter/InserterRenderer.java:97-111, the
     claw fingers left out), in model pixels, for facing north (heading toward the pickup = north at arm 0)."""
-    SHOULDER_Y, ELBOW_RISE, ELBOW_RISE_PER_REACH, ELBOW_AT, HAND_RISE, HAND_REACH = 5.5 / 16, 0.34, 0.14, 0.45, 0.14, 0.85
+    SHOULDER_Y, ELBOW_RISE, ELBOW_RISE_PER_REACH, ELBOW_AT, HAND_RISE, HAND_REACH = 5.5 / 16, 0.40, 0.06, 0.1, 0.2, 0.85
     a = math.pi * arm
     c, s = -math.cos(a), math.sin(a)
     h = (0 * c + 1 * s, -1 * c + 0 * s)   # facing north (0,-1), right = east (1,0)
@@ -277,10 +277,10 @@ def inserter_arm(reach, arm, facing_deg=0):
     side = (-h[1], 0, h[0])
     quads = []
     for a0, b0, half in ((shoulder, add(shoulder, (0, 0.1, 0)), 0.065),
-                         (add(shoulder, (0, 0.05, 0)), elbow, 0.042),
-                         (sub(elbow, (0, 0.055, 0)), add(elbow, (0, 0.055, 0)), 0.055),
-                         (elbow, add(hand, (0, 0.03, 0)), 0.032),
-                         (sub(hand, (0, 0.06, 0)), add(hand, (0, 0.03, 0)), 0.055)):
+                         (add(shoulder, (0, 0.05, 0)), elbow, 0.035),
+                         (sub(elbow, (0, 0.045, 0)), add(elbow, (0, 0.045, 0)), 0.045),
+                         (elbow, add(hand, (0, 0.03, 0)), 0.024),
+                         (sub(hand, (0, 0.06, 0)), add(hand, (0, 0.03, 0)), 0.05)):
         u = norm(sub(b0, a0))
         sv = norm(side)
         vv = norm(cross(u, sv))
@@ -321,34 +321,38 @@ COMPOSITES = [
     *[(f"assembling_machine_{t}", [("body", M(f"assembling_machine_{t}_body"), [[]]),
                                    ("gear", M(f"assembling_machine_{t}_gear"), [spin_y(a) for a in SPIN], Y)])
       for t in (1, 2)],
-    # DrillRenderer.java:47-63: electric body at the center, head turning about the vertical axis, the
-    # tower one block up (translate(-0.5, 1, -0.5)).
+    # DrillRenderer.java: electric body at the center, head turning about the vertical axis, the carriage
+    # riding 0..CARRIAGE_TRAVEL_PX (4 px) up, the tower one block up (draw(top, 1, ...)).
     ("electric_mining_drill", [("body", M("electric_mining_drill_body"), [[]]),
                                ("head", M("electric_mining_drill_head"), [spin_y(a) for a in SPIN], Y),
+                               ("carriage", M("electric_mining_drill_carriage"),
+                                [[("t", (0, dy, 0), None)] if dy else [] for dy in (0, 1, 2, 3, 4)]),
                                ("tower", M("electric_mining_drill_tower"), [[("t", (0, 16, 0), None)]])]),
     # Burner drill: body on the controller's blockstate (x 0..32, z -16..16); DrillRenderer.java puts the
-    # head and the chimney at MachineRender.center (2x2, north: 1.0, 0.0 blocks) - 0.5 = (+8, 0, -8) px,
-    # the chimney one block up.
+    # head at MachineRender.center (2x2, north: 1.0, 0.0 blocks) - 0.5 = (+8, 0, -8) px.
     ("burner_mining_drill", [("body", M("burner_mining_drill"), [[]]),
                              ("head", M("burner_mining_drill_head"),
                               [[("y", a, (8, 0, 8)), ("t", (8, 0, -8), None)] if a else [("t", (8, 0, -8), None)]
-                               for a in SPIN], Y),
-                             ("chimney", M("burner_mining_drill_chimney"), [[("t", (8, 16, -8), None)]])]),
-    # LabRenderer.java:37-46: body, glass tube and fluid column (glowing or idle) at the center, the column turning.
-    *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("shell", M("lab_shell"), [[]]),
-                    ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
+                               for a in SPIN], Y)]),
+    # LabRenderer.java: body and dome (glowing or idle) at the center, the dome turning.
+    *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
       for d in ("lab_dome", "lab_dome_idle")],
-    # SteamMachineRenderer.java:73-74: boiler body and fire, both at dz 0.
+    # SteamMachineRenderer.java: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
-    # SteamMachineRenderer.java:93-102: body at dz FRONT_HALF (-1 block), rear at BACK_HALF (+1.5), piston at
-    # BACK_HALF +- PISTON_THROW (3 px) * sin, flywheel at BACK_HALF turning about x through its model's (y 16, z 8).
-    ("steam_engine", [("body", M("steam_engine_body"), [[("t", (0, 0, -16), None)]]),
+    # SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x
+    # through their models' (y 8, z 8), drawn at their pivots (Engine.GEARS).
+    ("steam_engine", [("body", M("steam_engine_body"), [[]]),
+                      ("front", M("steam_engine_front"), [[("t", (0, 0, -24), None)]]),
                       ("rear", M("steam_engine_rear"), [[("t", (0, 0, 24), None)]]),
-                      ("piston", M("steam_engine_piston"),
-                       [[("t", (0, 0, 24 + dz), None)] for dz in (-3, -1.5, 0, 1.5, 3)]),
-                      ("flywheel", M("steam_engine_flywheel"),
-                       [[("x", a, (0, 16, 8)), ("t", (0, 0, 24), None)] if a else [("t", (0, 0, 24), None)]
-                        for a in SPIN], X)]),
+                      *[(f"gear@{py},{pz}", M(model),
+                         [[("x", a, (0, 8, 8)), ("t", (0, py - 8, pz - 8), None)] if a else
+                          [("t", (0, py - 8, pz - 8), None)] for a in SPIN], X)
+                        for model, py, pz in (("steam_engine_gear", 13, 12), ("steam_engine_gear_small", 11, -0.5),
+                                              ("steam_engine_gear_small", 19, 23))]]),
+    # blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
+    ("small_electric_pole", [("lower", M("small_electric_pole"), [[]]),
+                             ("middle", M("small_electric_pole_middle"), [[("t", (0, 16, 0), None)]]),
+                             ("top", M("small_electric_pole_top"), [[("t", (0, 32, 0), None)]])]),
     # InserterRenderer.java:97-111: procedural arm over the template_inserter base (shoulder at y 5.5 px).
     *[(f"{n}+arm", [("base", M(n), [[]]),
                     ("arm", lambda r=r: [inserter_arm(r, arm) for arm in (0, 0.25, 0.5, 0.75, 1)], None)])

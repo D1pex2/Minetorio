@@ -110,7 +110,8 @@ def render(elements, tex, yaw, pitch=-30, size=260, extent=None):
 
     def project(p):
         q = view @ (p - center)
-        return np.array([size / 2 + q[0] * scale, size / 2 - q[1] * scale]), q[2]
+        # the camera looks toward +depth with +y up, so screen right is -x of the view frame
+        return np.array([size / 2 - q[0] * scale, size / 2 - q[1] * scale]), q[2]
 
     # opaque faces first, then translucent ones (glass) blended on top
     for pass_ in (0, 1):
@@ -207,16 +208,19 @@ def placed(rl, dx=0, dy=0, dz=0, turn=False):
 
 # whole machines as their block entity renderers draw them (in-world size, not the item)
 COMPOSITE_ENTRIES = [
-    ("steam_engine (in world, 3x5)", lambda: placed("minetorio:block/steam_engine_body", dz=-16)
-     + placed("minetorio:block/steam_engine_rear", dz=24) + placed("minetorio:block/steam_engine_piston", dz=24)
-     + placed("minetorio:block/steam_engine_flywheel", dz=24)),
-    ("lab (in world, researching)", lambda: placed("minetorio:block/lab_body") + placed("minetorio:block/lab_dome")
-     + placed("minetorio:block/lab_shell")),
+    ("steam_engine (in world, 3x5)", lambda: placed("minetorio:block/steam_engine_body")
+     + placed("minetorio:block/steam_engine_front", dz=-24) + placed("minetorio:block/steam_engine_rear", dz=24)
+     + placed("minetorio:block/steam_engine_gear", dy=5, dz=4)
+     + placed("minetorio:block/steam_engine_gear_small", dy=3, dz=-8.5)
+     + placed("minetorio:block/steam_engine_gear_small", dy=11, dz=15)),
+    ("lab (in world, researching)", lambda: placed("minetorio:block/lab_body") + placed("minetorio:block/lab_dome")),
     ("electric_mining_drill (in world)", lambda: placed("minetorio:block/electric_mining_drill_body")
-     + placed("minetorio:block/electric_mining_drill_head") + placed("minetorio:block/electric_mining_drill_tower", dy=16)),
+     + placed("minetorio:block/electric_mining_drill_head") + placed("minetorio:block/electric_mining_drill_carriage")
+     + placed("minetorio:block/electric_mining_drill_tower", dy=16)),
     ("burner_mining_drill (in world)", lambda: placed("minetorio:block/burner_mining_drill")
-     + placed("minetorio:block/burner_mining_drill_head", 8, 0, -8)
-     + placed("minetorio:block/burner_mining_drill_chimney", 8, 16, -8)),
+     + placed("minetorio:block/burner_mining_drill_head", 8, 0, -8)),
+    ("small_electric_pole (in world, 3 high)", lambda: placed("minetorio:block/small_electric_pole")
+     + placed("minetorio:block/small_electric_pole_middle", dy=16) + placed("minetorio:block/small_electric_pole_top", dy=32)),
 ]
 
 
@@ -237,10 +241,10 @@ ENTRIES = [
     ("minetorio:item/lab", "lab (idle)"),
     ("minetorio:block/lab_dome", "lab dome (researching)"),
     ("minetorio:item/boiler", "boiler"),
-    ("minetorio:item/steam_engine", "steam_engine (item: whole, scaled 0.6)"),
+    ("minetorio:item/steam_engine", "steam_engine (item: whole, scaled 0.55)"),
     ("minetorio:item/offshore_pump", "offshore_pump"),
     ("minetorio:item/pipe", "pipe"),
-    ("minetorio:block/small_electric_pole", "small_electric_pole"),
+    ("minetorio:item/small_electric_pole", "small_electric_pole (item)"),
     ("minetorio:item/burner_inserter", "burner_inserter (item pose)"),
     ("minetorio:item/inserter", "inserter (item pose)"),
     ("minetorio:item/long_handed_inserter", "long_handed_inserter"),

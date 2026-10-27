@@ -11,6 +11,8 @@ downscaled diffusion output at 16×16.
 | `gen_models.py` | All block and item JSON models in `models/{block,item}/`: Create-style multi-element machines, belts, pipes, poles and inserters, plus fitted item display transforms for the multiblocks. |
 | `render_models.py` | `models-preview.png`: an offline isometric render of every model (two views each) for checking shapes without the game, plus the multi-part machines (steam engine, mining drills) assembled as their block entity renderers draw them. |
 
+| `render_compare.py REF_DIR OUT.png` | Side-by-side sheet: each machine's Factorio wiki reference image next to a render of the machine as its renderer assembles it, seen from Factorio's angle. Every machine model is made from its reference and checked on this sheet. The references are Factorio's art: keep them and the sheet outside the repository. |
+
 Order: `python art/gen_blocks.py && python art/gen_models.py && python art/render_models.py`
 
 ## Notes

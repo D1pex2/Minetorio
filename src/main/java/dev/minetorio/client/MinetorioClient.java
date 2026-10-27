@@ -33,9 +33,10 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.SPLITTER.get(), SplitterRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.INSERTER.get(), InserterRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.BURNER_MINING_DRILL.get(),
-                ctx -> new DrillRenderer(ctx, null, DrillRenderer.BURNER_HEAD, DrillRenderer.BURNER_CHIMNEY));
+                ctx -> new DrillRenderer(ctx, null, DrillRenderer.BURNER_HEAD, null, null));
         event.registerBlockEntityRenderer(ModBlockEntities.ELECTRIC_MINING_DRILL.get(),
-                ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC_BODY, DrillRenderer.ELECTRIC_HEAD, DrillRenderer.ELECTRIC_TOWER));
+                ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC_BODY, DrillRenderer.ELECTRIC_HEAD, DrillRenderer.ELECTRIC_TOWER,
+                        DrillRenderer.ELECTRIC_CARRIAGE));
         event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
@@ -53,16 +54,17 @@ public final class MinetorioClient {
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
         event.register(DrillRenderer.BURNER_HEAD);
-        event.register(DrillRenderer.BURNER_CHIMNEY);
         event.register(DrillRenderer.ELECTRIC_BODY);
         event.register(DrillRenderer.ELECTRIC_HEAD);
+        event.register(DrillRenderer.ELECTRIC_CARRIAGE);
         event.register(DrillRenderer.ELECTRIC_TOWER);
         event.register(SteamMachineRenderer.BOILER_BODY);
         event.register(SteamMachineRenderer.BOILER_FIRE);
         event.register(SteamMachineRenderer.ENGINE_BODY);
-        event.register(SteamMachineRenderer.ENGINE_FLYWHEEL);
+        event.register(SteamMachineRenderer.ENGINE_FRONT);
         event.register(SteamMachineRenderer.ENGINE_REAR);
-        event.register(SteamMachineRenderer.ENGINE_PISTON);
+        event.register(SteamMachineRenderer.ENGINE_GEAR);
+        event.register(SteamMachineRenderer.ENGINE_GEAR_SMALL);
         event.register(AssemblerRenderer.BODY_1);
         event.register(AssemblerRenderer.BODY_2);
         event.register(AssemblerRenderer.GEAR_1);
@@ -70,6 +72,5 @@ public final class MinetorioClient {
         event.register(LabRenderer.BODY);
         event.register(LabRenderer.DOME);
         event.register(LabRenderer.DOME_IDLE);
-        event.register(LabRenderer.SHELL);
     }
 }

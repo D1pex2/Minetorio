@@ -22,34 +22,34 @@ import net.minecraft.world.phys.AABB;
 import org.joml.Vector3f;
 
 /**
- * Draws an inserter's arm, Factorio style: a dark shoulder joint on the base's pivot, a tier coloured
- * upper arm rising to a dark elbow joint and a tier coloured forearm down to the hand, a small dark
- * block with two claw fingers hanging from it, all in the vertical plane of the arm's heading.
- * Long-handed arms reach twice as far with proportionally longer segments and a higher elbow. The
- * heading turns 180° about the base through the inserter's right side as {@code armProgress} goes
- * 0 (hand over the pickup block) → 1 (over the drop block). The held item hangs under the claw.
+ * Draws an inserter's arm, Factorio style: a dark shoulder joint on the base's pivot, a short tier
+ * coloured riser standing almost straight up to a dark elbow joint, and from it the long thin tier
+ * coloured arm reaching out and slightly down to the hand, a small dark block with two claw fingers
+ * hanging from it, all in the vertical plane of the arm's heading. Long-handed arms reach twice as far.
+ * The heading turns 180° about the base through the inserter's right side as {@code armProgress}
+ * goes 0 (hand over the pickup block) → 1 (over the drop block). The held item hangs under the claw.
  */
 public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity> {
     private static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
     private static final float SHOULDER_Y = 5.5f / 16;
-    /** Elbow height over the shoulder: a base plus a share per block of reach (long arms stand taller). */
-    private static final float ELBOW_RISE = 0.34f;
-    private static final float ELBOW_RISE_PER_REACH = 0.14f;
-    /** Horizontal elbow distance from the center as a fraction of the hand's. */
-    private static final float ELBOW_AT = 0.45f;
-    private static final float HAND_RISE = 0.14f;
+    /** Elbow height over the shoulder: a base plus a share per block of reach (long arms stand a little taller). */
+    private static final float ELBOW_RISE = 0.40f;
+    private static final float ELBOW_RISE_PER_REACH = 0.06f;
+    /** Horizontal elbow distance from the center as a fraction of the hand's (the riser is nearly upright). */
+    private static final float ELBOW_AT = 0.1f;
+    private static final float HAND_RISE = 0.2f;
     /** Horizontal hand distance from the inserter's center, per block of reach. */
     private static final float HAND_REACH = 0.85f;
-    /** Half thicknesses (blocks) of the shoulder joint, upper arm, elbow joint, forearm and hand. */
+    /** Half thicknesses (blocks) of the shoulder joint, riser, elbow joint, arm and hand. */
     private static final float SHOULDER_HALF = 0.065f;
-    private static final float UPPER_HALF = 0.042f;
-    private static final float ELBOW_HALF = 0.055f;
-    private static final float FORE_HALF = 0.032f;
-    private static final float HAND_HALF = 0.055f;
+    private static final float UPPER_HALF = 0.035f;
+    private static final float ELBOW_HALF = 0.045f;
+    private static final float FORE_HALF = 0.024f;
+    private static final float HAND_HALF = 0.05f;
     private static final int MAX_CACHED_STACKS = 64;
     private static final int JOINT_COLOR = 0xFF3A3D41;
     /** Claw fingers: sideways offsets from the hand center, length and color. */
-    private static final float[] FINGER_OFFSETS = {-0.04f, 0.04f};
+    private static final float[] FINGER_OFFSETS = {-0.045f, 0.045f};
     private static final float FINGER_LENGTH = 0.1f;
     private static final int FINGER_COLOR = 0xFFB4B8BC;
 
@@ -71,7 +71,7 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
     /** Tier color of the arm segments. */
     static int tierColor(InserterType type) {
         return switch (type) {
-            case BURNER -> 0xFF6B5A48;
+            case BURNER -> 0xFF5C5F63;
             case BASIC -> 0xFFE8B820;
             case LONG -> 0xFFC83A30;
             case FAST -> 0xFF3A78D8;
@@ -106,7 +106,7 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
         int tier = tierColor(type);
         box(vc, p, shoulder, new Vector3f(shoulder).add(0, 0.1f, 0), side, SHOULDER_HALF, JOINT_COLOR, light);
         box(vc, p, new Vector3f(shoulder).add(0, 0.05f, 0), elbow, side, UPPER_HALF, tier, light);
-        box(vc, p, new Vector3f(elbow).sub(0, 0.055f, 0), new Vector3f(elbow).add(0, 0.055f, 0), side, ELBOW_HALF, JOINT_COLOR, light);
+        box(vc, p, new Vector3f(elbow).sub(0, 0.045f, 0), new Vector3f(elbow).add(0, 0.045f, 0), side, ELBOW_HALF, JOINT_COLOR, light);
         box(vc, p, elbow, new Vector3f(hand).add(0, 0.03f, 0), side, FORE_HALF, tier, light);
         box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.03f, 0), side, HAND_HALF, JOINT_COLOR, light);
         for (float offset : FINGER_OFFSETS) {

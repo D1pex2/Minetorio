@@ -13,17 +13,16 @@ import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Draws a lab (R19): the body model (base, pedestal, cap), the fluid column ("dome") inside the glass
- * tube and the tube itself, translucent. While the lab is {@link LabBlockEntity#isWorking working} the
- * column swaps to its glowing model (animated pulsing core, full brightness) and turns slowly about
- * the vertical center axis; idle it is dim. Models are authored around the footprint's center block
+ * Draws a lab (R19), Factorio's geodesic glass dome: the body model (the low round base) and the dome.
+ * While the lab is {@link LabBlockEntity#isWorking working} the dome swaps to its glowing model
+ * (animated pulsing glass behind the lattice, full brightness) and turns slowly about the vertical
+ * center axis; idle it is dark glass. Models are authored around the footprint's center block
  * (−16..32) in the north orientation.
  */
 public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
     public static final ModelResourceLocation BODY = MachineRender.model("block/lab_body");
     public static final ModelResourceLocation DOME = MachineRender.model("block/lab_dome");
     public static final ModelResourceLocation DOME_IDLE = MachineRender.model("block/lab_dome_idle");
-    public static final ModelResourceLocation SHELL = MachineRender.model("block/lab_shell");
 
     private final ModelBlockRenderer modelRenderer;
 
@@ -38,7 +37,6 @@ public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5);
         MachineRender.renderModel(modelRenderer, BODY, pose, buffers, light, overlay);
-        MachineRender.renderTranslucentModel(modelRenderer, SHELL, pose, buffers, light, overlay);
         pose.popPose();
         pose.mulPose(Axis.YP.rotationDegrees(be.renderDomeAngle(partialTick)));
         pose.translate(-0.5, 0, -0.5);

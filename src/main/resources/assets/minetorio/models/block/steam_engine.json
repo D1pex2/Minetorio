@@ -1,7 +1,7 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/slate_panel"
+    "particle": "minetorio:block/engine_tank"
   },
   "elements": [
 
