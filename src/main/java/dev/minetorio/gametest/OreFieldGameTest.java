@@ -5,6 +5,7 @@ import static dev.minetorio.gametest.BeltGameTest.dropped;
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.orefield.OreFieldBlock;
 import dev.minetorio.content.orefield.OreFieldData;
+import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.orefield.StartingFields;
 import dev.minetorio.content.registry.ModAttachments;
@@ -304,6 +305,32 @@ public class OreFieldGameTest {
             BlockPos pos = OreFields.surfaceField(level, s.centerX(), s.centerZ());
             h.assertTrue(pos != null && OreFields.typeOf(level.getBlockState(pos)) == s.type(), "starting field missing: " + s);
         }
+        h.succeed();
+    }
+
+    /**
+     * The map hover answer: the type and amount of the field block on a column's surface (also under
+     * a machine block standing on it), "none" for a column without one, and "not loaded" for a chunk
+     * that is not loaded, which the lookup does not load.
+     */
+    @GameTest(template = "empty16")
+    public static void mapHoverLookup(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        BlockPos field = h.absolutePos(new BlockPos(3, 0, 3)), covered = h.absolutePos(new BlockPos(5, 0, 3));
+        OreFields.place(level, field, OreType.COPPER, 777);
+        OreFields.place(level, covered, OreType.COAL, 55);
+        h.setBlock(new BlockPos(5, 1, 3), Blocks.IRON_BLOCK);
+        OreFieldPayloads.Info a = OreFieldPayloads.lookup(level, field.getX(), field.getZ());
+        h.assertTrue(a.oreType() == OreType.COPPER && a.remaining() == 777, "field: " + a);
+        OreFieldPayloads.Info b = OreFieldPayloads.lookup(level, covered.getX(), covered.getZ());
+        h.assertTrue(b.oreType() == OreType.COAL && b.remaining() == 55, "covered field: " + b);
+        BlockPos plain = h.absolutePos(new BlockPos(8, 0, 8));
+        OreFieldPayloads.Info c = OreFieldPayloads.lookup(level, plain.getX(), plain.getZ());
+        h.assertTrue(c.ore() == OreFieldPayloads.NONE && c.oreType() == null, "plain: " + c);
+        int far = 20_000_000;
+        OreFieldPayloads.Info d = OreFieldPayloads.lookup(level, far, far);
+        h.assertTrue(d.ore() == OreFieldPayloads.NOT_LOADED, "far: " + d);
+        h.assertTrue(level.getChunkSource().getChunkNow(far >> 4, far >> 4) == null, "the lookup loaded a chunk");
         h.succeed();
     }
 

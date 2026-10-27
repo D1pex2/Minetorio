@@ -4,6 +4,7 @@ import dev.minetorio.Minetorio;
 import dev.minetorio.content.handcraft.HandcraftPayloads;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.map.MapPayloads;
+import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.research.ResearchSyncPayload;
 import dev.minetorio.content.research.SelectResearchPayload;
 import io.netty.buffer.ByteBuf;
@@ -36,7 +37,9 @@ public final class ModPayloads {
                 .playToServer(HandcraftPayloads.Cancel.TYPE, HandcraftPayloads.Cancel.STREAM_CODEC, HandcraftPayloads.Cancel::handle)
                 .playToClient(HandcraftPayloads.QueueSync.TYPE, HandcraftPayloads.QueueSync.STREAM_CODEC, HandcraftPayloads.QueueSync::handle)
                 .playToClient(MapPayloads.Chunks.TYPE, MapPayloads.Chunks.STREAM_CODEC, MapPayloads.Chunks::handle)
-                .playToClient(MapPayloads.Players.TYPE, MapPayloads.Players.STREAM_CODEC, MapPayloads.Players::handle);
+                .playToClient(MapPayloads.Players.TYPE, MapPayloads.Players.STREAM_CODEC, MapPayloads.Players::handle)
+                .playToServer(OreFieldPayloads.Query.TYPE, OreFieldPayloads.Query.STREAM_CODEC, OreFieldPayloads.Query::handle)
+                .playToClient(OreFieldPayloads.Info.TYPE, OreFieldPayloads.Info.STREAM_CODEC, OreFieldPayloads.Info::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

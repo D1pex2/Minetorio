@@ -9,6 +9,7 @@ import dev.minetorio.client.machine.AssemblerRenderer;
 import dev.minetorio.client.machine.AssemblerScreen;
 import dev.minetorio.client.machine.DrillRenderer;
 import dev.minetorio.client.machine.StoneFurnaceScreen;
+import dev.minetorio.client.map.OreFieldHover;
 import dev.minetorio.client.map.RadarRenderer;
 import dev.minetorio.client.power.SteamMachineRenderer;
 import dev.minetorio.client.research.LabRenderer;
@@ -18,6 +19,7 @@ import dev.minetorio.content.registry.ModMenus;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
@@ -44,6 +46,11 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.LAB.get(), LabRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.RADAR.get(), RadarRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void setup(FMLClientSetupEvent event) {
+        OreFieldHover.register();
     }
 
     @SubscribeEvent
