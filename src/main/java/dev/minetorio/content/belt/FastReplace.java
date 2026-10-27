@@ -20,10 +20,14 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class FastReplace {
     private FastReplace() {}
 
-    /** The block {@code stack} would place, if it is a block of {@code kind} other than {@code current}. */
+    /**
+     * The block {@code stack} would place, if it is a block of {@code kind} other than {@code current}
+     * and the player may build at {@code pos} (not in adventure mode, not in spawn protection, ...).
+     */
     @Nullable
-    public static <B extends Block> B target(ItemStack stack, Block current, Class<B> kind, Player player) {
+    public static <B extends Block> B target(ItemStack stack, Block current, Class<B> kind, Player player, Level level, BlockPos pos) {
         if (player.isSecondaryUseActive()) return null; // sneak: place against the face as usual
+        if (!player.mayBuild() || !level.mayInteract(player, pos)) return null;
         if (!(stack.getItem() instanceof BlockItem item) || !kind.isInstance(item.getBlock()) || item.getBlock() == current) {
             return null;
         }

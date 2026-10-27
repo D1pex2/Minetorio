@@ -168,13 +168,14 @@ public class UndergroundBeltBlock extends BaseEntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit) {
-        UndergroundBeltBlock next = FastReplace.target(stack, this, UndergroundBeltBlock.class, player);
+        UndergroundBeltBlock next = FastReplace.target(stack, this, UndergroundBeltBlock.class, player, level, pos);
         if (next == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
         if (!(level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         BlockPos partnerPos = be.partnerPos();
         UndergroundBeltBlockEntity partner = partnerPos != null
                 && level.getBlockEntity(partnerPos) instanceof UndergroundBeltBlockEntity p && pos.equals(p.partnerPos()) ? p : null;
+        if (partner != null && !level.mayInteract(player, partnerPos)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         int pieces = partner != null ? 2 : 1;
         if (partner != null && be.distance() > next.maxDistance()) {
             FastReplace.refuse(player, "minetorio.fast_replace.range");

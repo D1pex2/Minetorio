@@ -170,4 +170,34 @@ public class FastReplaceGameTest {
         h.assertTrue(BeltGameTest.dropped(h, ModItems.SPLITTER.get()) == 0 && BeltGameTest.dropped(h, ModItems.IRON_PLATE.get()) == 0, "drops");
         h.succeed();
     }
+
+    /** A player who may not build (adventure mode) cannot fast-replace belts, splitters or undergrounds. */
+    @GameTest(template = "empty16")
+    public static void adventureModeCannotFastReplace(GameTestHelper h) {
+        BlockPos belt = new BlockPos(1, 1, 1);
+        BlockPos splitter = new BlockPos(5, 1, 5);
+        BlockPos in = new BlockPos(2, 1, 9);
+        BlockPos out = new BlockPos(5, 1, 9);
+        place(h, ModItems.TRANSPORT_BELT.get(), belt, Direction.EAST);
+        place(h, ModItems.SPLITTER.get(), splitter, Direction.NORTH);
+        place(h, ModItems.UNDERGROUND_BELT.get(), in, Direction.EAST);
+        place(h, ModItems.UNDERGROUND_BELT.get(), out, Direction.EAST);
+        ServerPlayer p = player(h, ModItems.FAST_TRANSPORT_BELT.get(), 4);
+        p.setGameMode(GameType.ADVENTURE);
+        try {
+            rightClick(h, p, belt);
+            p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.FAST_SPLITTER.get(), 4));
+            rightClick(h, p, splitter);
+            p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.FAST_UNDERGROUND_BELT.get(), 4));
+            rightClick(h, p, in);
+        } finally {
+            p.setGameMode(GameType.SURVIVAL);
+        }
+        h.assertTrue(h.getBlockState(belt).is(ModBlocks.TRANSPORT_BELT.get()), "belt replaced: " + h.getBlockState(belt));
+        h.assertTrue(h.getBlockState(splitter).is(ModBlocks.SPLITTER.get()), "splitter replaced: " + h.getBlockState(splitter));
+        h.assertTrue(h.getBlockState(in).is(ModBlocks.UNDERGROUND_BELT.get()), "entrance replaced: " + h.getBlockState(in));
+        h.assertTrue(h.getBlockState(out).is(ModBlocks.UNDERGROUND_BELT.get()), "exit replaced: " + h.getBlockState(out));
+        h.assertTrue(p.getMainHandItem().getCount() == 4, "items taken");
+        h.succeed();
+    }
 }
