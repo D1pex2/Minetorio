@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.registry.ModBlocks;
@@ -34,10 +35,10 @@ public class MultiblockGameTest {
     /** A part of the furnace at ORIGIN (top, right, back corner). */
     private static final BlockPos PART = new BlockPos(3, 2, 1);
 
-    /** Places a stone_furnace like a player would; with no player the facing is NORTH. */
+    /** Places a stone_furnace with its controller at {@code relative}; with no player the facing is NORTH. */
     private static InteractionResult placeFurnace(GameTestHelper h, BlockPos relative) {
-        BlockPos abs = h.absolutePos(relative);
         ItemStack stack = new ItemStack(ModItems.STONE_FURNACE.get());
+        BlockPos abs = MultiblockBlockItem.targetFor(stack.getItem(), h.absolutePos(relative), Direction.NORTH);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
         BlockPlaceContext ctx = new BlockPlaceContext(h.getLevel(), null, InteractionHand.MAIN_HAND, stack, hit);
         return ((BlockItem) stack.getItem()).place(ctx);

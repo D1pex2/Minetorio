@@ -31,6 +31,30 @@ public record MultiblockShape(int width, int depth, int height) {
     public int volume() { return width * depth * height; }
 
     /**
+     * Width index of the placement anchor (R26), the footprint cell that lands on the cell the player
+     * targets: {@code (width - 1) / 2}, the middle column for odd widths and, for even widths, the
+     * left one of the two middle columns (2 wide: the left column).
+     */
+    public int anchorWidth() { return (width - 1) / 2; }
+
+    /**
+     * Depth index of the placement anchor: {@code (depth - 1) / 2}, the middle row for odd depths
+     * and, for even depths, the front one (nearer the placer) of the two middle rows (2 deep: the
+     * front row). Together with {@link #anchorWidth} the anchor of a 2×2 is its left-front cell.
+     */
+    public int anchorDepth() { return (depth - 1) / 2; }
+
+    /** Origin (controller position) of the footprint whose anchor is {@code anchor}; same layer. */
+    public BlockPos originForAnchor(BlockPos anchor, Direction facing) {
+        return anchor.relative(facing.getClockWise(), -anchorWidth()).relative(facing, -anchorDepth());
+    }
+
+    /** Anchor of the footprint whose origin is {@code origin}; inverse of {@link #originForAnchor}. */
+    public BlockPos anchorOf(BlockPos origin, Direction facing) {
+        return origin.relative(facing.getClockWise(), anchorWidth()).relative(facing, anchorDepth());
+    }
+
+    /**
      * All block positions occupied by the machine whose controller sits at {@code origin}.
      * Orientation: width runs along {@code facing.getClockWise()} (to the right when looking in the
      * facing direction), depth runs along {@code facing}, height runs up. The controller is the

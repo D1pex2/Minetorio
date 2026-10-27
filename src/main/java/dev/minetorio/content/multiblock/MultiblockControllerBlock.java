@@ -22,7 +22,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * Controller block of a multiblock machine: sits at the origin of {@link #shape()} (see
  * {@link MultiblockShape#footprint}) and owns the machine's block entity; every other position
  * is a {@link MultiblockPartBlock}. The controller's facing is the player's horizontal look
- * direction at placement, so the machine extends forward and to the right of the clicked spot.
+ * direction at placement. Placed by a {@link MultiblockBlockItem}, the footprint is centered on the
+ * targeted cell (R26, {@link #placementOrigin}); the controller then sits at the footprint's
+ * left-front-bottom corner, which may differ from the targeted cell.
  *
  * <p>Drops: the machine item comes from the controller's loot table through the normal block-drop
  * path of whichever piece is broken (a part's drops are its controller block's drops, see
@@ -42,6 +44,22 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
 
     public static List<BlockPos> footprint(BlockPos origin, Direction facing, MultiblockShape shape) {
         return shape.footprint(origin, facing);
+    }
+
+    /**
+     * Whether placement centers the footprint on the targeted cell (R26). Splitters override this:
+     * their targeted cell stays the left column so they line up with the belt being clicked.
+     */
+    protected boolean centeredPlacement() { return true; }
+
+    /** Controller position for a placement targeting {@code target} looking {@code facing}. */
+    public BlockPos placementOrigin(BlockPos target, Direction facing) {
+        return centeredPlacement() ? shape().originForAnchor(target, facing) : target;
+    }
+
+    /** Cell to target so that the controller lands at {@code origin}; inverse of {@link #placementOrigin}. */
+    public BlockPos placementTarget(BlockPos origin, Direction facing) {
+        return centeredPlacement() ? shape().anchorOf(origin, facing) : origin;
     }
 
     /** Positions occupied by the machine whose controller is {@code state} at {@code origin}. */
@@ -70,6 +88,13 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         return RenderShape.MODEL;
     }
 
+    /**
+     * Placement at {@code ctx.getClickedPos()} as the origin (a {@link MultiblockBlockItem} has
+     * already moved it there): null unless every footprint cell is inside the build height and the
+     * world border, the origin is replaceable and every other cell is replaceable and free of
+     * entities. The origin's collision with entities is checked by
+     * {@link net.minecraft.world.item.BlockItem#place}.
+     */
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
@@ -77,13 +102,17 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         BlockPos origin = ctx.getClickedPos();
         Direction facing = ctx.getHorizontalDirection();
         for (BlockPos p : footprint(origin, facing, shape())) {
-            if (!p.equals(origin) && !canOccupy(level, p)) return null;
+            boolean free = p.equals(origin)
+                    ? !level.isOutsideBuildHeight(p) && level.getWorldBorder().isWithinBounds(p) && level.getBlockState(p).canBeReplaced(ctx)
+                    : canOccupy(level, p);
+            if (!free) return null;
         }
         return defaultBlockState().setValue(FACING, facing);
     }
 
     private static boolean canOccupy(Level level, BlockPos p) {
         return !level.isOutsideBuildHeight(p)
+                && level.getWorldBorder().isWithinBounds(p)
                 && level.getBlockState(p).canBeReplaced()
                 && level.isUnobstructed(null, Shapes.block().move(p.getX(), p.getY(), p.getZ()));
     }

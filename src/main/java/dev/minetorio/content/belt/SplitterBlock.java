@@ -61,6 +61,10 @@ public class SplitterBlock extends MultiblockControllerBlock {
     @Override
     public MultiblockShape shape() { return MultiblockShape.SPLITTER; }
 
+    /** Not centered (R26): the targeted cell stays the left column, in line with the clicked belt. */
+    @Override
+    protected boolean centeredPlacement() { return false; }
+
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new SplitterBlockEntity(pos, state);
