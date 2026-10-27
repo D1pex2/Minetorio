@@ -19,7 +19,9 @@ import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConf
  *
  * <p>Patches are laid out around the world origin (0, 0), not the world spawn: the spawn is not
  * known yet while the first chunks generate and can move later, while the layout must never change
- * between chunks. The amount's distance factor is measured from the origin too.
+ * between chunks. The amount's distance factor is measured from the origin too. Generated patches
+ * reaching into the starting area around the real spawn are removed again when the starting fields
+ * are stamped ({@link StartingFields#clearGenerated}).
  *
  * <p>Columns are searched down from the {@code WORLD_SURFACE} heightmap (kept up to date during the
  * feature steps, unlike the {@code _WG} ones), so trees placed earlier are seen and skipped.

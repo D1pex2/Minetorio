@@ -6,10 +6,11 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Extra tooltip lines for the block column under the cursor on the full-screen map (after the
- * coordinates). Hook for other features, e.g. ore fields showing their remaining ore: register a
- * provider once on the client ({@link #register}); none are registered by default. Providers run
- * every frame while the cursor is over an explored column, on the client thread, so they must
- * answer from client-side data (the column's map color is {@code ClientMapData.colorAt}).
+ * coordinates). Hook for other features, e.g. ore fields showing their remaining ore
+ * ({@link OreFieldHover}): register a provider once on the client ({@link #register}). Providers
+ * run every frame while the cursor is over an explored column, on the client thread, so they must
+ * answer from client-side data (the column's map color is {@code ClientMapData.colorAt}), asking
+ * the server only in a throttled way.
  */
 @FunctionalInterface
 public interface MapHoverInfo {

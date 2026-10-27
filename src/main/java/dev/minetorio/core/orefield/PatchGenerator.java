@@ -40,6 +40,30 @@ public final class PatchGenerator {
                 new OrePatch(OreType.STONE, spawnX, spawnZ - STARTING_DISTANCE, STARTING_RADIUS));
     }
 
+    /**
+     * Radius of the starting area around spawn: the starting patches plus a margin. Generated
+     * patches are laid out around the origin (the spawn is not known while the first chunks
+     * generate), so those reaching into this circle are removed when the starting fields are
+     * stamped ({@link #patchesInStartingArea}).
+     */
+    public static final int STARTING_AREA_MARGIN = 8;
+    public static final int STARTING_AREA_RADIUS = STARTING_DISTANCE + STARTING_RADIUS + STARTING_AREA_MARGIN;
+
+    /** Whether {@code p} may have a cell within {@link #STARTING_AREA_RADIUS} of spawn. */
+    public static boolean overlapsStartingArea(OrePatch p, int spawnX, int spawnZ) {
+        return Math.hypot((double) p.centerX() - spawnX, (double) p.centerZ() - spawnZ) <= STARTING_AREA_RADIUS + p.radius();
+    }
+
+    /** The generated patches reaching into the starting area around (spawnX, spawnZ). */
+    public List<OrePatch> patchesInStartingArea(int spawnX, int spawnZ) {
+        int r = STARTING_AREA_RADIUS;
+        List<OrePatch> out = new ArrayList<>();
+        for (OrePatch p : patchesTouching(spawnX - r, spawnZ - r, spawnX + r, spawnZ + r)) {
+            if (overlapsStartingArea(p, spawnX, spawnZ)) out.add(p);
+        }
+        return out;
+    }
+
     /** Every patch overlapping the box [minX..maxX] × [minZ..maxZ] (inclusive), by region (x, then z). */
     public List<OrePatch> patchesTouching(int minX, int minZ, int maxX, int maxZ) {
         List<OrePatch> out = new ArrayList<>(1);
