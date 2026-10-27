@@ -111,7 +111,17 @@ public class SplitterBlock extends MultiblockControllerBlock {
         if (!oldState.is(this)) {
             for (BlockPos p : footprint(pos, state)) {
                 if (!p.equals(pos)) level.getBlockState(p).updateNeighbourShapes(level, p, Block.UPDATE_ALL);
+                BeltBlock.refreshRamps(level, p); // belts below in front can become descending ramps (R25)
             }
+        }
+    }
+
+    /** After the whole splitter is gone, ramps it fed or that ran under it are re-evaluated (R25). */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock())) {
+            for (BlockPos p : footprint(pos, state)) BeltBlock.refreshRamps(level, p);
         }
     }
 

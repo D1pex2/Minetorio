@@ -92,4 +92,56 @@ class LanePoseTest {
         assertEquals(t[0], (b[0] - a[0]) / len, 1e-3);
         assertEquals(t[1], (b[1] - a[1]) / len, 1e-3);
     }
+
+    @Test void flatPoseWithoutGradeIsUnchanged() {
+        assertEquals(LanePose.flatItem(0, -1), LanePose.flatItem(0, -1, 0));
+        assertEquals(LanePose.uprightBlock(1, 0), LanePose.uprightBlock(1, 0, 0));
+    }
+
+    @Test void iconTiltsWithTheRamp() {
+        float h = (float) Math.sqrt(0.5);
+        // Ascending north (travel −z): the picture top points up the ramp, the face normal leans back.
+        PoseStack up = new PoseStack();
+        up.mulPose(LanePose.flatItem(0, -1, 1));
+        assertVec(0, h, -h, up.last().normal().transform(new Vector3f(0, 1, 0)));
+        assertVec(0, h, h, up.last().normal().transform(new Vector3f(0, 0, 1)));
+        assertVec(1, 0, 0, up.last().normal().transform(new Vector3f(1, 0, 0)));
+        // Descending east (travel +x): the picture top points down the ramp.
+        PoseStack down = new PoseStack();
+        down.mulPose(LanePose.flatItem(1, 0, -1));
+        assertVec(h, -h, 0, down.last().normal().transform(new Vector3f(0, 1, 0)));
+        assertVec(h, h, 0, down.last().normal().transform(new Vector3f(0, 0, 1)));
+        // Not mirrored: a proper rotation.
+        assertEquals(1, LanePose.flatItem(0, -1, 1).determinant(), EPS);
+        assertEquals(1, LanePose.flatItem(1, 0, -1).determinant(), EPS);
+    }
+
+    /** On an ascending ramp the icon's face lies parallel to the ramp surface, just above it. */
+    @Test void iconLiesOnTheRampSurface() {
+        // Ascending north, lane point halfway up: surface height SURFACE + 0.5 there.
+        double[] at = LaneItemRenderer.anchor(0.25, 0.5, 0.5, 0, -1, 1, LaneItemRenderer.FLAT_LIFT);
+        PoseStack pose = new PoseStack();
+        pose.translate(at[0], at[1], at[2]);
+        pose.mulPose(LanePose.flatItem(0, -1, 1));
+        pose.scale(LaneItemRenderer.SCALE, LaneItemRenderer.SCALE, LaneItemRenderer.SCALE);
+        pose.translate(-0.5f, -0.5f, -0.5f);
+        // The ramp surface is y = SURFACE + (1 - z) (z = 1 at the back edge, 0 at the front).
+        float zf = 8.5f / 16; // the icon's front face
+        for (float[] c : new float[][] {{0, 0}, {1, 0}, {0, 1}, {1, 1}}) {
+            Vector3f p = point(pose, c[0], c[1], zf);
+            double above = (p.y - (LaneItemRenderer.SURFACE + (1 - p.z))) * Math.sqrt(0.5); // distance along the normal
+            assertTrue(above > 0 && above < 0.05, "corner " + p + " is " + above + " off the ramp");
+        }
+        Vector3f c = point(pose, 0.5f, 0.5f, 0.5f);
+        assertEquals(0.25, c.x, EPS);
+    }
+
+    @Test void blockTiltsWithTheRamp() {
+        float h = (float) Math.sqrt(0.5);
+        PoseStack pose = new PoseStack();
+        pose.mulPose(LanePose.uprightBlock(1, 0, 1)); // ascending east
+        assertVec(-h, h, 0, pose.last().normal().transform(new Vector3f(0, 1, 0)));
+        assertVec(h, h, 0, pose.last().normal().transform(new Vector3f(0, 0, 1)));
+        assertEquals(1, LanePose.uprightBlock(1, 0, 1).determinant(), EPS);
+    }
 }

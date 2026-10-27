@@ -14,28 +14,48 @@ import org.joml.Matrix4f;
 public final class LanePose {
     private LanePose() {}
 
-    /**
-     * Icon lying face-up: model +Z (front normal) → world +Y, model +Y (picture top) → travel,
-     * model +X → travel × up = (−dz, 0, dx) so the basis stays right-handed (no mirroring).
-     */
+    /** {@link #flatItem(double, double, double)} on a flat belt. */
     public static Matrix4f flatItem(double dx, double dz) {
+        return flatItem(dx, dz, 0);
+    }
+
+    /**
+     * Icon lying face-up on the belt surface: model +Y (picture top) → travel T, model +Z (front
+     * normal) → surface normal N, model +X → (−dz, 0, dx) so the basis stays right-handed (no
+     * mirroring). {@code grade} is the surface's rise per block of run along the travel (0 flat,
+     * ±1 on a ramp): T = (dx·c, s, dz·c) and N = (−dx·s, c, −dz·s) with the pitch's sine s and
+     * cosine c; flat, T is the travel and N is +Y.
+     */
+    public static Matrix4f flatItem(double dx, double dz, double grade) {
         float x = (float) dx;
         float z = (float) dz;
+        float c = (float) (1 / Math.sqrt(1 + grade * grade));
+        float s = (float) grade * c;
         return new Matrix4f(
-                -z, 0, x, 0,   // column 0: image of +X
-                x, 0, z, 0,    // column 1: image of +Y
-                0, 1, 0, 0,    // column 2: image of +Z
+                -z, 0, x, 0,               // column 0: image of +X
+                x * c, s, z * c, 0,        // column 1: image of +Y (travel)
+                -x * s, c, -z * s, 0,      // column 2: image of +Z (surface normal)
                 0, 0, 0, 1);
     }
 
-    /** Block model standing upright: model +Y → up, model +Z → travel, model +X → (dz, 0, −dx). */
+    /** {@link #uprightBlock(double, double, double)} on a flat belt. */
     public static Matrix4f uprightBlock(double dx, double dz) {
+        return uprightBlock(dx, dz, 0);
+    }
+
+    /**
+     * Block model standing on the surface: model +Y → surface normal N, model +Z → travel T (as in
+     * {@link #flatItem(double, double, double)}), model +X → (dz, 0, −dx).
+     */
+    public static Matrix4f uprightBlock(double dx, double dz, double grade) {
         float x = (float) dx;
         float z = (float) dz;
+        float c = (float) (1 / Math.sqrt(1 + grade * grade));
+        float s = (float) grade * c;
         return new Matrix4f(
                 z, 0, -x, 0,
-                0, 1, 0, 0,
-                x, 0, z, 0,
+                -x * s, c, -z * s, 0,
+                x * c, s, z * c, 0,
                 0, 0, 0, 1);
     }
 }

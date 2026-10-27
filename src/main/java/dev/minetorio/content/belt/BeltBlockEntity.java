@@ -4,6 +4,7 @@ import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.BeltShape;
+import dev.minetorio.core.belt.BeltSlope;
 import dev.minetorio.core.belt.BeltTier;
 import dev.minetorio.core.belt.LaneSink;
 import java.util.List;
@@ -70,6 +71,10 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
         return shapeOf(getBlockState());
     }
 
+    public BeltSlope slope() {
+        return getBlockState().getValue(BeltBlock.SLOPE).core();
+    }
+
     public LaneTracker tracker() {
         return tracker;
     }
@@ -101,7 +106,16 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
 
     @Override
     public List<BlockPos> downstream() {
-        return List.of(worldPosition.relative(facing()));
+        BeltSlope slope = slope();
+        Direction f = facing();
+        BlockPos front = worldPosition.relative(f).above(slope.exitLevel());
+        // a flat or descending belt may instead feed a descending ramp one lower (BeltGeometry.sinkTo)
+        // (looked up in the ticker's map: reading the block state could load the chunk)
+        if (slope != BeltSlope.ASCENDING && level != null && BeltTicker.of(level).at(front.below()) instanceof BeltBlockEntity b
+                && b.facing() == f && b.slope() == BeltSlope.DESCENDING) {
+            return List.of(front, front.below());
+        }
+        return List.of(front);
     }
 
     @Override
@@ -109,9 +123,10 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
         if (level == null) return;
         double speed = tier().speed();
         Direction f = facing();
+        BeltSlope slope = slope();
         tracker.beginTick(level);
-        tracker.tick(level, left, speed, BeltGeometry.lazySinkTo(level, worldPosition, f, LaneSide.LEFT));
-        tracker.tick(level, right, speed, BeltGeometry.lazySinkTo(level, worldPosition, f, LaneSide.RIGHT));
+        tracker.tick(level, left, speed, BeltGeometry.lazySinkTo(level, worldPosition, slope, f, LaneSide.LEFT));
+        tracker.tick(level, right, speed, BeltGeometry.lazySinkTo(level, worldPosition, slope, f, LaneSide.RIGHT));
     }
 
     @Override
@@ -130,6 +145,7 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
             default -> f;
         };
         if (travel == entry) return lane(side).asSink();
+        if (slope() != BeltSlope.FLAT) return null; // no side-loading onto a ramp
         LaneSide near = BeltGeometry.nearLane(f, travel);
         if (near == null) return null; // head-on
         BeltLane target = lane(near);
@@ -184,8 +200,11 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
     @SuppressWarnings("deprecation")
     public void setBlockState(BlockState state) {
         BeltShape old = shape();
+        BeltSlope oldSlope = slope();
         super.setBlockState(state);
         BeltShape now = shape();
+        // ramps change who hands into whom (downstream()): reorder the ticking
+        if (slope() != oldSlope && level != null) BeltTicker.of(level).markDirty();
         if (now != old) {
             left = LaneStacks.resize(left, laneLength(now, LaneSide.LEFT), true, level, worldPosition);
             right = LaneStacks.resize(right, laneLength(now, LaneSide.RIGHT), true, level, worldPosition);

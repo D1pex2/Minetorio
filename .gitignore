@@ -19,3 +19,7 @@ bin/
 .DS_Store
 **/src/generated/**/.cache/
 repo/
+
+# Claude Code worktrees and scratch
+.claude/
+.superpowers/

@@ -78,6 +78,27 @@ public class FastReplaceGameTest {
         h.succeed();
     }
 
+    /** R25: upgrading a ramp keeps it a ramp, with its items. */
+    @GameTest(template = "empty16")
+    public static void rampUpgradeKeepsSlopeAndItems(GameTestHelper h) {
+        BlockPos ramp = new BlockPos(3, 1, 3);
+        place(h, ModItems.TRANSPORT_BELT.get(), ramp, Direction.EAST);
+        place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(4, 2, 3), Direction.EAST);
+        h.assertTrue(h.getBlockState(ramp).getValue(BeltBlock.SLOPE) == BeltBlock.Slope.ASCENDING, "setup: not a ramp");
+        belt(h, ramp).lane(LaneSide.LEFT).insertAt(PLATE, 0.1);
+        belt(h, ramp).lane(LaneSide.RIGHT).insertAt(PLATE, 0.5);
+        List<LaneItem> left = belt(h, ramp).lane(LaneSide.LEFT).items();
+        List<LaneItem> right = belt(h, ramp).lane(LaneSide.RIGHT).items();
+        ServerPlayer p = player(h, ModItems.FAST_TRANSPORT_BELT.get(), 1);
+        rightClick(h, p, ramp);
+        h.assertTrue(h.getBlockState(ramp).is(ModBlocks.FAST_TRANSPORT_BELT.get()), "not upgraded: " + h.getBlockState(ramp));
+        h.assertTrue(h.getBlockState(ramp).getValue(BeltBlock.SLOPE) == BeltBlock.Slope.ASCENDING, "slope lost: " + h.getBlockState(ramp));
+        h.assertTrue(belt(h, ramp).lane(LaneSide.LEFT).items().equals(left), "left lane changed");
+        h.assertTrue(belt(h, ramp).lane(LaneSide.RIGHT).items().equals(right), "right lane changed");
+        h.assertTrue(BeltGameTest.dropped(h, ModItems.IRON_PLATE.get()) == 0, "plates dropped");
+        h.succeed();
+    }
+
     @GameTest(template = "empty16")
     public static void sameTierDoesNotReplace(GameTestHelper h) {
         BlockPos rel = new BlockPos(3, 1, 3);

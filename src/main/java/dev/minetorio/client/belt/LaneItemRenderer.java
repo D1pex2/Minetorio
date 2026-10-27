@@ -51,6 +51,17 @@ final class LaneItemRenderer {
         this.items = items;
     }
 
+    /**
+     * Centre of an item model {@code lift} blocks off the belt surface along its normal, above the
+     * lane point (x, z): the surface point (x, SURFACE + rise, z) plus lift · N, N being the normal
+     * of {@link LanePose#flatItem(double, double, double)}.
+     */
+    static double[] anchor(double x, double rise, double z, double dx, double dz, double grade, double lift) {
+        double c = 1 / Math.sqrt(1 + grade * grade);
+        double s = grade * c;
+        return new double[] {x - dx * s * lift, SURFACE + rise + c * lift, z - dz * s * lift};
+    }
+
     private ItemStack stack(String key, Level level) {
         Map<String, ItemStack> cache = key.indexOf('#') < 0 ? plain : withComponents;
         ItemStack s = cache.get(key);
@@ -67,6 +78,16 @@ final class LaneItemRenderer {
      */
     void draw(String key, double x, double z, double dx, double dz, Level level, PoseStack pose,
               MultiBufferSource buffers, int light, int seed) {
+        draw(key, x, 0, z, dx, dz, 0, level, pose, buffers, light, seed);
+    }
+
+    /**
+     * Draws {@code key} on a belt surface that is {@code rise} blocks above the flat plate at
+     * block-local (x, z) and climbs {@code grade} blocks per block of travel (a ramp: ±1). The item
+     * is lifted off the surface along the surface normal and tilted with it ({@link LanePose}).
+     */
+    void draw(String key, double x, double rise, double z, double dx, double dz, double grade, Level level,
+              PoseStack pose, MultiBufferSource buffers, int light, int seed) {
         if (level == null) return;
         ItemStack stack = stack(key, level);
         if (stack.isEmpty()) return;
@@ -76,9 +97,10 @@ final class LaneItemRenderer {
         boolean block = stack.getItem() instanceof BlockItem && model.isGui3d();
         // Raw model space (context NONE) is the unit cube; ItemRenderer centres it with translate(-0.5).
         float size = block ? BLOCK_SCALE : SCALE;
+        double[] at = anchor(x, rise, z, dx, dz, grade, block ? size / 2 : FLAT_LIFT);
         pose.pushPose();
-        pose.translate(x, SURFACE + (block ? size / 2 : FLAT_LIFT), z);
-        pose.mulPose(block ? LanePose.uprightBlock(dx, dz) : LanePose.flatItem(dx, dz));
+        pose.translate(at[0], at[1], at[2]);
+        pose.mulPose(block ? LanePose.uprightBlock(dx, dz, grade) : LanePose.flatItem(dx, dz, grade));
         pose.scale(size, size, size);
         items.render(stack, ItemDisplayContext.NONE, false, pose, buffers, light, OverlayTexture.NO_OVERLAY, model);
         pose.popPose();

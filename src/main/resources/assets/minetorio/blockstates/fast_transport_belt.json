@@ -1,47 +1,137 @@
 {
   "variants": {
-    "facing=north,shape=straight": {
+    "facing=north,shape=straight,slope=flat": {
       "model": "minetorio:block/fast_transport_belt"
     },
-    "facing=north,shape=curve_left": {
+    "facing=north,shape=straight,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_ascending"
+    },
+    "facing=north,shape=straight,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_descending"
+    },
+    "facing=north,shape=curve_left,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_left"
     },
-    "facing=north,shape=curve_right": {
+    "facing=north,shape=curve_left,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left"
+    },
+    "facing=north,shape=curve_left,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left"
+    },
+    "facing=north,shape=curve_right,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_right"
     },
-    "facing=east,shape=straight": {
+    "facing=north,shape=curve_right,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right"
+    },
+    "facing=north,shape=curve_right,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right"
+    },
+    "facing=east,shape=straight,slope=flat": {
       "model": "minetorio:block/fast_transport_belt",
       "y": 90
     },
-    "facing=east,shape=curve_left": {
+    "facing=east,shape=straight,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_ascending",
+      "y": 90
+    },
+    "facing=east,shape=straight,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_descending",
+      "y": 90
+    },
+    "facing=east,shape=curve_left,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_left",
       "y": 90
     },
-    "facing=east,shape=curve_right": {
+    "facing=east,shape=curve_left,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left",
+      "y": 90
+    },
+    "facing=east,shape=curve_left,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left",
+      "y": 90
+    },
+    "facing=east,shape=curve_right,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_right",
       "y": 90
     },
-    "facing=south,shape=straight": {
+    "facing=east,shape=curve_right,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right",
+      "y": 90
+    },
+    "facing=east,shape=curve_right,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right",
+      "y": 90
+    },
+    "facing=south,shape=straight,slope=flat": {
       "model": "minetorio:block/fast_transport_belt",
       "y": 180
     },
-    "facing=south,shape=curve_left": {
+    "facing=south,shape=straight,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_ascending",
+      "y": 180
+    },
+    "facing=south,shape=straight,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_descending",
+      "y": 180
+    },
+    "facing=south,shape=curve_left,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_left",
       "y": 180
     },
-    "facing=south,shape=curve_right": {
+    "facing=south,shape=curve_left,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left",
+      "y": 180
+    },
+    "facing=south,shape=curve_left,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left",
+      "y": 180
+    },
+    "facing=south,shape=curve_right,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_right",
       "y": 180
     },
-    "facing=west,shape=straight": {
+    "facing=south,shape=curve_right,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right",
+      "y": 180
+    },
+    "facing=south,shape=curve_right,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right",
+      "y": 180
+    },
+    "facing=west,shape=straight,slope=flat": {
       "model": "minetorio:block/fast_transport_belt",
       "y": 270
     },
-    "facing=west,shape=curve_left": {
+    "facing=west,shape=straight,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_ascending",
+      "y": 270
+    },
+    "facing=west,shape=straight,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_descending",
+      "y": 270
+    },
+    "facing=west,shape=curve_left,slope=flat": {
       "model": "minetorio:block/fast_transport_belt_curve_left",
       "y": 270
     },
-    "facing=west,shape=curve_right": {
+    "facing=west,shape=curve_left,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left",
+      "y": 270
+    },
+    "facing=west,shape=curve_left,slope=descending": {
+      "model": "minetorio:block/fast_transport_belt_curve_left",
+      "y": 270
+    },
+    "facing=west,shape=curve_right,slope=flat": {
+      "model": "minetorio:block/fast_transport_belt_curve_right",
+      "y": 270
+    },
+    "facing=west,shape=curve_right,slope=ascending": {
+      "model": "minetorio:block/fast_transport_belt_curve_right",
+      "y": 270
+    },
+    "facing=west,shape=curve_right,slope=descending": {
       "model": "minetorio:block/fast_transport_belt_curve_right",
       "y": 270
     }
