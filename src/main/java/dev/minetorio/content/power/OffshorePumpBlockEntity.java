@@ -12,7 +12,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Offshore pump: while a water source is at its back ({@link OffshorePumpBlock#waterPos}), puts
+ * Offshore pump: while a water source is at its intake ({@link OffshorePumpBlock#intakeWater}), puts
  * {@link SteamPlant#OFFSHORE_WATER_PER_TICK} water per tick into its box (as much as fits). It
  * stops while the water is gone and resumes if a source is put back. No power needed.
  */
@@ -29,7 +29,7 @@ public class OffshorePumpBlockEntity extends SteamMachineBlockEntity {
 
     /** Whether the water source is still there. */
     public boolean hasWater() {
-        return level != null && OffshorePumpBlock.isWaterSource(level, OffshorePumpBlock.waterPos(worldPosition, facing()));
+        return level != null && OffshorePumpBlock.intakeWater(level, worldPosition, facing()) != null;
     }
 
     @Override

@@ -11,6 +11,8 @@ import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
 import dev.minetorio.content.registry.ModBlocks;
+import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
 import dev.minetorio.content.power.PipeBlock;
 import dev.minetorio.content.power.PipeBlockEntity;
@@ -65,6 +67,7 @@ public class PowerGameTest {
     /** A water source block that cannot flow anywhere (stone around it except toward +x, where the pump goes). */
     static void walledWater(GameTestHelper h, BlockPos rel) {
         h.setBlock(rel.below(), Blocks.STONE);
+        h.setBlock(rel.east().below(), Blocks.STONE); // ground under the pump body next to it (the front cell stands on it)
         h.setBlock(rel.west(), Blocks.STONE);
         h.setBlock(rel.north(), Blocks.STONE);
         h.setBlock(rel.south(), Blocks.STONE);
@@ -214,22 +217,116 @@ public class PowerGameTest {
 
     // --- pump, pipes, boiler ---------------------------------------------------------------------
 
-    /** The pump needs a water source at its back; it stops when the water is removed. */
+    /** Right-click on {@code clickedRel} (face {@code face}) with a pump stack, the player looking {@code look}; returns the stack. */
+    private static ItemStack clickPump(GameTestHelper h, BlockPos clickedRel, Direction face, Direction look) {
+        ItemStack stack = new ItemStack(ModItems.OFFSHORE_PUMP.get());
+        BlockPos abs = h.absolutePos(clickedRel);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(abs), face, abs, false);
+        BlockPlaceContext ctx = new BlockPlaceContext(h.getLevel(), null, InteractionHand.MAIN_HAND, stack, hit) {
+            @Override
+            public Direction getHorizontalDirection() { return look; }
+        };
+        ((BlockItem) stack.getItem()).place(ctx);
+        return stack;
+    }
+
+    private static OffshorePumpBlockEntity pumpAt(GameTestHelper h, BlockPos rel) {
+        return h.getLevel().getBlockEntity(h.absolutePos(rel)) instanceof OffshorePumpBlockEntity p ? p : null;
+    }
+
+    private static Direction facingAt(GameTestHelper h, BlockPos rel) {
+        return h.getLevel().getBlockState(h.absolutePos(rel)).getValue(MultiblockControllerBlock.FACING);
+    }
+
+    /** Stone ground at y=0 with a lake in it: sources at x=5, z=7..9 (their top level with the ground, shore cells at y=1). */
+    private static void shore(GameTestHelper h) {
+        for (int x = 0; x < 12; x++) for (int z = 6; z < 11; z++) h.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+        for (int z = 7; z <= 9; z++) h.setBlock(new BlockPos(5, 0, z), Blocks.WATER);
+    }
+
+    /** Aim at the top of the shore block next to the lake, looking elsewhere: the pump turns to the water and pumps. */
+    @GameTest(template = "empty16", timeoutTicks = 40)
+    public static void pumpAutoOrientsToShore(GameTestHelper h) {
+        shore(h);
+        ItemStack stack = clickPump(h, new BlockPos(4, 1, 8), Direction.UP, Direction.NORTH);
+        h.assertTrue(stack.isEmpty(), "item not consumed");
+        OffshorePumpBlockEntity pump = pumpAt(h, new BlockPos(3, 1, 8));
+        h.assertTrue(pump != null, "no pump at the back cell");
+        h.assertTrue(facingAt(h, new BlockPos(3, 1, 8)) == Direction.EAST, "not facing the water");
+        h.assertTrue(h.getLevel().getBlockState(h.absolutePos(new BlockPos(4, 1, 8))).getBlock() instanceof MultiblockPartBlock, "front cell not a part");
+        h.assertTrue(h.getLevel().getFluidState(h.absolutePos(new BlockPos(5, 0, 8))).isSource(), "water source replaced");
+        h.runAtTickTime(5, () -> {
+            h.assertTrue(pump.water().amount() == SteamPlant.PUMP_CAPACITY, "pumped " + pump.water().amount());
+            h.succeed();
+        });
+    }
+
+    /** Several water sides: the one the player looks toward wins. */
+    @GameTest(template = "empty16", timeoutTicks = 20)
+    public static void pumpPrefersLookDirection(GameTestHelper h) {
+        shore(h);
+        h.setBlock(new BlockPos(4, 0, 9), Blocks.WATER); // water also south of the shore cell (4,1,8)
+        clickPump(h, new BlockPos(4, 1, 8), Direction.UP, Direction.SOUTH);
+        h.assertTrue(pumpAt(h, new BlockPos(4, 1, 7)) != null, "no pump at the back cell for south facing");
+        h.assertTrue(facingAt(h, new BlockPos(4, 1, 7)) == Direction.SOUTH, "not facing south");
+        h.succeed();
+    }
+
+    /** Clicking the water itself (its surface cell) places the pump on the shore facing it. */
+    @GameTest(template = "empty16", timeoutTicks = 40)
+    public static void pumpPlacedByClickingWater(GameTestHelper h) {
+        shore(h);
+        ItemStack stack = clickPump(h, new BlockPos(5, 0, 8), Direction.UP, Direction.EAST);
+        h.assertTrue(stack.isEmpty(), "item not consumed");
+        OffshorePumpBlockEntity pump = pumpAt(h, new BlockPos(3, 1, 8));
+        h.assertTrue(pump != null, "no pump on the shore");
+        h.assertTrue(facingAt(h, new BlockPos(3, 1, 8)) == Direction.EAST, "not facing the water");
+        h.runAtTickTime(5, () -> {
+            h.assertTrue(pump.water().amount() == SteamPlant.PUMP_CAPACITY, "pumped " + pump.water().amount());
+            h.succeed();
+        });
+    }
+
+    /** No water next to the aimed cell: refused, item kept, nothing left behind. */
+    @GameTest(template = "empty16", timeoutTicks = 20)
+    public static void pumpRefusedWithoutWater(GameTestHelper h) {
+        shore(h);
+        ItemStack stack = clickPump(h, new BlockPos(9, 1, 8), Direction.UP, Direction.WEST);
+        h.assertFalse(stack.isEmpty(), "item consumed");
+        h.assertTrue(h.getLevel().getBlockState(h.absolutePos(new BlockPos(9, 1, 8))).isAir(), "block left behind");
+        h.assertTrue(h.getLevel().getBlockState(h.absolutePos(new BlockPos(8, 1, 8))).isAir(), "block left behind");
+        h.succeed();
+    }
+
+    /** The pump pumps while its intake water is there and stops when it is removed. */
+    @GameTest(template = "empty16", timeoutTicks = 60)
+    public static void pumpStopsWithoutWater(GameTestHelper h) {
+        shore(h);
+        clickPump(h, new BlockPos(4, 1, 8), Direction.UP, Direction.EAST);
+        OffshorePumpBlockEntity pump = pumpAt(h, new BlockPos(3, 1, 8));
+        h.assertTrue(pump != null, "not placed at the water");
+        h.runAtTickTime(5, () -> {
+            h.assertTrue(pump.water().amount() == SteamPlant.PUMP_CAPACITY, "pumped " + pump.water().amount());
+            h.setBlock(new BlockPos(5, 0, 8), Blocks.STONE);
+            pump.water().extract(pump.water().amount());
+        });
+        h.runAtTickTime(30, () -> {
+            h.assertTrue(pump.water().amount() == 0, "pumped without water: " + pump.water().amount());
+            h.assertFalse(pump.isWorking(), "still working");
+            h.succeed();
+        });
+    }
+
+    /** Programmatic placement by controller position with level water in front (the steam plant layout) works; without water it is refused. */
     @GameTest(template = "empty16", timeoutTicks = 60)
     public static void pumpNeedsWater(GameTestHelper h) {
         h.assertFalse(tryPlace(h, (BlockItem) ModItems.OFFSHORE_PUMP.get(), new BlockPos(10, 1, 4), Direction.WEST), "placed without water");
         h.assertTrue(h.getLevel().getBlockState(h.absolutePos(new BlockPos(10, 1, 4))).isAir(), "pump block left behind");
         walledWater(h, WATER);
         h.assertTrue(tryPlace(h, (BlockItem) ModItems.OFFSHORE_PUMP.get(), PUMP, Direction.WEST), "not placed at the water");
-        OffshorePumpBlockEntity pump = (OffshorePumpBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(PUMP));
+        OffshorePumpBlockEntity pump = pumpAt(h, PUMP);
         h.runAtTickTime(5, () -> {
             h.assertTrue(pump.water().amount() == SteamPlant.PUMP_CAPACITY, "pumped " + pump.water().amount());
-            h.setBlock(WATER, Blocks.STONE);
-            pump.water().extract(pump.water().amount());
-        });
-        h.runAtTickTime(30, () -> {
-            h.assertTrue(pump.water().amount() == 0, "pumped without water: " + pump.water().amount());
-            h.assertFalse(pump.isWorking(), "still working");
             h.succeed();
         });
     }

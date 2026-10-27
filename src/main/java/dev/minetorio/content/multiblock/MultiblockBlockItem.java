@@ -21,7 +21,8 @@ import net.minecraft.world.phys.Vec3;
  * Item of a multiblock machine. Placement targets the cell a normal block item would be placed at
  * and centers the footprint on it (R26): the controller goes to
  * {@link MultiblockControllerBlock#placementOrigin}, the footprint's left-front-bottom corner, on the
- * targeted cell's layer. {@link BlockItem#place} then runs as usual on the moved context, so the
+ * targeted cell's layer (or wherever {@link MultiblockControllerBlock#resolvePlacement} says: the
+ * offshore pump picks its own facing and cell). {@link BlockItem#place} then runs as usual on the moved context, so the
  * whole footprint (origin included) is checked by the block's placement state and the item is
  * consumed once. The place sound plays at the targeted cell, not at the controller: vanilla's sound
  * at the controller is muted ({@link #getPlaceSound}) and replayed by {@link #place}.
@@ -41,7 +42,7 @@ public class MultiblockBlockItem extends BlockItem {
     @Override
     public InteractionResult place(BlockPlaceContext ctx) {
         BlockPos target = ctx.getClickedPos();
-        BlockPos origin = controller().placementOrigin(target, ctx.getHorizontalDirection());
+        BlockPos origin = controller().resolvePlacement(ctx).origin();
         InteractionResult result;
         PLACING.set(true);
         try {
@@ -68,9 +69,9 @@ public class MultiblockBlockItem extends BlockItem {
     @Nullable
     @Override
     public BlockPlaceContext updatePlacementContext(BlockPlaceContext ctx) {
-        BlockPos target = ctx.getClickedPos();
-        BlockPos origin = controller().placementOrigin(target, ctx.getHorizontalDirection());
-        return origin.equals(target) ? ctx : new AtOrigin(ctx, origin);
+        MultiblockControllerBlock.Placement placement = controller().resolvePlacement(ctx);
+        boolean same = placement.origin().equals(ctx.getClickedPos()) && placement.facing() == ctx.getHorizontalDirection();
+        return same ? ctx : new AtOrigin(ctx, placement.origin(), placement.facing());
     }
 
     /**
@@ -88,11 +89,13 @@ public class MultiblockBlockItem extends BlockItem {
      */
     private static final class AtOrigin extends BlockPlaceContext {
         private final BlockPlaceContext original;
+        private final Direction facing;
 
-        AtOrigin(BlockPlaceContext original, BlockPos origin) {
+        AtOrigin(BlockPlaceContext original, BlockPos origin, Direction facing) {
             super(original.getLevel(), original.getPlayer(), original.getHand(), original.getItemInHand(),
                     new BlockHitResult(Vec3.atBottomCenterOf(origin), Direction.UP, origin, false));
             this.original = original;
+            this.facing = facing;
             this.replaceClicked = true; // getClickedPos() is the origin itself, whatever is there
         }
 
@@ -102,7 +105,7 @@ public class MultiblockBlockItem extends BlockItem {
         }
 
         @Override
-        public Direction getHorizontalDirection() { return original == null ? super.getHorizontalDirection() : original.getHorizontalDirection(); }
+        public Direction getHorizontalDirection() { return facing == null ? super.getHorizontalDirection() : facing; }
 
         @Override
         public float getRotation() { return original == null ? super.getRotation() : original.getRotation(); }
