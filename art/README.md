@@ -9,7 +9,7 @@ downscaled diffusion output at 16×16.
 | `gen.py` | Flat 16×16 item icons in `art/item/`. Copies the 11 material/tool icons the mod uses into `textures/item/` and writes `preview.png`. Its old `art/block/` tiles are kept for reference only. |
 | `gen_blocks.py` | All block textures in `src/main/resources/assets/minetorio/textures/block/` (plus `.mcmeta` for animated strips) and `blocks-preview.png`. |
 | `gen_models.py` | All block and item JSON models in `models/{block,item}/`: Create-style multi-element machines, belts, pipes, poles and inserters, plus fitted item display transforms for the multiblocks. |
-| `render_models.py` | `models-preview.png`: an offline isometric render of every model (two views each) for checking shapes without the game. |
+| `render_models.py` | `models-preview.png`: an offline isometric render of every model (two views each) for checking shapes without the game, plus the multi-part machines (steam engine, mining drills) assembled as their block entity renderers draw them. |
 
 Order: `python art/gen_blocks.py && python art/gen_models.py && python art/render_models.py`
 

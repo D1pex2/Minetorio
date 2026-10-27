@@ -161,6 +161,56 @@ def render(elements, tex, yaw, pitch=-30, size=260, extent=None):
     return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
 
 
+def placed(rl, dx=0, dy=0, dz=0, turn=False):
+    """Elements of a model with absolute texture refs, shifted and then optionally turned 180 degrees about
+    the footprint center (x = z = 8), as a block entity renderer draws a part."""
+    els, tex = resolve(rl)
+    out = []
+    for el in els:
+        e = json.loads(json.dumps(el))
+        f = [e["from"][0] + dx, e["from"][1] + dy, e["from"][2] + dz]
+        t = [e["to"][0] + dx, e["to"][1] + dy, e["to"][2] + dz]
+        if e.get("rotation"):
+            o = e["rotation"]["origin"]
+            e["rotation"]["origin"] = [o[0] + dx, o[1] + dy, o[2] + dz]
+        if turn:
+            f, t = [16 - t[0], f[1], 16 - t[2]], [16 - f[0], t[1], 16 - f[2]]
+            r = e.get("rotation")
+            if r:
+                o = r["origin"]
+                r["origin"] = [16 - o[0], o[1], 16 - o[2]]
+                if r["axis"] != "y":
+                    r["angle"] = -r["angle"]
+        e["from"], e["to"] = f, t
+        for fd in e.get("faces", {}).values():
+            ref = fd.get("texture", "#missing")
+            seen = 0
+            while ref.startswith("#") and seen < 10:
+                ref = tex.get(ref[1:], "missing")
+                seen += 1
+            fd["texture"] = ref
+        if turn:
+            fs = e.get("faces", {})
+            swap = {"north": "south", "south": "north", "east": "west", "west": "east"}
+            e["faces"] = {swap.get(k, k): v for k, v in fs.items()}
+        out.append(e)
+    return out
+
+
+# whole machines as their block entity renderers draw them (in-world size, not the item)
+COMPOSITE_ENTRIES = [
+    ("steam_engine (in world, 3x5)", lambda: placed("minetorio:block/steam_engine_body", dz=-16)
+     + placed("minetorio:block/steam_engine_body", dz=-16, turn=True)
+     + placed("minetorio:block/steam_engine_center", dz=-8) + placed("minetorio:block/steam_engine_piston", dz=-8)
+     + placed("minetorio:block/steam_engine_flywheel", dz=24)),
+    ("electric_mining_drill (in world)", lambda: placed("minetorio:block/electric_mining_drill_body")
+     + placed("minetorio:block/electric_mining_drill_head") + placed("minetorio:block/electric_mining_drill_tower", dy=16)),
+    ("burner_mining_drill (in world)", lambda: placed("minetorio:block/burner_mining_drill")
+     + placed("minetorio:block/burner_mining_drill_head", 8, 0, -8)
+     + placed("minetorio:block/burner_mining_drill_chimney", 8, 16, -8)),
+]
+
+
 def bounds(elements):
     lo = np.array([min(e["from"][i] for e in elements) for i in range(3)], float)
     hi = np.array([max(e["to"][i] for e in elements) for i in range(3)], float)
@@ -174,10 +224,11 @@ ENTRIES = [
     ("minetorio:item/electric_mining_drill", "electric_mining_drill"),
     ("minetorio:item/assembling_machine_1", "assembling_machine_1"),
     ("minetorio:item/assembling_machine_2", "assembling_machine_2"),
+    ("minetorio:block/assembling_machine_1_gear", "assembling machine gear (spins)"),
     ("minetorio:item/lab", "lab (idle)"),
     ("minetorio:block/lab_dome", "lab dome (researching)"),
     ("minetorio:item/boiler", "boiler"),
-    ("minetorio:item/steam_engine", "steam_engine (1 of 2 body halves)"),
+    ("minetorio:item/steam_engine", "steam_engine (item: shortened)"),
     ("minetorio:item/offshore_pump", "offshore_pump"),
     ("minetorio:item/pipe", "pipe"),
     ("minetorio:block/small_electric_pole", "small_electric_pole"),
@@ -198,13 +249,14 @@ if __name__ == "__main__":
     S = 260
     cols = 4
     font = ImageFont.load_default()
-    rows = (len(ENTRIES) + cols - 1) // cols
+    entries = [(lambda rl=rl: resolve(rl), label) for rl, label in ENTRIES] +               [(lambda f=f: (f(), {}), label) for label, f in COMPOSITE_ENTRIES]
+    rows = (len(entries) + cols - 1) // cols
     sheet = Image.new("RGB", (cols * (2 * S + 12), rows * (S + 20)), (40, 42, 48))
     d = ImageDraw.Draw(sheet)
-    for i, (rl, label) in enumerate(ENTRIES):
-        els, tex = resolve(rl)
+    for i, (load, label) in enumerate(entries):
+        els, tex = load()
         if not els:
-            print("no elements:", rl)
+            print("no elements:", label)
             continue
         ext = bounds(els)
         x = (i % cols) * (2 * S + 12)
