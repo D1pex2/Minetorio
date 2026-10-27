@@ -347,8 +347,8 @@ COMPOSITES = [
                       *[(f"gear@{py},{pz}", M(model),
                          [[("x", a, (0, 8, 8)), ("t", (0, py - 8, pz - 8), None)] if a else
                           [("t", (0, py - 8, pz - 8), None)] for a in SPIN], X)
-                        for model, py, pz in (("steam_engine_gear", 13, 12), ("steam_engine_gear_small", 11, -0.5),
-                                              ("steam_engine_gear_small", 19, 23))]]),
+                        for model, py, pz in (("steam_engine_gear", 15, 10), ("steam_engine_gear_small", 12, -6),
+                                              ("steam_engine_gear_small", 21, 25))]]),
     # blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
     ("small_electric_pole", [("lower", M("small_electric_pole"), [[]]),
                              ("middle", M("small_electric_pole_middle"), [[("t", (0, 16, 0), None)]]),

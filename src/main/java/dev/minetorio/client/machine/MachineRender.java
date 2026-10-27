@@ -56,6 +56,12 @@ public final class MachineRender {
         renderModel(renderer, location, pose, buffers.getBuffer(Sheets.solidBlockSheet()), light, overlay);
     }
 
+    /** Like {@link #renderModel(ModelBlockRenderer, ModelResourceLocation, PoseStack, MultiBufferSource, int, int)}, blended (glass). */
+    public static void renderTranslucentModel(ModelBlockRenderer renderer, ModelResourceLocation location, PoseStack pose,
+                                              MultiBufferSource buffers, int light, int overlay) {
+        renderModel(renderer, location, pose, buffers.getBuffer(Sheets.translucentCullBlockSheet()), light, overlay);
+    }
+
     private static void renderModel(ModelBlockRenderer renderer, ModelResourceLocation location, PoseStack pose,
                                     VertexConsumer buffer, int light, int overlay) {
         BakedModel model = Minecraft.getInstance().getModelManager().getModel(location);

@@ -82,9 +82,9 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
         /** The gear models are authored around this point (model pixels, y and z), their pivot. */
         private static final float GEAR_CENTER = 8;
         private static final Gear[] GEARS = {
-            new Gear(ENGINE_GEAR, 13, 12, 1, 0),
-            new Gear(ENGINE_GEAR_SMALL, 11, -0.5f, -7 / 4f, 11.25f),
-            new Gear(ENGINE_GEAR_SMALL, 19, 23, -7 / 4f, 11.25f),
+            new Gear(ENGINE_GEAR, 15, 10, 1, 0),
+            new Gear(ENGINE_GEAR_SMALL, 12, -6, -18 / 11f, 11.25f),
+            new Gear(ENGINE_GEAR_SMALL, 21, 25, -18 / 11f, 11.25f),
         };
 
         /**

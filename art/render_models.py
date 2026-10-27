@@ -210,9 +210,9 @@ def placed(rl, dx=0, dy=0, dz=0, turn=False):
 COMPOSITE_ENTRIES = [
     ("steam_engine (in world, 3x5)", lambda: placed("minetorio:block/steam_engine_body")
      + placed("minetorio:block/steam_engine_front", dz=-24) + placed("minetorio:block/steam_engine_rear", dz=24)
-     + placed("minetorio:block/steam_engine_gear", dy=5, dz=4)
-     + placed("minetorio:block/steam_engine_gear_small", dy=3, dz=-8.5)
-     + placed("minetorio:block/steam_engine_gear_small", dy=11, dz=15)),
+     + placed("minetorio:block/steam_engine_gear", dy=7, dz=2)
+     + placed("minetorio:block/steam_engine_gear_small", dy=4, dz=-14)
+     + placed("minetorio:block/steam_engine_gear_small", dy=13, dz=17)),
     ("lab (in world, researching)", lambda: placed("minetorio:block/lab_body") + placed("minetorio:block/lab_dome")),
     ("electric_mining_drill (in world)", lambda: placed("minetorio:block/electric_mining_drill_body")
      + placed("minetorio:block/electric_mining_drill_head") + placed("minetorio:block/electric_mining_drill_carriage")

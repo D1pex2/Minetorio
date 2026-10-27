@@ -265,8 +265,9 @@ blocks["insulator"] = im
 
 
 def lattice(base, line, seed, glass_hi):
-    """Geodesic dome glass: a triangle lattice (horizontal rows plus both diagonals, period 8) of bright
-    struts over glass, with a few highlight pixels. Any 16 px crop shows whole triangles."""
+    """Geodesic dome glass, one lattice cell per texture (each dome face shows the whole texture): bright
+    opaque struts along the edges and one diagonal, so neighbouring faces form triangles, over see-through
+    glass (base / glass_hi carry their alpha) with a few highlight pixels."""
     rnd = random.Random(seed)
     im = new(base)
     for y in range(16):
@@ -275,19 +276,19 @@ def lattice(base, line, seed, glass_hi):
                 px(im, x, y, glass_hi)
     for y in range(16):
         for x in range(16):
-            if y % 8 == 0 or (x + y) % 16 == 0 or (x - y) % 16 == 0:
+            if x in (0, 15) or y in (0, 1, 14, 15) or x == y:
                 px(im, x, y, line)
     return im
 
 
-blocks["lab_dome_glass"] = lattice(C("#2f3d47"), C("#d9d2b8"), 90, C("#4a6070"))
+blocks["lab_dome_glass"] = lattice(C("#22323e", 150), C("#d2caae"), 90, C("#6f98ae", 170))
 
 
 def dome_glow_frame(t):
     level = 0.5 + 0.5 * math.sin(t / 8 * 2 * math.pi)
     lo, hi = (70, 150, 200), (170, 235, 255)
-    glass = tuple(int(lo[i] + (hi[i] - lo[i]) * level) for i in range(3)) + (255,)
-    sparkle = tuple(min(255, c + 60) for c in glass[:3]) + (255,)
+    glass = tuple(int(lo[i] + (hi[i] - lo[i]) * level) for i in range(3)) + (150,)
+    sparkle = tuple(min(255, c + 60) for c in glass[:3]) + (200,)
     return lattice(glass, C("#fff4d0"), 90, sparkle)
 
 
@@ -344,8 +345,8 @@ ImageDraw.Draw(im).ellipse([3, 3, 12, 12], fill=BLUE[3], outline=BLUE[0])
 ImageDraw.Draw(im).ellipse([6, 6, 9, 9], fill=C("#0c1a2c"))
 blocks["fluid_port"] = im
 
-# stone furnace bricks: Factorio's yellow-tan sandstone
-SAND = P("#f0dc98", "#ddc275", "#c6a85a", "#a48943", "#7d672f", "#56461f")
+# stone furnace bricks: Factorio's weathered grey-brown stone
+SAND = P("#b3a48c", "#9a8b73", "#84765f", "#6e624f", "#574d3e", "#3b342a")
 rnd = random.Random(130)
 im = new(SAND[5])
 for ri, (y0, y1) in enumerate(((0, 4), (5, 9), (10, 14))):
@@ -361,7 +362,14 @@ for ri, (y0, y1) in enumerate(((0, 4), (5, 9), (10, 14))):
         x += w + 1
 blocks["furnace_stone"] = im
 # the ledges of the stepped pyramid: the same bricks in sunlight
-blocks["furnace_ledge"] = Image.eval(im.convert("RGB"), lambda v: min(255, int(v * 1.12) + 12)).convert("RGBA")
+# output chute with Factorio's yellow drop arrow (pointing to the top of the texture = the machine's front)
+im = panel(DARK, 135, with_rivets=False)
+for i in range(6):
+    rect(im, 7 - i, 3 + i, 8 + i, 3 + i, YELLOW[1])
+rect(im, 6, 9, 9, 12, YELLOW[1])
+rect(im, 7, 4, 8, 11, YELLOW[0])
+blocks["chute_arrow"] = im
+blocks["furnace_ledge"] = Image.eval(blocks["furnace_stone"].convert("RGB"), lambda v: min(255, int(v * 1.12) + 12)).convert("RGBA")
 
 # ---------------------------------------------------------------- belts
 # Travel is toward the top of the image (model north). Chevrons point up; the pattern period is

@@ -58,8 +58,8 @@ def inserter(name, reach, tier_tex):
 def engine():
     els = (placed(B + "steam_engine_body") + placed(B + "steam_engine_front", dz=-24)
            + placed(B + "steam_engine_rear", dz=24))
-    for model, py, pz in (("steam_engine_gear", 13, 12), ("steam_engine_gear_small", 11, -0.5),
-                          ("steam_engine_gear_small", 19, 23)):
+    for model, py, pz in (("steam_engine_gear", 15, 10), ("steam_engine_gear_small", 12, -6),
+                          ("steam_engine_gear_small", 21, 25)):
         els += placed(B + model, dy=py - 8, dz=pz - 8)
     return els
 

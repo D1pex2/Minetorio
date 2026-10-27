@@ -366,8 +366,8 @@ class ModelZFightTest {
         List<Part> engine = new ArrayList<>(List.of(Part.fixed("body", "steam_engine_body"),
                 Part.fixed("front", "steam_engine_front", Tr.t(0, 0, -24)),
                 Part.fixed("rear", "steam_engine_rear", Tr.t(0, 0, 24))));
-        for (Object[] g : new Object[][] {{"steam_engine_gear", 13.0, 12.0}, {"steam_engine_gear_small", 11.0, -0.5},
-            {"steam_engine_gear_small", 19.0, 23.0}}) {
+        for (Object[] g : new Object[][] {{"steam_engine_gear", 15.0, 10.0}, {"steam_engine_gear_small", 12.0, -6.0},
+            {"steam_engine_gear_small", 21.0, 25.0}}) {
             double py = (double) g[1], pz = (double) g[2];
             engine.add(spinning("gear@" + py + "," + pz, (String) g[0], 'x', new V(0, 8, 8), Tr.t(0, py - 8, pz - 8)));
         }

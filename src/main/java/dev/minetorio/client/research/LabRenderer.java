@@ -13,10 +13,11 @@ import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Draws a lab (R19), Factorio's geodesic glass dome: the body model (the low round base) and the dome.
+ * Draws a lab (R19), Factorio's geodesic glass dome: the body model (the low round base and the
+ * equipment inside) and the dome, see-through glass with an opaque lattice, in a translucent buffer.
  * While the lab is {@link LabBlockEntity#isWorking working} the dome swaps to its glowing model
- * (animated pulsing glass behind the lattice, full brightness) and turns slowly about the vertical
- * center axis; idle it is dark glass. Models are authored around the footprint's center block
+ * (animated pulsing glass, full brightness) and turns slowly about the vertical center axis; idle it
+ * is dark glass. Models are authored around the footprint's center block
  * (−16..32) in the north orientation.
  */
 public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
@@ -41,7 +42,8 @@ public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
         pose.mulPose(Axis.YP.rotationDegrees(be.renderDomeAngle(partialTick)));
         pose.translate(-0.5, 0, -0.5);
         boolean working = be.isWorking();
-        MachineRender.renderModel(modelRenderer, working ? DOME : DOME_IDLE, pose, buffers, working ? LightTexture.FULL_BRIGHT : light, overlay);
+        MachineRender.renderTranslucentModel(modelRenderer, working ? DOME : DOME_IDLE, pose, buffers,
+                working ? LightTexture.FULL_BRIGHT : light, overlay);
         pose.popPose();
     }
 
