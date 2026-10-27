@@ -64,6 +64,17 @@ Things to check closely:
 - [ ] Placing a multiblock machine: it is centered on the block you aim at (where a normal block would go), on that block's layer. For even sizes the aimed block is the left-front one of the middle 2×2 (2×2 furnace and burner drill: the aimed block is their near-left corner; boiler: centered across, extending away from you). Splitters are the exception: the aimed block is their left column, so they line up with the belt you click. While holding a machine, a translucent box shows the footprint: green if it fits, red if something is in the way (and then right-click places nothing and keeps the item).
 - [ ] Breaking particles show machine-coloured fragments, not missing-texture squares.
 
+### Протяжка лент (drag placement)
+
+- [ ] Взять конвейер (любой: жёлтый, красный, синий) и коротко кликнуть ПКМ по земле, не сдвигаясь: ставится ровно одна лента, как раньше.
+- [ ] Зажать ПКМ на земле и смотреть вперёд вдоль линии: от первой ленты до клетки под прицелом тянется полупрозрачный зелёный «призрак» лент со стрелками (красная клетка = занято, туда ничего не встанет).
+- [ ] Не отпуская, бежать вперёд: ленты, уходящие из зоны досягаемости за спиной, ставятся сами; отпустить кнопку — ставится остаток. В выживании каждая лента забирает один предмет (когда кончается стопка в руке, берётся из инвентаря); в творческом ничего не тратится. Кончились ленты — линия обрывается.
+- [ ] Повернуть на 90° и пойти в сторону (на 2+ клетки от линии): на углу встаёт поворот (кривая), линия продолжается по новой оси. Сразу после клика тоже можно повернуть — первая лента развернётся.
+- [ ] Протянуть через сундук, машину и поперечную ленту: эти клетки пропускаются, ничего не ломается. Красной лентой по жёлтой, смотрящей в ту же сторону: жёлтая заменяется (fast-replace), жёлтая возвращается в инвентарь.
+- [ ] Протянуть по ступеньке в один блок вверх и вниз: на перепадах получаются наклонные ленты (рампы), как при ручной установке, и предметы по ним едут.
+- [ ] То же с малым столбом ЛЭП: столбы ставятся через каждые 7 клеток (максимум длины провода), провода соединяют их; на отпускании лишний столб не ставится.
+- [ ] Лента может встать в клетку, где стоит сам игрок (он просто оказывается на ней).
+
 ### Ore fields
 
 - [ ] In a new world, 48 blocks from spawn lie the four starting fields (iron east, copper west, coal south, stone north): round patches of ground blocks with ore lumps, each block at its own height on slopes. Iron lumps are blue-silver, copper orange, coal black, stone beige, on brown ground (compare `art/ore-fields-preview.png`). Neighbouring blocks look turned, not like a grid.

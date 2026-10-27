@@ -85,17 +85,26 @@ public final class MultiblockPlacementPreview {
         for (BlockPos p : cells) box = box.minmax(new AABB(p));
         box = box.inflate(INFLATE);
 
-        float r = ok ? 0.2f : 0.95f, g = ok ? 0.9f : 0.2f, b = 0.2f;
         Vec3 cam = event.getCamera().getPosition();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+        drawBox(pose, buffers, box, ok);
+        pose.popPose();
+    }
+
+    /**
+     * Draws {@code box} (world coordinates; {@code pose} already translated by the camera) as a
+     * translucent fill with an outline, green when {@code ok}, red otherwise. Shared with the drag
+     * placement ghost.
+     */
+    public static void drawBox(PoseStack pose, MultiBufferSource.BufferSource buffers, AABB box, boolean ok) {
+        float r = ok ? 0.2f : 0.95f, g = ok ? 0.9f : 0.2f, b = 0.2f;
         LevelRenderer.addChainedFilledBoxVertices(pose, buffers.getBuffer(RenderType.debugFilledBox()),
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, r, g, b, 0.18f);
         buffers.endBatch(RenderType.debugFilledBox());
         LevelRenderer.renderLineBox(pose, buffers.getBuffer(RenderType.lines()), box, r, g, b, 0.9f);
         buffers.endBatch(RenderType.lines());
-        pose.popPose();
     }
 }
