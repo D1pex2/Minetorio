@@ -217,6 +217,14 @@ public class UndergroundBeltBlock extends BaseEntityBlock {
             be.dropItemsAndUnlink();
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock())) BeltBlock.refreshRamps(level, pos);
+    }
+
+    /** An exit one block above and behind a belt can make it a descending ramp (R25). */
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!oldState.is(state.getBlock()) || oldState.getValue(TYPE) != state.getValue(TYPE)) BeltBlock.refreshRamps(level, pos);
     }
 
     @Override

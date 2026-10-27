@@ -107,6 +107,7 @@ public class SplitterBlock extends MultiblockControllerBlock {
         if (!oldState.is(this)) {
             for (BlockPos p : footprint(pos, state)) {
                 if (!p.equals(pos)) level.getBlockState(p).updateNeighbourShapes(level, p, Block.UPDATE_ALL);
+                BeltBlock.refreshRamps(level, p); // belts below in front can become descending ramps (R25)
             }
         }
     }
