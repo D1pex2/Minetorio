@@ -5,6 +5,7 @@ import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
+import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.data.Phase1Data;
@@ -136,6 +137,7 @@ public final class DemoBuilder {
             assembly();
             research();
             handcraft();
+            discardBlockers(AABB.of(area).inflate(0, 2, 0)); // any that became visible during the build
         } catch (RuntimeException e) {
             Deposits.removePlacedDeposit(level, deposit);
             throw e;
@@ -156,7 +158,7 @@ public final class DemoBuilder {
         for (ServerPlayer p : level.getEntitiesOfClass(ServerPlayer.class, box)) {
             p.teleportTo(level, in.getX() + 0.5, in.getY(), in.getZ() + 0.5, -90f, 0f);
         }
-        for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> !(e instanceof Player))) e.discard();
+        discardEntities(box);
         BlockState air = Blocks.AIR.defaultBlockState();
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = area.minX(); x <= area.maxX(); x++) {
@@ -169,6 +171,23 @@ public final class DemoBuilder {
         }
         // whatever the clearing dropped (machine and chest contents)
         for (Entity e : level.getEntitiesOfClass(ItemEntity.class, box)) e.discard();
+    }
+
+    /** Removes every non-player entity in {@code box}. */
+    private void discardEntities(AABB box) {
+        for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> !(e instanceof Player))) e.discard();
+    }
+
+    /**
+     * Removes the non-player entities in {@code box} that block block placement (mobs, armor
+     * stands, vehicles). Needed besides {@link #clear}: an entity in a chunk whose full-chunk
+     * promotion has not run yet (a chunk force-loaded or loaded on demand this tick) sits in a hidden
+     * entity section, so entity queries in {@link #clear} skip it; it becomes visible, and starts
+     * blocking placement, when the server runs that promotion task, which can happen during any
+     * synchronous chunk access later in the build.
+     */
+    private void discardBlockers(AABB box) {
+        for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> e.blocksBuilding && !(e instanceof Player))) e.discard();
     }
 
     private void floor(Deposit deposit) {
@@ -393,14 +412,22 @@ public final class DemoBuilder {
         return level.getBlockEntity(abs(x, z));
     }
 
-    /** Places {@code item} like a player looking {@code facing} would. */
+    /**
+     * Places {@code item} like a player looking {@code facing} would; a multiblock machine's
+     * controller lands at (x, z) (the targeted cell is moved so its centered footprint starts there).
+     */
     private void place(Item item, int x, int z, Direction facing) {
-        BlockPos pos = abs(x, z);
+        BlockPos pos = MultiblockBlockItem.targetFor(item, abs(x, z), facing);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
         BlockPlaceContext ctx = new BlockPlaceContext(level, null, InteractionHand.MAIN_HAND, new ItemStack(item), hit) {
             @Override
             public Direction getHorizontalDirection() { return facing; }
         };
+        AABB cells = new AABB(abs(x, z));
+        if (item instanceof MultiblockBlockItem m) {
+            for (BlockPos p : m.controller().shape().footprint(abs(x, z), facing)) cells = cells.minmax(new AABB(p));
+        }
+        discardBlockers(cells);
         if (!((BlockItem) item).place(ctx).consumesAction()) {
             throw new IllegalStateException("demo: could not place " + BuiltInRegistries.ITEM.getKey(item) + " at " + pos);
         }
