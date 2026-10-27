@@ -8,6 +8,7 @@ import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.orefield.StartingFields;
 import dev.minetorio.content.power.PowerGridManager;
 import dev.minetorio.content.handcraft.HandcraftTicker;
+import dev.minetorio.content.drag.DragPlacement;
 import dev.minetorio.content.map.WorldMap;
 import dev.minetorio.content.registry.ModAttachments;
 import dev.minetorio.content.registry.ModBlockEntities;
@@ -45,6 +46,7 @@ public class Minetorio {
         HandcraftTicker.register();
         DemoSavedData.register();
         WorldMap.register();
+        DragPlacement.register();
         DemoCommand.register();
     }
 }

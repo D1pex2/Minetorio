@@ -51,6 +51,8 @@ public class OreFieldBlock extends Block {
     /** Right-click with an empty hand: the amount left, in the action bar. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        // Only an empty hand reads the field; with an item in hand (a belt, a drill) the click places it.
+        if (!player.getMainHandItem().isEmpty()) return InteractionResult.PASS;
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         player.displayClientMessage(OreFields.amountMessage(level, pos), true);
         return InteractionResult.CONSUME;
