@@ -617,10 +617,31 @@ edb = Model({"frame": "dark_panel", "body": "dark_panel", "deck": "dark", "rail"
 edb.chamfer(-16, -16, 32, 32, 0, 3, "frame", c=5)
 edb.chamfer(-14, -14, 30, 30, 3, 7, {"north": "body", "south": "body", "east": "body", "west": "body",
                                     "up": "deck", "down": "frame"}, c=4)
+# the rails are open truss frames: three corner/mid posts, a bottom and a top beam, a Warren zigzag of
+# 45 degree diagonals between them; every gap is real geometry (nothing covers it)
+EDR_POSTS = ((-12, -9), (6.5, 9.5), (25, 28))
+EDR_BAYS = (((-9, 6.5)), ((9.5, 25)))
+
+
+def edr_diag(m, x0, x1, bay, yc, run, th, angle, tex):
+    """A diagonal brace across a bay (run = horizontal extent, th = thickness), turned about the x axis."""
+    zc = (bay[0] + bay[1]) / 2
+    ln = run / math.cos(math.radians(abs(angle)))
+    cx = (x0 + x1) / 2
+    m.box([cx - 1.5, yc - th / 2, zc - ln / 2], [cx + 1.5, yc + th / 2, zc + ln / 2], tex,
+          rot=("x", angle, (cx, yc, zc)), split=False)
+
+
 for x0, x1 in EDR_RAILS:
-    edb.box([x0, 7, -12], [x1, 32, 28], "rail", skip=("up",))
-    # a yellow-black band low on each rail's front
-    edb.box([x0 - EPS, 9, -12.5], [x1 + EPS, 13, -11.5], "hazard", split=False)
+    for pz0, pz1 in EDR_POSTS:
+        edb.box([x0, 7, pz0], [x1, 32, pz1], "rail", skip=("up",), split=False)
+    for bz0, bz1 in EDR_BAYS:
+        for y0, y1 in ((7, 10), (29, 32)):
+            edb.box([x0, y0, bz0], [x1, y1, bz1], "rail", skip=("north", "south"), split=False)
+    for i, bay in enumerate(EDR_BAYS):
+        edr_diag(edb, x0, x1, bay, 19.5, 17.5 if i == 0 else 15.5, 2, 45 if i == 0 else -45, "rail")
+    # a yellow-black band low on each rail's front post
+    edb.box([x0 - EPS, 12, -12.5], [x1 + EPS, 16, -11.5], "hazard", split=False)
 # output chute: a yellow spout on the front edge, the drop arrow on top, a dark mouth
 edb.box([2, 3, -15.5], [14, 8, -10], {"north": "chute", "south": "chute", "east": "chute", "west": "chute",
                                      "up": "arrow", "down": "chute"}, fit=("up",), split=False)
@@ -631,7 +652,12 @@ save_block("electric_mining_drill_body", edb)
 
 edt = Model({"rail": "dark_panel", "cap": "dark", "hazard": "hazard", "steel": "steel"}, "dark_panel")
 for x0, x1 in EDR_RAILS:
-    edt.box([x0, 16, -12], [x1, 26, 28], "rail", skip=("down",))
+    for pz0, pz1 in EDR_POSTS:
+        edt.box([x0, 16, pz0], [x1, 26, pz1], "rail", skip=("down",), split=False)
+    for bz0, bz1 in EDR_BAYS:
+        edt.box([x0, 23, bz0], [x1, 26, bz1], "rail", skip=("north", "south"), split=False)
+    for i, bay in enumerate(EDR_BAYS):
+        edr_diag(edt, x0, x1, bay, 19.5, 16.5, 1.5, 22.5 if i == 0 else -22.5, "rail")
     edt.box([x0 - 0.5, 26, -11.5], [x1 + 0.5, 27.5, 28.5], "cap", split=False)
     # yellow-black tip at the front of each rail
     edt.box([x0 - 0.6, 23, -12.5], [x1 + 0.6, 28, -9.5], "hazard", split=False)
