@@ -238,6 +238,18 @@ public class DragGameTest {
         });
     }
 
+    /** When the click placed nothing (it used the block it hit), the drag places the start cell itself. */
+    @GameTest(template = "empty16")
+    public static void startCellIsPlacedIfTheClickDidNot(GameTestHelper h) {
+        floor(h, 0, 10, 5);
+        ServerPlayer p = player(h, ModItems.TRANSPORT_BELT.get(), 10, new BlockPos(4, 1, 7));
+        DragPlacement.start(p, h.absolutePos(new BlockPos(1, 1, 5)), DragDir.EAST);
+        steps(p, 0, repeat(E, 2), true);
+        for (int x = 1; x <= 3; x++) assertBelt(h, new BlockPos(x, 1, 5), ModBlocks.TRANSPORT_BELT.get(), Direction.EAST);
+        h.assertTrue(held(p, ModItems.TRANSPORT_BELT.get()) == 7, "expected 7 left, got " + held(p, ModItems.TRANSPORT_BELT.get()));
+        h.succeed();
+    }
+
     /** A step backwards or a step index that does not follow on ends the drag; nothing more is placed. */
     @GameTest(template = "empty16")
     public static void invalidStepsEndTheDrag(GameTestHelper h) {

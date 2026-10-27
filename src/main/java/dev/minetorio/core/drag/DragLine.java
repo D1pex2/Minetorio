@@ -15,12 +15,16 @@ import java.util.List;
 public final class DragLine {
     private final int maxCells;
     private final List<DragCell> cells = new ArrayList<>();
+    /** Direction of each step (step k leads from cell k to cell k + 1). */
+    private final List<DragDir> stepDirs = new ArrayList<>();
+    private final DragDir startDirection;
     private DragDir direction;
 
     public DragLine(int x, int z, DragDir direction, int maxCells) {
         if (maxCells < 1) throw new IllegalArgumentException("maxCells " + maxCells);
         this.maxCells = maxCells;
         this.direction = direction;
+        this.startDirection = direction;
         cells.add(new DragCell(x, z, direction));
     }
 
@@ -45,8 +49,42 @@ public final class DragLine {
         DragCell head = head();
         cells.set(cells.size() - 1, new DragCell(head.x(), head.z(), d));
         cells.add(new DragCell(head.x() + d.dx(), head.z() + d.dz(), d));
+        stepDirs.add(d);
         direction = d;
         return true;
+    }
+
+    /**
+     * Cuts the line back to its first {@code size} cells (1 .. size()); the new head faces, and
+     * the line runs, the way the head was entered again (the start direction for the start).
+     */
+    public void truncate(int size) {
+        if (size < 1 || size > cells.size()) throw new IllegalArgumentException("size " + size + " of " + cells.size());
+        while (cells.size() > size) {
+            cells.removeLast();
+            stepDirs.removeLast();
+        }
+        direction = stepDirs.isEmpty() ? startDirection : stepDirs.getLast();
+        DragCell head = head();
+        cells.set(cells.size() - 1, new DragCell(head.x(), head.z(), direction));
+    }
+
+    /**
+     * How many cells to drop before turning toward the target column ({@code tx}, {@code tz}) when
+     * the turn lies behind the head: the target is at least {@code turnThreshold} cells to a side
+     * and behind the head along the line. Then the corner moves back to the target's position on
+     * the line, but never past the start of the current straight run (the previous corner) and
+     * never below {@code minSize} cells (the ones already placed). 0 otherwise.
+     */
+    public int retraction(int tx, int tz, int turnThreshold, int minSize) {
+        int dx = tx - head().x(), dz = tz - head().z();
+        int along = dx * direction.dx() + dz * direction.dz();
+        DragDir right = direction.clockWise();
+        int side = dx * right.dx() + dz * right.dz();
+        if (along >= 0 || Math.abs(side) < Math.max(1, turnThreshold)) return 0;
+        int run = 0;
+        for (int k = stepDirs.size() - 1; k >= 0 && stepDirs.get(k) == direction; k--) run++;
+        return Math.max(0, Math.min(Math.min(-along, run), cells.size() - minSize));
     }
 
     /**

@@ -182,7 +182,7 @@ public final class DragPlacement {
 
     /** Places the cells whose facing is final; false when the drag must stop (out of items, item switched). */
     private static boolean place(ServerPlayer player, ServerLevel level, Session s, boolean finish) {
-        if (s.next == 1 && s.line.size() > 1) turnStart(player, level, s);
+        if (s.next == 1 && s.line.size() > 1 && !settleStart(player, level, s)) return false;
         int end = finish ? s.line.size() : s.line.size() - 1;
         for (; s.next < end; s.next++) {
             int i = s.next;
@@ -199,15 +199,22 @@ public final class DragPlacement {
         return true;
     }
 
-    /** The click placed the start belt facing the line's first direction; a turn right away re-points it. */
-    private static void turnStart(ServerPlayer player, ServerLevel level, Session s) {
-        if (s.kind != Kind.BELT) return;
-        DragCell start = s.line.cell(0);
+    /**
+     * Once the start cell's facing is final: the click normally placed it facing the line's first
+     * direction, and a turn right away re-points that belt; if the click placed nothing there (it
+     * used the block it hit instead) and the cell is still free, the drag places it now. False
+     * when out of items.
+     */
+    private static boolean settleStart(ServerPlayer player, ServerLevel level, Session s) {
         BlockPos pos = s.pos(0);
-        Direction facing = DragTerrain.toMc(start.facing());
+        Direction facing = DragTerrain.toMc(s.line.cell(0).facing());
         BlockState state = level.getBlockState(pos);
-        if (!state.is(s.block) || state.getValue(BeltBlock.FACING) == facing || !mayBuild(player, level, pos)) return;
+        if (DragTerrain.isFree(level, pos)) return placeCell(player, level, s, pos, facing) != Result.STOP;
+        if (s.kind != Kind.BELT || !state.is(s.block) || state.getValue(BeltBlock.FACING) == facing || !mayBuild(player, level, pos)) {
+            return true;
+        }
         level.setBlock(pos, BeltBlock.withShape(level, pos, state.setValue(BeltBlock.FACING, facing)), Block.UPDATE_ALL);
+        return true;
     }
 
     private enum Result { PLACED, SKIPPED, STOP }

@@ -115,6 +115,39 @@ class DragLineTest {
         assertEquals(2, shortLine.plan(50, 0, 2, 64).size(), "capped by the remaining length");
     }
 
+    @Test void turningBehindTheHeadRetractsTheGhostToTheCorner() {
+        DragLine line = new DragLine(0, 0, EAST, 100);
+        apply(line, line.plan(5, 0, 2, 64));
+        assertEquals(3, line.retraction(2, -3, 2, 1));
+        assertEquals(1, line.retraction(2, -3, 2, 5), "cells up to the minimum size are kept");
+        assertEquals(0, line.retraction(2, -1, 2, 1), "below the turn threshold: no retraction");
+        assertEquals(0, line.retraction(2, 0, 2, 1), "looking back along the line: no retraction");
+        assertEquals(0, line.retraction(7, -3, 2, 1), "corner ahead of the head: nothing to drop");
+        line.truncate(line.size() - 3);
+        assertEquals(new DragCell(2, 0, EAST), line.head());
+        assertEquals(List.of(NORTH, NORTH, NORTH), line.plan(2, -3, 2, 64));
+    }
+
+    @Test void retractionStopsAtThePreviousCorner() {
+        DragLine line = new DragLine(0, 0, EAST, 100);
+        apply(line, List.of(EAST, EAST, NORTH, NORTH, NORTH)); // head (2,-3) north, corner (2,0)
+        assertEquals(3, line.retraction(4, 2, 2, 1), "only the straight run back to the corner");
+        line.truncate(line.size() - 3);
+        assertEquals(new DragCell(2, 0, EAST), line.head(), "the corner faces the way it was entered again");
+        assertEquals(EAST, line.direction());
+        assertEquals(new DragCell(1, 0, EAST), line.cell(1));
+    }
+
+    @Test void truncateToTheStartRestoresItsDirection() {
+        DragLine line = new DragLine(0, 0, EAST, 100);
+        apply(line, List.of(NORTH, NORTH));
+        line.truncate(1);
+        assertEquals(new DragCell(0, 0, EAST), line.head());
+        assertEquals(EAST, line.direction());
+        assertThrows(IllegalArgumentException.class, () -> line.truncate(0));
+        assertThrows(IllegalArgumentException.class, () -> line.truncate(2));
+    }
+
     @Test void turnThresholdOfOneTurnsOnAnyOffset() {
         DragLine line = new DragLine(0, 0, EAST, 100);
         assertEquals(List.of(EAST, EAST, SOUTH), line.plan(2, 1, 1, 64));
