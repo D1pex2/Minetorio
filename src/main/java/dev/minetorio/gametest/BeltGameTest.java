@@ -377,4 +377,17 @@ public class BeltGameTest {
         h.assertTrue(in.distance() == 3, "distance " + in.distance());
         h.succeed();
     }
+
+    /**
+     * A stack whose component patch cannot be encoded (a negative repair cost fails its codec) has
+     * no lane key: it must not enter the lanes as the plain item, losing its data.
+     */
+    @GameTest(template = "empty16")
+    public static void unencodableStackHasNoLaneKey(GameTestHelper h) {
+        ItemStack odd = new ItemStack(Items.DIAMOND_SWORD);
+        odd.set(DataComponents.REPAIR_COST, -1);
+        h.assertTrue(LaneStacks.toLane(odd, h.getLevel().registryAccess()).isEmpty(),
+                "unencodable stack got key " + LaneStacks.toLane(odd, h.getLevel().registryAccess()));
+        h.succeed();
+    }
 }

@@ -5,6 +5,7 @@ import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.LaneItem;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentPatch;
@@ -29,7 +30,11 @@ import net.minecraft.world.level.Level;
 public final class LaneStacks {
     private LaneStacks() {}
 
-    /** The lane key of one item of {@code stack} (the count is ignored). */
+    /**
+     * The lane key of one item of {@code stack} (the count is ignored), or null if its component
+     * patch cannot be encoded: the plain id would silently drop the item's data.
+     */
+    @Nullable
     public static String key(ItemStack stack, HolderLookup.Provider registries) {
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
         DataComponentPatch patch = stack.getComponentsPatch();
@@ -37,7 +42,7 @@ public final class LaneStacks {
         return DataComponentPatch.CODEC.encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), patch)
                 .result()
                 .map(tag -> id + "#" + tag)
-                .orElse(id);
+                .orElse(null);
     }
 
     /** Longest stack key (UTF-8 bytes) allowed on a lane or in an inserter's hand (R22). */
@@ -45,13 +50,15 @@ public final class LaneStacks {
 
     /**
      * The key under which one item of {@code stack} may enter a lane or an inserter's hand, or
-     * empty if the stack is empty or its key would exceed {@link #MAX_KEY_BYTES} (e.g. a full
-     * shulker box): NBT strings are limited to 64 KB, so such items stay where they are.
+     * empty if the stack is empty, its data components cannot be encoded ({@link #key}) or its key
+     * would exceed {@link #MAX_KEY_BYTES} (e.g. a full shulker box): NBT strings are limited to
+     * 64 KB, so such items stay where they are.
      * Every item entering the lane world must go through here.
      */
     public static Optional<String> toLane(ItemStack stack, HolderLookup.Provider registries) {
         if (stack.isEmpty()) return Optional.empty();
         String key = key(stack, registries);
+        if (key == null) return Optional.empty();
         if (key.length() > MAX_KEY_BYTES / 3 && key.getBytes(StandardCharsets.UTF_8).length > MAX_KEY_BYTES) return Optional.empty();
         return Optional.of(key);
     }
