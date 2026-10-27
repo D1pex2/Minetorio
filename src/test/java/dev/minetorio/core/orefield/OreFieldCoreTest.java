@@ -104,6 +104,47 @@ class OreFieldCoreTest {
         }
     }
 
+    // --- starting area ---------------------------------------------------------------------------------
+
+    @Test void startingFieldsLieInsideTheStartingArea() {
+        for (OrePatch p : PatchGenerator.startingPatches(1000, -700)) {
+            double far = Math.hypot(p.centerX() - 1000, p.centerZ() + 700) + p.radius();
+            assertTrue(far + 4 <= PatchGenerator.STARTING_AREA_RADIUS, "starting patch too close to the edge " + p);
+        }
+    }
+
+    /**
+     * With spawn away from the origin (where the generated layout's exclusion is), the generated
+     * patches with any cell in the starting area are exactly those of
+     * {@link PatchGenerator#patchesInStartingArea}; every other patch keeps clear of it.
+     */
+    @Test void patchesInStartingAreaAreExactlyTheOverlappingOnes() {
+        int checked = 0;
+        int r = PatchGenerator.STARTING_AREA_RADIUS;
+        for (long seed = 1; seed <= 40; seed++) {
+            PatchGenerator g = new PatchGenerator(seed, 0, 0);
+            int sx = (int) (seed * 37 % 900) - 150, sz = (int) (seed * 91 % 900) - 750;
+            List<OrePatch> found = g.patchesInStartingArea(sx, sz);
+            for (int rx = Math.floorDiv(sx - 200, 64); rx <= Math.floorDiv(sx + 200, 64); rx++) {
+                for (int rz = Math.floorDiv(sz - 200, 64); rz <= Math.floorDiv(sz + 200, 64); rz++) {
+                    OrePatch p = g.inRegion(rx, rz);
+                    if (p == null) continue;
+                    boolean overlaps = false;
+                    for (FieldStamp.Cell c : FieldStamp.plan(List.of(p), p.centerX() - p.radius(), p.centerZ() - p.radius(),
+                            p.centerX() + p.radius(), p.centerZ() + p.radius(), 0, 0)) {
+                        if (Math.hypot(c.x() - sx, c.z() - sz) <= r) overlaps = true;
+                    }
+                    if (overlaps) {
+                        checked++;
+                        assertTrue(found.contains(p), "missed " + p + " near spawn " + sx + "," + sz);
+                    }
+                }
+            }
+            for (OrePatch p : found) assertTrue(PatchGenerator.overlapsStartingArea(p, sx, sz), "not overlapping " + p);
+        }
+        assertTrue(checked > 10, "too few overlapping patches to be a test: " + checked);
+    }
+
     // --- stamping -------------------------------------------------------------------------------------
 
     /** Stamping chunk by chunk gives exactly the cells of stamping the whole area at once. */

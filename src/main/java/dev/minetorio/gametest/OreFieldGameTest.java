@@ -230,18 +230,8 @@ public class OreFieldGameTest {
         PatchGenerator gen = new PatchGenerator(level.getSeed(), 0, 0);
         OrePatch patch = null;
         for (int rx = 3000; patch == null; rx++) patch = gen.inRegion(rx, 3000);
-        int minCx = (patch.centerX() - patch.radius()) >> 4, maxCx = (patch.centerX() + patch.radius()) >> 4;
-        int minCz = (patch.centerZ() - patch.radius()) >> 4, maxCz = (patch.centerZ() + patch.radius()) >> 4;
-        var generator = level.getChunkSource().getGenerator();
+        runFeature(level, patch);
         int stamped = 0;
-        for (int cx = minCx; cx <= maxCx; cx++) {
-            for (int cz = minCz; cz <= maxCz; cz++) {
-                level.getChunk(cx, cz);
-                BlockPos origin = new BlockPos(cx << 4, level.getMinBuildHeight(), cz << 4);
-                ModFeatures.ORE_FIELD.get().place(new FeaturePlaceContext<>(Optional.empty(), level, generator, RandomSource.create(),
-                        origin, NoneFeatureConfiguration.INSTANCE));
-            }
-        }
         List<FieldStamp.Cell> plan = FieldStamp.plan(List.of(patch), patch.centerX() - patch.radius(), patch.centerZ() - patch.radius(),
                 patch.centerX() + patch.radius(), patch.centerZ() + patch.radius(), 0, 0);
         for (FieldStamp.Cell c : plan) {
@@ -254,6 +244,66 @@ public class OreFieldGameTest {
         h.assertTrue(OreFields.typeOf(level.getBlockState(new BlockPos(patch.centerX() + patch.radius() + 1,
                 level.getHeight(Heightmap.Types.WORLD_SURFACE, patch.centerX() + patch.radius() + 1, patch.centerZ()) - 1, patch.centerZ()))) == null,
                 "stamped outside the patch");
+        h.succeed();
+    }
+
+    /** Runs the world generation feature on every chunk {@code patch} touches (the flat test world has no features). */
+    private static void runFeature(ServerLevel level, OrePatch patch) {
+        int minCx = (patch.centerX() - patch.radius()) >> 4, maxCx = (patch.centerX() + patch.radius()) >> 4;
+        int minCz = (patch.centerZ() - patch.radius()) >> 4, maxCz = (patch.centerZ() + patch.radius()) >> 4;
+        var generator = level.getChunkSource().getGenerator();
+        for (int cx = minCx; cx <= maxCx; cx++) {
+            for (int cz = minCz; cz <= maxCz; cz++) {
+                level.getChunk(cx, cz);
+                BlockPos origin = new BlockPos(cx << 4, level.getMinBuildHeight(), cz << 4);
+                ModFeatures.ORE_FIELD.get().place(new FeaturePlaceContext<>(Optional.empty(), level, generator, RandomSource.create(),
+                        origin, NoneFeatureConfiguration.INSTANCE));
+            }
+        }
+    }
+
+    /** Field blocks of {@code type} on the surface of {@code patch}'s disk. */
+    private static int fieldsOf(ServerLevel level, OrePatch patch, OreType type) {
+        int n = 0;
+        int r = patch.radius();
+        for (int x = patch.centerX() - r; x <= patch.centerX() + r; x++) {
+            for (int z = patch.centerZ() - r; z <= patch.centerZ() + r; z++) {
+                if (!patch.contains(x, z)) continue;
+                BlockPos pos = OreFields.surfaceField(level, x, z);
+                if (pos != null && OreFields.typeOf(level.getBlockState(pos)) == type) n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * A generated patch whose edge reaches into the starting area of a spawn far from the origin is
+     * removed whole (its blocks back to the ground under them, amounts forgotten) before the starting
+     * fields are stamped; the starting fields are then stamped around that spawn.
+     */
+    @GameTest(template = "empty16", timeoutTicks = 400)
+    public static void startingAreaIsClearedOfGeneratedPatches(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        PatchGenerator gen = new PatchGenerator(level.getSeed(), 0, 0);
+        OrePatch patch = null;
+        for (int rx = 3000; patch == null; rx++) patch = gen.inRegion(rx, -3000);
+        runFeature(level, patch);
+        int stamped = fieldsOf(level, patch, patch.type());
+        h.assertTrue(stamped > 0, "the generated patch was not stamped: " + patch);
+        // a spawn east of the patch, with only the patch's eastern edge inside the starting area
+        int sx = patch.centerX() + PatchGenerator.STARTING_AREA_RADIUS + patch.radius() - 3, sz = patch.centerZ();
+        h.assertTrue(gen.patchesInStartingArea(sx, sz).contains(patch), "patch not in the starting area");
+        int cleared = StartingFields.clearGenerated(level, sx, sz);
+        h.assertTrue(cleared >= stamped, "cleared " + cleared + " of " + stamped);
+        h.assertTrue(fieldsOf(level, patch, patch.type()) == 0, "generated field blocks left: " + fieldsOf(level, patch, patch.type()));
+        BlockPos center = new BlockPos(patch.centerX(), level.getHeight(Heightmap.Types.WORLD_SURFACE, patch.centerX(), patch.centerZ()) - 1,
+                patch.centerZ());
+        h.assertTrue(OreFields.remaining(level, center) == 0, "amount left at the center");
+        h.assertTrue(StartingFields.stampAround(level, sx, sz) > 0, "starting fields not stamped");
+        for (OrePatch s : PatchGenerator.startingPatches(sx, sz)) {
+            BlockPos pos = OreFields.surfaceField(level, s.centerX(), s.centerZ());
+            h.assertTrue(pos != null && OreFields.typeOf(level.getBlockState(pos)) == s.type(), "starting field missing: " + s);
+        }
         h.succeed();
     }
 

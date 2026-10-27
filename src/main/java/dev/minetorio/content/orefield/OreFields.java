@@ -203,6 +203,49 @@ public final class OreFields {
         return n;
     }
 
+    /**
+     * The topmost field block of column (x, z) from {@code topY} down to {@code bottomY} (inclusive),
+     * or null. Other blocks in between (a drill standing on the field, a plant) are passed.
+     */
+    @Nullable
+    public static BlockPos fieldInColumn(Level level, int x, int z, int topY, int bottomY) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int y = topY; y >= bottomY; y--) {
+            if (typeOf(level.getBlockState(p.set(x, y, z))) != null) return p.immutable();
+        }
+        return null;
+    }
+
+    /** The field block on the surface of column (x, z) (at most {@value #MAX_SCAN} blocks below the top), or null. */
+    @Nullable
+    public static BlockPos surfaceField(Level level, int x, int z) {
+        int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
+        return fieldInColumn(level, x, z, top, Math.max(level.getMinBuildHeight(), top - MAX_SCAN));
+    }
+
+    /**
+     * Removes the stamped field blocks of a generated {@code patch} (on each column's surface, loading
+     * or generating its chunks): each becomes the natural block under it if that is a surface block
+     * ({@link #REPLACEABLE}), else dirt, and its amount is forgotten. Returns how many there were.
+     */
+    public static int unstamp(ServerLevel level, OrePatch patch) {
+        int n = 0;
+        int r = patch.radius();
+        for (int x = patch.centerX() - r; x <= patch.centerX() + r; x++) {
+            for (int z = patch.centerZ() - r; z <= patch.centerZ() + r; z++) {
+                if (!patch.contains(x, z)) continue;
+                level.getChunk(x >> 4, z >> 4);
+                BlockPos pos = surfaceField(level, x, z);
+                if (pos == null || typeOf(level.getBlockState(pos)) != patch.type()) continue;
+                BlockState below = level.getBlockState(pos.below());
+                BlockState fill = below.is(REPLACEABLE) && typeOf(below) == null ? below : Blocks.DIRT.defaultBlockState();
+                level.setBlock(pos, fill, Block.UPDATE_ALL);
+                n++;
+            }
+        }
+        return n;
+    }
+
     /** Turns every field block of {@code patch}'s disk at height {@code y} into dirt; returns how many there were. */
     public static int clear(ServerLevel level, OrePatch patch, int y) {
         int n = 0;
