@@ -10,18 +10,21 @@ import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.deposit.Deposit;
 import dev.minetorio.core.deposit.OreType;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.decoration.HangingEntity;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -30,6 +33,7 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.StandingSignBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
@@ -68,6 +72,8 @@ public final class DemoBuilder {
     private static final String RED = "minetorio:automation_science_pack";
     /** Items a source chest keeps (fuel chests also start with this much). */
     private static final int KEEP = 256;
+    /** Items an output chest keeps. */
+    public static final int OUTPUT_KEEP = 64;
 
     /** Where the parts of a showcase are, in world coordinates (the GameTest checks these). */
     public record Layout(BlockPos origin, BoundingBox area, BlockPos entrance, BlockPos depositCenter, BlockPos smeltingOutput,
@@ -76,12 +82,12 @@ public final class DemoBuilder {
 
     private final ServerLevel level;
     private final BlockPos origin;
-    private final DemoSavedData data;
+    /** Demo data entries, registered only once the whole build succeeded. */
+    private final List<Consumer<DemoSavedData>> pending = new ArrayList<>();
 
     private DemoBuilder(ServerLevel level, BlockPos origin) {
         this.level = level;
         this.origin = origin.immutable();
-        this.data = DemoSavedData.get(level);
     }
 
     /** The area's north-west floor corner for a showcase around a player standing at {@code feet}. */
@@ -109,34 +115,48 @@ public final class DemoBuilder {
         return layout(origin);
     }
 
+    /**
+     * Clears the area, then builds. If anything fails the placed deposit is removed again and no
+     * demo data is registered (the half-built blocks stay; the exception propagates).
+     */
     private void build() {
         BoundingBox area = area(origin);
-        data.removeIn(area);
         clear(area);
         BlockPos center = abs(DEPOSIT_X, DEPOSIT_Z);
         Deposit deposit = Deposits.placeDemoDeposit(level, OreType.IRON, center.getX(), center.getZ(), DEPOSIT_RADIUS, DEPOSIT_AMOUNT);
-        floor(deposit);
-        backbone();
-        signs();
-        belts();
-        inserters();
-        mining();
-        smelting();
-        power();
-        assembly();
-        research();
-        handcraft();
+        try {
+            floor(deposit);
+            backbone();
+            signs();
+            belts();
+            inserters();
+            mining();
+            smelting();
+            power();
+            assembly();
+            research();
+            handcraft();
+        } catch (RuntimeException e) {
+            Deposits.removePlacedDeposit(level, deposit);
+            throw e;
+        }
+        DemoSavedData data = DemoSavedData.get(level);
+        data.removeIn(area);
+        for (Consumer<DemoSavedData> entry : pending) entry.accept(data);
         data.setResearch(true);
         DemoSavedData.selectNextResearch(level.getServer());
     }
 
     // --- area ------------------------------------------------------------------------------------
 
+    /** Moves players in the area to the entrance, removes every other entity and clears the blocks above the floor. */
     private void clear(BoundingBox area) {
-        AABB box = AABB.of(area);
-        for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> e instanceof HangingEntity || e instanceof ItemEntity)) {
-            e.discard();
+        AABB box = AABB.of(area).inflate(0, 2, 0);
+        BlockPos in = abs(1, 47);
+        for (ServerPlayer p : level.getEntitiesOfClass(ServerPlayer.class, box)) {
+            p.teleportTo(level, in.getX() + 0.5, in.getY(), in.getZ() + 0.5, -90f, 0f);
         }
+        for (Entity e : level.getEntitiesOfClass(Entity.class, box, e -> !(e instanceof Player))) e.discard();
         BlockState air = Blocks.AIR.defaultBlockState();
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = area.minX(); x <= area.maxX(); x++) {
@@ -192,7 +212,7 @@ public final class DemoBuilder {
             int z = 28 + 2 * i;
             for (int x = 6; x <= 20; x++) place(tiers[i], x, z, Direction.EAST);
             sink(21, z);
-            data.addFeed(abs(6, z), IRON, COPPER);
+            feed(abs(6, z), IRON, COPPER);
             sign(4, z, 4, labels[i], 2);
         }
         // a line with a left curve, a right curve, a side-load, an underground under a wall and a splitter
@@ -217,10 +237,10 @@ public final class DemoBuilder {
             place(yellow, 21, z, Direction.EAST);
             sink(22, z);
         }
-        data.addFeed(abs(6, 41), null, IRON);
+        feed(abs(6, 41), null, IRON);
         // side-load: copper joins the near (left) lane of (11,38) from the north
         for (int z = 35; z <= 37; z++) place(yellow, 11, z, Direction.SOUTH);
-        data.addFeed(abs(11, 35), COPPER, COPPER);
+        feed(abs(11, 35), COPPER, COPPER);
         sign(9, 43, 0, "belt_curve", 2);
         sign(12, 34, 0, "belt_side_load", 2);
         sign(15, 41, 0, "belt_underground", 2);
@@ -263,7 +283,7 @@ public final class DemoBuilder {
         // burner drill (x 51..52, z 30..31) → chest; a burner inserter feeds it coal
         place(ModItems.BURNER_MINING_DRILL.get(), 51, 30, Direction.EAST);
         ((BurnerDrillBlockEntity) be(51, 30)).addFuel(COAL, 5);
-        chest(53, 30);
+        output(53, 30);
         source(49, 30, COAL, KEEP);
         inserter(ModItems.BURNER_INSERTER.get(), 50, 30, Direction.EAST);
         // electric drill (x 56..58, z 36..38) → belt east to the smelting station
@@ -286,7 +306,7 @@ public final class DemoBuilder {
         place(ModItems.STONE_FURNACE.get(), 77, 37, Direction.EAST); // x 77..78, z 37..38
         insert(77, 37, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL, 5));
         inserter(ModItems.INSERTER.get(), 79, 37, Direction.EAST);
-        chest(80, 37);
+        output(80, 37);
         source(77, 35, COAL, KEEP);
         inserter(ModItems.BURNER_INSERTER.get(), 77, 36, Direction.SOUTH);
         pole(78, 39);
@@ -319,16 +339,16 @@ public final class DemoBuilder {
     private void assembly() {
         for (int x = 50; x <= 66; x++) place(ModItems.TRANSPORT_BELT.get(), x, 55, Direction.EAST);
         sink(67, 55);
-        data.addFeed(abs(50, 55), IRON, COPPER);
+        feed(abs(50, 55), IRON, COPPER);
         assembler(52, 57, "iron_gear_wheel");                          // x 52..54, z 57..59
         inserter(ModItems.INSERTER.get(), 53, 56, Direction.SOUTH);    // plates from the belt
         inserter(ModItems.INSERTER.get(), 55, 58, Direction.EAST);     // gears out
-        chest(56, 58);
+        output(56, 58);
         inserter(ModItems.INSERTER.get(), 57, 58, Direction.EAST);     // gears in
         assembler(58, 57, "automation_science_pack");                  // x 58..60, z 57..59
         inserter(ModItems.INSERTER.get(), 59, 56, Direction.SOUTH);    // copper from the belt
         inserter(ModItems.INSERTER.get(), 61, 58, Direction.EAST);     // red packs out
-        chest(62, 58);
+        output(62, 58);
         pole(51, 56);
         pole(56, 56);
         pole(61, 56);
@@ -408,8 +428,11 @@ public final class DemoBuilder {
     /** A chest kept at {@code keep} items of {@code item}; filled right away. Several items may share a chest. */
     private void source(int x, int z, String item, int keep) {
         BlockPos pos = abs(x, z);
-        if (!level.getBlockState(pos).is(Blocks.CHEST)) chest(x, z);
-        data.addSource(pos, item, keep);
+        if (!level.getBlockState(pos).is(Blocks.CHEST)) {
+            chest(x, z);
+            DemoSavedData.tag((ChestBlockEntity) level.getBlockEntity(pos), DemoSavedData.SOURCE_NAME);
+        }
+        pending.add(d -> d.addSource(pos, item, keep));
         Item it = BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(item));
         IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
         int max = new ItemStack(it).getMaxStackSize();
@@ -418,8 +441,23 @@ public final class DemoBuilder {
 
     /** A chest emptied regularly. */
     private void sink(int x, int z) {
+        sink(x, z, 0);
+    }
+
+    /** An output chest: trimmed to a stack, so the output stays visible and the line never blocks. */
+    private void output(int x, int z) {
+        sink(x, z, OUTPUT_KEEP);
+    }
+
+    private void sink(int x, int z, int keep) {
+        BlockPos pos = abs(x, z);
         chest(x, z);
-        data.addSink(abs(x, z));
+        DemoSavedData.tag((ChestBlockEntity) level.getBlockEntity(pos), DemoSavedData.SINK_NAME);
+        pending.add(d -> d.addSink(pos, keep));
+    }
+
+    private void feed(BlockPos pos, @Nullable String left, @Nullable String right) {
+        pending.add(d -> d.addFeed(pos, left, right));
     }
 
     private void insert(int x, int z, int slot, ItemStack stack) {

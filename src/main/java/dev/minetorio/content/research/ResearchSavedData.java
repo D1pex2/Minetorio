@@ -1,5 +1,6 @@
 package dev.minetorio.content.research;
 
+import dev.minetorio.content.demo.DemoSavedData;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.research.LabLogic;
@@ -109,12 +110,14 @@ public final class ResearchSavedData extends SavedData {
      * A player's choice of the technology to research (from {@link SelectResearchPayload}):
      * accepted if it is the current one already or {@link ResearchState#canResearch can be
      * researched}; spectators may not choose, and a player may switch the research at most once per
-     * {@value #SWITCH_COOLDOWN_TICKS} ticks.
+     * {@value #SWITCH_COOLDOWN_TICKS} ticks. Any choice by a (non-spectator) player turns the demo
+     * showcase's research autopilot off ({@link DemoSavedData#playerSelectedResearch}).
      */
     public static SelectResult select(ServerPlayer player, String techId) {
         if (player.isSpectator()) return SelectResult.SPECTATOR;
         if (Phase1Data.techTree().get(techId).isEmpty()) return SelectResult.UNKNOWN;
         ResearchSavedData data = get(player.server);
+        DemoSavedData.playerSelectedResearch(player.server); // a player's choice ends the demo's research autopilot
         if (data.state.current().map(t -> t.id().equals(techId)).orElse(false)) return SelectResult.OK;
         if (!data.state.canResearch(techId)) return SelectResult.UNAVAILABLE;
         int now = player.server.getTickCount();

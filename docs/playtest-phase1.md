@@ -5,7 +5,7 @@ overnight. It could not do a manual playthrough because nobody could watch the c
 it did check automatically:
 
 - `./gradlew test` passes (163 unit tests, including `LangCompletenessTest`).
-- `./gradlew runGameTestServer` reports "All 98 required tests passed".
+- `./gradlew runGameTestServer` reports "All 100 required tests passed".
 - `./gradlew runClient` loads to the title screen with no model, blockstate or texture warnings in the log.
 - Every model was rendered offline into `art/models-preview.png`, and the textures into `art/blocks-preview.png`.
 

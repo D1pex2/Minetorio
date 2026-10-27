@@ -113,7 +113,7 @@
   "minetorio.lab.packs": "Пакеты: автоматизации %s, логистики %s",
   "minetorio.lab.researching": "исследуется: %s",
   "minetorio.lab.no_research": "исследование не выбрано (клавиша %s)",
-  "minetorio.demo.built": "Демо-витрина построена в %s %s %s. Идите на восток по дорожке.",
+  "minetorio.demo.built": "Демо-витрина построена в %s %s %s. Идите на восток по дорожке. Текущее исследование: %s.",
   "minetorio.demo.not_overworld": "Демо можно построить только в Верхнем мире.",
   "minetorio.demo.out_of_world": "Здесь не хватает места: демо нужно %s блоков над полом.",
   "minetorio.demo.sign.welcome.1": "Minetorio",
@@ -177,5 +177,10 @@
   "minetorio.demo.sign.handcraft.1": "8. Ручной крафт",
   "minetorio.demo.sign.handcraft.2": "возьми материалы",
   "minetorio.demo.sign.handcraft.3": "из сундука,",
-  "minetorio.demo.sign.handcraft.4": "нажми R"
+  "minetorio.demo.sign.handcraft.4": "нажми R",
+  "minetorio.demo.no_research": "нет",
+  "minetorio.demo.failed": "Не удалось построить демо: %s",
+  "minetorio.demo.off": "Демо выключено: бесконечные сундуки, подача на ленты и автовыбор исследований остановлены; убрано демо-залежей: %s.",
+  "minetorio.demo.chest.source": "Демо-источник",
+  "minetorio.demo.chest.sink": "Демо-сток"
 }

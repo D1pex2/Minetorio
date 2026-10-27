@@ -146,6 +146,19 @@ public final class Deposits {
         return true;
     }
 
+    /** Removes every placed deposit (and its mined amount); returns how many there were. */
+    public static int removeAllPlacedDeposits(ServerLevel level) {
+        DepositSavedData data = dataOf(level);
+        int n = 0;
+        for (Deposit d : data.placed().all()) {
+            data.placed().remove(d);
+            data.ledger().forget(d.id());
+            n++;
+        }
+        if (n > 0) data.setDirty();
+        return n;
+    }
+
     private static DepositSavedData dataOf(ServerLevel level) {
         Deposits deposits = get(level);
         if (deposits.data == null) throw new IllegalArgumentException("deposits exist only in the Overworld");

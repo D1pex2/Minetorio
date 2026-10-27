@@ -113,7 +113,7 @@
   "minetorio.lab.packs": "Packs: %s automation, %s logistic",
   "minetorio.lab.researching": "researching %s",
   "minetorio.lab.no_research": "no research selected (press %s)",
-  "minetorio.demo.built": "Demo showcase built at %s %s %s. Walk east along the path.",
+  "minetorio.demo.built": "Demo showcase built at %s %s %s. Walk east along the path. Current research: %s.",
   "minetorio.demo.not_overworld": "The demo can only be built in the Overworld.",
   "minetorio.demo.out_of_world": "Not enough room here: the demo needs %s blocks above the floor.",
   "minetorio.demo.sign.welcome.1": "Minetorio",
@@ -177,5 +177,10 @@
   "minetorio.demo.sign.handcraft.1": "8. Hand crafting",
   "minetorio.demo.sign.handcraft.2": "take materials",
   "minetorio.demo.sign.handcraft.3": "from the chest,",
-  "minetorio.demo.sign.handcraft.4": "press R"
+  "minetorio.demo.sign.handcraft.4": "press R",
+  "minetorio.demo.no_research": "none",
+  "minetorio.demo.failed": "Could not build the demo: %s",
+  "minetorio.demo.off": "Demo turned off: endless chests, belt feeds and the research autopilot stopped; %s demo deposit(s) removed.",
+  "minetorio.demo.chest.source": "Demo source",
+  "minetorio.demo.chest.sink": "Demo sink"
 }

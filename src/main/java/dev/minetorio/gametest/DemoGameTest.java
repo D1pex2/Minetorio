@@ -26,10 +26,14 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -69,6 +73,12 @@ public class DemoGameTest {
             for (int cz = area.minZ() >> 4; cz <= area.maxZ() >> 4; cz++) out.add(new ChunkPos(cx, cz));
         }
         return out;
+    }
+
+    private static void spawn(ServerLevel level, EntityType<?> type, BlockPos at) {
+        Entity e = type.create(level);
+        e.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0, 0);
+        level.addFreshEntity(e);
     }
 
     private static int count(ServerLevel level, BlockPos pos, Item item) {
@@ -115,10 +125,14 @@ public class DemoGameTest {
         origin = o;
         DemoBuilder.Layout layout = DemoBuilder.layout(o);
         for (ChunkPos c : chunks(layout.area())) level.setChunkForced(c.x, c.z, true);
+        // animals standing where machines go must not stop the build
+        spawn(level, EntityType.COW, layout.gearAssembler());
+        spawn(level, EntityType.PIG, layout.engines().get(0));
 
         int result = server.getCommands().getDispatcher().execute(
                 "minetorio demo " + feet.getX() + " " + feet.getY() + " " + feet.getZ(), server.createCommandSourceStack().withSuppressedOutput());
         h.assertTrue(result == 1, "command returned " + result);
+        h.assertTrue(level.getEntitiesOfClass(Animal.class, AABB.of(layout.area())).isEmpty(), "animals left in the area");
         Deposit deposit = Deposits.get(level).depositAt(layout.depositCenter().getX(), layout.depositCenter().getZ()).orElse(null);
         h.assertTrue(deposit != null && deposit.id() <= PlacedDeposits.FIRST_ID && deposit.initialAmount() == DemoBuilder.DEPOSIT_AMOUNT,
                 "no demo deposit: " + deposit);
@@ -155,6 +169,18 @@ public class DemoGameTest {
                 BeltBlockEntity belt = (BeltBlockEntity) level.getBlockEntity(o.offset(14, 1, 28 + 2 * i));
                 h.assertTrue(!belt.lane(LaneSide.LEFT).isEmpty() && !belt.lane(LaneSide.RIGHT).isEmpty(), "belt tier " + i + " empty");
             }
+            h.assertTrue(plates <= DemoBuilder.OUTPUT_KEEP, "output chest not trimmed: " + plates);
+
+            // demo off: no entries, no autopilot, no placed deposit
+            try {
+                server.getCommands().getDispatcher().execute("minetorio demo off", server.createCommandSourceStack().withSuppressedOutput());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            DemoSavedData data = DemoSavedData.getIfPresent(server);
+            h.assertTrue(data == null || data.isEmpty(), "demo data left after off");
+            h.assertFalse(Deposits.get(level).depositAt(layout.depositCenter().getX(), layout.depositCenter().getZ())
+                    .map(d -> d.id() <= PlacedDeposits.FIRST_ID).orElse(false), "placed deposit left after off");
             h.succeed();
         });
     }
