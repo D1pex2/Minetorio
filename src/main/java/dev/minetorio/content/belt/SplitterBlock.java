@@ -116,6 +116,15 @@ public class SplitterBlock extends MultiblockControllerBlock {
         }
     }
 
+    /** After the whole splitter is gone, ramps it fed or that ran under it are re-evaluated (R25). */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock())) {
+            for (BlockPos p : footprint(pos, state)) BeltBlock.refreshRamps(level, p);
+        }
+    }
+
     @Override
     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
         BeltBlock.pushEntity(level, pos, state, entity, state.getValue(FACING), tier.speed());

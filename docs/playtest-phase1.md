@@ -55,6 +55,10 @@ Things to check closely:
 
 - [ ] Every rotation (north, east, south, west) of each directional block and machine looks right. Pipe stubs line up with the real fluid ports: boiler water left and right, boiler steam forward, engine at both ends, pump outlet toward the shore.
 - [ ] Belt chevrons point and move the same way the items travel, on straights and on both curve directions.
+- [ ] Belt ramps (R25): a belt one block higher in front (same direction) turns the belt below into an ascending ramp; a belt one block higher behind it, feeding into it, turns it into a descending ramp. No extra item. Items climb and descend, lying on the slope; you can walk up a ramp. Expected limits:
+  - Side-feeding onto a ramp doesn't work, ascending or descending. A belt pointing at a ramp's side just stops.
+  - No ramp forms if the belt in front feeds a chest or machine (the cell in front holds a block entity), or if the cell above a would-be descending ramp is not open (solid block, chest, another belt). A plain block in front of an ascending ramp, under the upper belt, is fine.
+  - Curves, underground belts and splitters are never ramps.
 - [ ] No faces flicker (z-fighting) on machine fronts: windows, chutes, the fire door and the furnace mouth.
 - [ ] Multiblock machines don't vanish when the controller block is off-screen. They render over their whole footprint.
 - [ ] Placing a multiblock machine: it is centered on the block you aim at (where a normal block would go), on that block's layer. For even sizes the aimed block is the left-front one of the middle 2×2 (2×2 furnace and burner drill: the aimed block is their near-left corner; boiler: centered across, extending away from you). Splitters are the exception: the aimed block is their left column, so they line up with the belt you click. While holding a machine, a translucent box shows the footprint: green if it fits, red if something is in the way (and then right-click places nothing and keeps the item).

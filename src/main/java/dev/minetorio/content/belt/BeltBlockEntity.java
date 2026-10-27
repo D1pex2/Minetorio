@@ -110,12 +110,10 @@ public class BeltBlockEntity extends BlockEntity implements BeltNode {
         Direction f = facing();
         BlockPos front = worldPosition.relative(f).above(slope.exitLevel());
         // a flat or descending belt may instead feed a descending ramp one lower (BeltGeometry.sinkTo)
-        if (slope != BeltSlope.ASCENDING && level != null) {
-            BlockState below = level.getBlockState(front.below());
-            if (below.getBlock() instanceof BeltBlock && below.getValue(BeltBlock.FACING) == f
-                    && below.getValue(BeltBlock.SLOPE) == BeltBlock.Slope.DESCENDING) {
-                return List.of(front, front.below());
-            }
+        // (looked up in the ticker's map: reading the block state could load the chunk)
+        if (slope != BeltSlope.ASCENDING && level != null && BeltTicker.of(level).at(front.below()) instanceof BeltBlockEntity b
+                && b.facing() == f && b.slope() == BeltSlope.DESCENDING) {
+            return List.of(front, front.below());
         }
         return List.of(front);
     }

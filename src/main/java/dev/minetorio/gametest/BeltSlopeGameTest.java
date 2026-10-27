@@ -93,6 +93,84 @@ public class BeltSlopeGameTest {
         });
     }
 
+    /** Down 4 ramps: 5 flat at y 5, ramps at y 4..1, 1 flat; 36..38 items by tick 101 like flat belts. */
+    @GameTest(template = "empty16", timeoutTicks = 140)
+    public static void descendingRampThroughputIsFull(GameTestHelper h) {
+        Item yellow = ModItems.TRANSPORT_BELT.get();
+        for (int x = 1; x <= 10; x++) place(h, yellow, new BlockPos(x, descY(x), 2), Direction.EAST);
+        for (int x = 6; x <= 9; x++) assertSlope(h, new BlockPos(x, descY(x), 2), BeltBlock.Slope.DESCENDING);
+        assertSlope(h, new BlockPos(5, 5, 2), BeltBlock.Slope.FLAT);
+        assertSlope(h, new BlockPos(10, 1, 2), BeltBlock.Slope.FLAT);
+        BlockPos chest = new BlockPos(11, 1, 2);
+        h.setBlock(chest, Blocks.CHEST);
+        for (int x = 1; x <= 10; x++) {
+            BlockPos b = new BlockPos(x, descY(x), 2);
+            for (double p = 0; p < 1; p += 0.25) h.assertTrue(belt(h, b).lane(LaneSide.RIGHT).insertAt(PLATE, p), "fill");
+        }
+        h.runAtTickTime(101, () -> {
+            int n = count(h, chest, ModItems.IRON_PLATE.get());
+            h.assertTrue(n >= 36 && n <= 38, "delivered " + n + " by tick 101, expected 36..38");
+            h.succeed();
+        });
+    }
+
+    private static int descY(int x) {
+        return x <= 5 ? 5 : Math.max(1, 10 - x);
+    }
+
+    /** A belt feeding a chest with a same-facing belt on top of the chest stays flat and fills the chest. */
+    @GameTest(template = "empty16")
+    public static void chestInFrontBlocksAscendingRamp(GameTestHelper h) {
+        Item yellow = ModItems.TRANSPORT_BELT.get();
+        BlockPos feeder = new BlockPos(1, 1, 3);
+        BlockPos chest = new BlockPos(2, 1, 3);
+        h.setBlock(chest, Blocks.CHEST);
+        place(h, yellow, new BlockPos(2, 2, 3), Direction.EAST); // on top of the chest
+        place(h, yellow, feeder, Direction.EAST);
+        assertSlope(h, feeder, BeltBlock.Slope.FLAT);
+        belt(h, feeder).lane(LaneSide.LEFT).insertAt(PLATE, 0);
+        belt(h, feeder).lane(LaneSide.RIGHT).insertAt(PLATE, 0);
+        h.succeedWhen(() -> h.assertTrue(count(h, chest, ModItems.IRON_PLATE.get()) == 2, "chest has " + count(h, chest, ModItems.IRON_PLATE.get())));
+    }
+
+    /** Another line's first belt under the chest a belt feeds does not become a descending ramp stealing its input. */
+    @GameTest(template = "empty16")
+    public static void beltUnderChestDoesNotStealInput(GameTestHelper h) {
+        Item yellow = ModItems.TRANSPORT_BELT.get();
+        BlockPos feeder = new BlockPos(1, 2, 3);
+        BlockPos chest = new BlockPos(2, 2, 3);
+        BlockPos under = new BlockPos(2, 1, 3);
+        place(h, yellow, feeder, Direction.EAST);
+        place(h, yellow, under, Direction.EAST);
+        h.setBlock(chest, Blocks.CHEST);
+        assertSlope(h, under, BeltBlock.Slope.FLAT);
+        belt(h, feeder).lane(LaneSide.LEFT).insertAt(PLATE, 0);
+        belt(h, feeder).lane(LaneSide.RIGHT).insertAt(PLATE, 0);
+        h.succeedWhen(() -> {
+            h.assertTrue(count(h, chest, ModItems.IRON_PLATE.get()) == 2, "chest has " + count(h, chest, ModItems.IRON_PLATE.get()));
+            h.assertTrue(belt(h, under).lane(LaneSide.LEFT).isEmpty() && belt(h, under).lane(LaneSide.RIGHT).isEmpty(), "stolen");
+        });
+    }
+
+    /**
+     * Stacked lines whose ends are offset stay flat (the lower line's last belt does not climb into
+     * the upper line, its first belt does not descend from it); a plain block under the upper belt
+     * still lets a ramp form (a belt climbing a terrain step).
+     */
+    @GameTest(template = "empty16")
+    public static void offsetStackedLinesStayFlat(GameTestHelper h) {
+        Item yellow = ModItems.TRANSPORT_BELT.get();
+        for (int x = 1; x <= 6; x++) place(h, yellow, new BlockPos(x, 2, 3), Direction.EAST);
+        for (int x = 2; x <= 4; x++) place(h, yellow, new BlockPos(x, 1, 3), Direction.EAST);
+        for (int x = 1; x <= 6; x++) assertSlope(h, new BlockPos(x, 2, 3), BeltBlock.Slope.FLAT);
+        for (int x = 2; x <= 4; x++) assertSlope(h, new BlockPos(x, 1, 3), BeltBlock.Slope.FLAT);
+        place(h, yellow, new BlockPos(1, 1, 8), Direction.EAST);
+        h.setBlock(new BlockPos(2, 1, 8), Blocks.STONE);
+        place(h, yellow, new BlockPos(2, 2, 8), Direction.EAST);
+        assertSlope(h, new BlockPos(1, 1, 8), BeltBlock.Slope.ASCENDING);
+        h.succeed();
+    }
+
     @GameTest(template = "empty16")
     public static void rampFlattensWhenUpperBeltRemoved(GameTestHelper h) {
         stair(h, ModItems.TRANSPORT_BELT.get(), 2, 1, 2, 1, 3);

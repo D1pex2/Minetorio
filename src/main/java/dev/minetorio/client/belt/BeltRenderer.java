@@ -12,6 +12,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
 
 /** Draws the items on a belt's two lanes (±0.25 from the center line), following curves and ramps. */
 public class BeltRenderer implements BlockEntityRenderer<BeltBlockEntity> {
@@ -39,5 +40,12 @@ public class BeltRenderer implements BlockEntityRenderer<BeltBlockEntity> {
                         light, seed);
             }
         }
+    }
+
+    /** Items on a ramp rise up to the top of the cell and a bit above (the next belt's plate is 2 px higher). */
+    @Override
+    public AABB getRenderBoundingBox(BeltBlockEntity be) {
+        AABB box = new AABB(be.getBlockPos());
+        return be.slope() == BeltSlope.FLAT ? box : box.expandTowards(0, 1, 0);
     }
 }

@@ -39,9 +39,9 @@ public final class BeltGeometry {
      *       a belt seen from its side: its near lane at mid-length — side-loading; underground
      *       entrance; splitter input). A descending ramp there is not entered: its entry edge is
      *       one block higher;</li>
+     *   <li>otherwise, on the server, a block with an {@code IItemHandler} there (e.g. a chest);</li>
      *   <li>otherwise, unless leaving an ascending ramp, a descending ramp one block lower facing
      *       {@code travel} (its entry edge is level with this exit);</li>
-     *   <li>otherwise, on the server, a block with an {@code IItemHandler} (e.g. a chest);</li>
      *   <li>otherwise null: the item waits at the end of its lane.</li>
      * </ul>
      * The returned sink receives the overflow past the sender's lane end.
@@ -55,18 +55,21 @@ public final class BeltGeometry {
             if (node instanceof BeltBlockEntity b && b.slope() == BeltSlope.DESCENDING) return null;
             return node.incoming(q, travel, side);
         }
+        // the server decides what containers accept; a container in front wins over a ramp below it
+        IItemHandler handler = level.isClientSide() ? null
+                : level.getCapability(Capabilities.ItemHandler.BLOCK, q, travel.getOpposite());
+        if (handler != null) {
+            return (item, overflow) -> {
+                ItemStack stack = LaneStacks.stack(item, level.registryAccess());
+                return !stack.isEmpty() && ItemHandlerHelper.insertItem(handler, stack, false).isEmpty();
+            };
+        }
         if (slope != BeltSlope.ASCENDING && level.isLoaded(q.below())
                 && BeltTicker.of(level).at(q.below()) instanceof BeltBlockEntity b
                 && b.slope() == BeltSlope.DESCENDING && b.facing() == travel) {
             return b.incoming(q.below(), travel, side);
         }
-        if (level.isClientSide()) return null; // the server decides what containers accept
-        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, q, travel.getOpposite());
-        if (handler == null) return null;
-        return (item, overflow) -> {
-            ItemStack stack = LaneStacks.stack(item, level.registryAccess());
-            return !stack.isEmpty() && ItemHandlerHelper.insertItem(handler, stack, false).isEmpty();
-        };
+        return null;
     }
 
     /** A sink that resolves {@link #sinkTo} only when an item actually reaches the lane end. */
@@ -132,6 +135,12 @@ public final class BeltGeometry {
         BlockState state = controllerState(level, pos);
         return state.getBlock() instanceof BeltBlock || state.getBlock() instanceof UndergroundBeltBlock
                 || state.getBlock() instanceof SplitterBlock;
+    }
+
+    /** Whether the cell at {@code pos} is open: no collision shape and no block entity (air, grass, ...). */
+    public static boolean isOpen(BlockGetter level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return !state.hasBlockEntity() && state.getCollisionShape(level, pos).isEmpty();
     }
 
     private static BlockState controllerState(BlockGetter level, BlockPos pos) {

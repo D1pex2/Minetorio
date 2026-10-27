@@ -152,13 +152,16 @@ public class BeltBlock extends BaseEntityBlock {
      * <ul>
      *   <li>DESCENDING when nothing at this level feeds it from behind, the cell behind and one up
      *       outputs into the cell above this belt (a flat or descending belt, an underground exit,
-     *       a splitter, facing the same way), and that cell holds no belt-like block of its own.
-     *       A descending ramp is always straight;</li>
+     *       a splitter, facing the same way), and that cell, through which the ramp rises, is open:
+     *       no collision shape and no block entity (a belt-like block, a chest the upper belt feeds,
+     *       a machine). A descending ramp is always straight;</li>
      *   <li>otherwise the shape follows the inputs at this level, an ascending ramp behind and one
      *       down counting as the back input ({@link BeltShape#of});</li>
-     *   <li>ASCENDING when straight, the cell in front holds no belt-like block (else this belt
-     *       feeds that one) and the cell in front and one up holds a belt facing the same way that
-     *       is not itself descending.</li>
+     *   <li>ASCENDING when straight, the cell in front holds no block entity (else this belt feeds
+     *       that belt, chest or machine; a plain block such as terrain under the upper belt is
+     *       fine: the ramp does not pass through it), the cell above holds no belt-like block (a
+     *       belt line stacked on this one) and the cell in front and one up holds a belt facing the
+     *       same way that is not itself descending.</li>
      * </ul>
      * Ramp neighbours sit diagonally (vanilla shape updates do not reach them), so placing or
      * removing a belt refreshes the belts around it one level up and down ({@link #refreshRamps}).
@@ -169,13 +172,14 @@ public class BeltBlock extends BaseEntityBlock {
         BlockPos front = pos.relative(f);
         boolean sameLevelBack = BeltGeometry.outputsInto(level, behind, f);
         boolean fedFromAbove = !sameLevelBack && BeltGeometry.outputsInto(level, behind.above(), f)
-                && !BeltGeometry.isBeltLike(level, pos.above());
+                && BeltGeometry.isOpen(level, pos.above());
         boolean back = sameLevelBack || BeltGeometry.rampsInto(level, behind.below(), f);
         boolean left = BeltGeometry.outputsInto(level, pos.relative(f.getCounterClockWise()), f.getClockWise());
         boolean right = BeltGeometry.outputsInto(level, pos.relative(f.getClockWise()), f.getCounterClockWise());
         BeltShape shape = fedFromAbove ? BeltShape.STRAIGHT : BeltShape.of(back, left, right);
         BlockState upper = level.getBlockState(front.above());
-        boolean feedsUpward = !BeltGeometry.isBeltLike(level, front) && upper.getBlock() instanceof BeltBlock
+        boolean feedsUpward = !level.getBlockState(front).hasBlockEntity() && !BeltGeometry.isBeltLike(level, pos.above())
+                && upper.getBlock() instanceof BeltBlock
                 && upper.getValue(FACING) == f && upper.getValue(SLOPE) != Slope.DESCENDING;
         BeltSlope slope = BeltSlope.of(fedFromAbove, feedsUpward, shape == BeltShape.STRAIGHT);
         return state.setValue(SHAPE, Shape.of(shape)).setValue(SLOPE, Slope.of(slope));
@@ -196,6 +200,7 @@ public class BeltBlock extends BaseEntityBlock {
         for (Direction d : Direction.Plane.HORIZONTAL) {
             for (int dy = -1; dy <= 1; dy += 2) {
                 BlockPos p = pos.offset(d.getStepX(), dy, d.getStepZ());
+                if (!level.isLoaded(p)) continue;
                 BlockState s = level.getBlockState(p);
                 if (!(s.getBlock() instanceof BeltBlock)) continue;
                 BlockState n = withShape(level, p, s);
