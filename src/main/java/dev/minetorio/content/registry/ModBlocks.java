@@ -10,6 +10,7 @@ import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlock;
 import dev.minetorio.content.machine.ElectricDrillBlock;
 import dev.minetorio.content.machine.StoneFurnaceBlock;
+import dev.minetorio.content.map.RadarBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.power.BoilerBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
@@ -49,6 +50,9 @@ public final class ModBlocks {
 
     // Research
     public static final DeferredBlock<LabBlock> LAB = BLOCKS.registerBlock("lab", LabBlock::new, machine(MapColor.METAL));
+
+    // Map
+    public static final DeferredBlock<RadarBlock> RADAR = BLOCKS.registerBlock("radar", RadarBlock::new, machine(MapColor.METAL));
 
     // Mining drills
     public static final DeferredBlock<BurnerDrillBlock> BURNER_MINING_DRILL = BLOCKS.registerBlock("burner_mining_drill",

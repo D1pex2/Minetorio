@@ -6,6 +6,7 @@ import dev.minetorio.content.demo.DemoSavedData;
 import dev.minetorio.content.deposit.Deposits;
 import dev.minetorio.content.power.PowerGridManager;
 import dev.minetorio.content.handcraft.HandcraftTicker;
+import dev.minetorio.content.map.WorldMap;
 import dev.minetorio.content.registry.ModAttachments;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.registry.ModBlocks;
@@ -37,6 +38,7 @@ public class Minetorio {
         ResearchSavedData.register();
         HandcraftTicker.register();
         DemoSavedData.register();
+        WorldMap.register();
         DemoCommand.register();
     }
 }

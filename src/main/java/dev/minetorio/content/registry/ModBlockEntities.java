@@ -9,6 +9,7 @@ import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.ElectricDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
+import dev.minetorio.content.map.RadarBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
@@ -41,6 +42,10 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<LabBlockEntity>> LAB =
             BLOCK_ENTITIES.register("lab", () -> BlockEntityType.Builder
                     .of(LabBlockEntity::new, ModBlocks.LAB.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RadarBlockEntity>> RADAR =
+            BLOCK_ENTITIES.register("radar", () -> BlockEntityType.Builder
+                    .of(RadarBlockEntity::new, ModBlocks.RADAR.get()).build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BeltBlockEntity>> TRANSPORT_BELT =
             BLOCK_ENTITIES.register("transport_belt", () -> BlockEntityType.Builder

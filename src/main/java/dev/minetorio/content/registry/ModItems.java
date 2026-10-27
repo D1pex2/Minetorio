@@ -34,6 +34,7 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_1 = multiblock(ModBlocks.ASSEMBLING_MACHINE_1);
     public static final DeferredItem<BlockItem> ASSEMBLING_MACHINE_2 = multiblock(ModBlocks.ASSEMBLING_MACHINE_2);
     public static final DeferredItem<BlockItem> LAB = multiblock(ModBlocks.LAB);
+    public static final DeferredItem<BlockItem> RADAR = multiblock(ModBlocks.RADAR);
 
     // Tools
     public static final DeferredItem<ScannerItem> SCANNER = ITEMS.registerItem("scanner", ScannerItem::new, new Item.Properties().stacksTo(1));
@@ -67,6 +68,7 @@ public final class ModItems {
             "iron_ore", "copper_ore", "iron_plate", "copper_plate", "stone_brick", "iron_gear_wheel", "copper_cable",
             "electronic_circuit", "automation_science_pack", "logistic_science_pack",
             "stone_furnace", "burner_mining_drill", "electric_mining_drill", "assembling_machine_1", "assembling_machine_2", "lab",
+            "radar",
             "scanner",
             "transport_belt", "fast_transport_belt", "express_transport_belt",
             "underground_belt", "fast_underground_belt", "express_underground_belt",

@@ -42,6 +42,18 @@ class Phase1DataTest {
         assertEquals(4_500L, Units.kw(90));
     }
 
+    /** Factorio 1.1 radar: 5 circuits, 5 gears, 10 iron plates, 0.5 s; craftable from the start. */
+    @Test
+    void radarRecipeIsFactorioAndUnlockedAtStart() {
+        Recipe radar = book.get("radar").orElseThrow();
+        assertEquals(java.util.List.of(new dev.minetorio.core.recipe.Ingredient("minetorio:electronic_circuit", 5),
+                new dev.minetorio.core.recipe.Ingredient("minetorio:iron_gear_wheel", 5),
+                new dev.minetorio.core.recipe.Ingredient("minetorio:iron_plate", 10)), radar.inputs());
+        assertEquals(java.util.List.of(new dev.minetorio.core.recipe.Ingredient("minetorio:radar", 1)), radar.outputs());
+        assertEquals(10, radar.ticks());
+        assertTrue(Phase1Data.startRecipes().contains("radar"));
+    }
+
     @Test void assemblerLockedAtStart() { assertFalse(Phase1Data.startRecipes().contains("assembling_machine_1")); }
 
     @Test

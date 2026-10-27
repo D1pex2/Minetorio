@@ -182,5 +182,19 @@
   "minetorio.demo.failed": "Не удалось построить демо: %s",
   "minetorio.demo.off": "Демо выключено: бесконечные сундуки, подача на ленты и автовыбор исследований остановлены; убрано демо-залежей: %s.",
   "minetorio.demo.chest.source": "Демо-источник",
-  "minetorio.demo.chest.sink": "Демо-сток"
+  "minetorio.demo.chest.sink": "Демо-сток",
+  "block.minetorio.radar": "Радар",
+  "key.minetorio.map": "Карта",
+  "key.minetorio.minimap": "Показать/скрыть миникарту",
+  "key.minetorio.minimap_zoom_in": "Миникарта: приблизить",
+  "key.minetorio.minimap_zoom_out": "Миникарта: отдалить",
+  "minetorio.map.title": "Карта",
+  "minetorio.map.unavailable": "Карта доступна только в обычном мире",
+  "minetorio.map.coords": "X %s, Z %s",
+  "minetorio.map.unexplored": "Не исследовано",
+  "minetorio.map.help": "Тащите мышью · колесо — масштаб · %s — закрыть",
+  "minetorio.radar.no_power": "Радар: нет питания",
+  "minetorio.radar.scanning": "Радар: открыто чанков: %s, следующий через %s с",
+  "minetorio.radar.done": "Радар: открыто чанков: %s, вся зона разведки открыта",
+  "minetorio.radar.wrong_dimension": "Радар: работает только в обычном мире"
 }

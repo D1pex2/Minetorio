@@ -337,6 +337,10 @@ COMPOSITES = [
     # LabRenderer.java: body and dome (glowing or idle) at the center, the dome turning.
     *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
       for d in ("lab_dome", "lab_dome_idle")],
+    # RadarRenderer.java: base at the center, the dish one block up turning about the vertical center axis.
+    ("radar", [("base", M("radar_base"), [[]]),
+               ("dish", M("radar_dish"), [[("y", a, (8, 0, 8)), ("t", (0, 16, 0), None)] if a else [("t", (0, 16, 0), None)]
+                                          for a in SPIN], Y)]),
     # SteamMachineRenderer.java: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
     # SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x
