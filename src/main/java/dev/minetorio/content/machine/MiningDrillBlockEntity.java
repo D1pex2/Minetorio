@@ -1,13 +1,12 @@
 package dev.minetorio.content.machine;
 
-import dev.minetorio.content.deposit.Deposits;
-import dev.minetorio.content.deposit.ScannerItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.core.Units;
-import dev.minetorio.core.deposit.Deposit;
-import java.util.Optional;
+import dev.minetorio.core.orefield.MiningOrder;
+import dev.minetorio.core.orefield.OreType;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,15 +25,17 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Shared state and logic of the mining drills (controller block entity).
  *
- * <p><b>Mining.</b> The drill mines the deposit under its mining area ({@link #areaSize()} square,
- * centered on the machine; see {@link Deposits#depositUnder}). The deposit is looked up once and
- * cached (reset on load, when a neighbor changes and when deposits are placed or removed, see
- * {@link Deposits#generation}), never per tick. While the output buffer is
- * empty and the deposit has ore left, each tick adds {@code rate / 20 × satisfaction} to the
- * progress (satisfaction from {@link #energy()}); at 1 one ore is taken from the ledger and goes
- * into the {@link DrillOutput} buffer, which pushes it into the cell in front of the drill
- * ({@link #outputPos()}). A blocked buffer, a missing or depleted deposit stop the drill and its
- * energy draw.
+ * <p><b>Mining.</b> The drill stands on an ore field and mines the field blocks in the layer right
+ * below it, inside its mining area ({@link #areaSize()} square centered on the machine): it takes
+ * ore from its current block until that block is empty (and has turned into dirt), then moves on to
+ * the next field block, nearest to the center first ({@link MiningOrder}). The current block is kept
+ * between ticks; without one the area is searched again at most every {@value #RESCAN_TICKS} ticks
+ * (and right away after a neighbor change), so an idle drill costs next to nothing. While the output
+ * buffer is empty and there is a field block, each tick adds {@code rate / 20 × satisfaction} to the
+ * progress (satisfaction from {@link #energy()}); at 1 one ore is taken from the block
+ * ({@link OreFields#mineOne}) and goes into the {@link DrillOutput} buffer, which pushes it into the
+ * cell in front of the drill ({@link #outputPos()}). A blocked buffer or no field block under the
+ * area stop the drill and its energy draw.
  *
  * <p><b>Client sync.</b> Only {@link #isWorking()} (mined with energy this tick) is synced, and
  * only when it changes; the client spins the drill head while it is set.
@@ -47,16 +48,18 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     private static final double DONE = 1 - 1e-9;
     /** Drill head spin while working, degrees per tick (client). */
     private static final float HEAD_DEGREES_PER_TICK = 12f;
+    /** Ticks between searches of the mining area while the drill has no field block. */
+    public static final int RESCAN_TICKS = 20;
 
     private final DrillOutput output = new DrillOutput();
     private double progress;
 
+    /** The field block being mined (server side, not saved: found again after loading). */
     @Nullable
-    private Deposit deposit;
-    private boolean depositKnown;
-    /** {@link Deposits#generation} the cached deposit was looked up in. */
-    private int depositGeneration;
-    /** Whether the drill could mine this tick if it had energy (buffer empty, ore left). */
+    private BlockPos target;
+    /** Ticks until the next search while {@link #target} is null. */
+    private int rescanIn;
+    /** Whether the drill could mine this tick if it had energy (buffer empty, a field block under it). */
     private boolean active;
     private boolean working;
 
@@ -89,7 +92,7 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     /** Mining with energy this tick (synced to the client). */
     public boolean isWorking() { return working; }
 
-    /** Whether the drill can mine right now (buffer empty, ore left), regardless of energy. */
+    /** Whether the drill can mine right now (buffer empty, a field block under it), regardless of energy. */
     protected boolean isActive() { return active; }
 
     public double progress() { return progress; }
@@ -116,27 +119,43 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
         };
     }
 
-    /** The deposit under the mining area (server side), looked up once and cached. */
+    /** Height of the layer the drill mines: the blocks it stands on. */
+    public int fieldY() { return worldPosition.getY() - 1; }
+
+    /** The field block being mined (server side), if any. */
     @Nullable
-    public Deposit deposit() {
-        if (level instanceof ServerLevel server) {
-            Deposits deposits = Deposits.get(server);
-            if (depositKnown && depositGeneration != deposits.generation()) invalidateDeposit();
-            if (!depositKnown) {
-                int[] a = miningArea();
-                Optional<Deposit> d = deposits.depositUnder(a[0], a[1], a[2], a[3]);
-                deposit = d.orElse(null);
-                depositKnown = true;
-                depositGeneration = deposits.generation();
-            }
-        }
-        return deposit;
+    public BlockPos target() { return target; }
+
+    /** Forgets the current field block; the next tick searches the area again. */
+    public void invalidateTarget() {
+        target = null;
+        rescanIn = 0;
     }
 
-    /** Forgets the cached deposit; the next tick looks it up again. */
-    public void invalidateDeposit() {
-        depositKnown = false;
-        deposit = null;
+    /** The first field block of the area in {@link MiningOrder}, or null. */
+    @Nullable
+    private BlockPos findTarget(Level level) {
+        int[] a = miningArea();
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int[] c : MiningOrder.nearestFirst(a[0], a[1], a[2], a[3])) {
+            if (OreFields.typeOf(level.getBlockState(p.set(c[0], fieldY(), c[1]))) != null) return p.immutable();
+        }
+        return null;
+    }
+
+    /** The current field block, searched for again if it is gone (throttled while there is none). */
+    @Nullable
+    private BlockPos currentTarget(ServerLevel level) {
+        if (target != null && OreFields.typeOf(level.getBlockState(target)) == null) invalidateTarget();
+        if (target == null) {
+            if (rescanIn > 0) {
+                rescanIn--;
+                return null;
+            }
+            target = findTarget(level);
+            if (target == null) rescanIn = RESCAN_TICKS;
+        }
+        return target;
     }
 
     // --- ticking -----------------------------------------------------------------------------------
@@ -154,16 +173,16 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     private void tickServer(ServerLevel level) {
         Direction from = facing().getOpposite(); // the side of the output cell the drill faces
         if (output.push(level, outputPos(), from)) setChanged();
-        Deposits deposits = Deposits.get(level);
-        Deposit d = deposit();
-        active = output.isEmpty() && d != null && deposits.remaining(d) > 0;
+        BlockPos t = output.isEmpty() ? currentTarget(level) : null;
+        active = t != null;
         double satisfaction = active ? energy() : 0;
         if (satisfaction > 0) {
             progress += miningRate() / Units.TICKS_PER_SECOND * satisfaction;
             if (progress >= DONE) {
                 progress = Math.max(0, progress - 1);
-                if (deposits.mine(d, 1) == 1) {
-                    output.hold(d.type().item());
+                OreType type = OreFields.mineOne(level, t);
+                if (type != null) {
+                    output.hold(type.item());
                     output.push(level, outputPos(), from);
                 }
             }
@@ -178,16 +197,26 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
         level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
     }
 
-    /** Status line for the action bar (right-click with an empty hand). */
+    /** Status line for the action bar (right-click with an empty hand): what is mined and how much ore the area has left. */
     public Component status() {
         if (!(level instanceof ServerLevel server)) return Component.empty();
-        Deposit d = deposit();
-        if (d == null) return Component.translatable("minetorio.drill.no_deposit");
-        long left = Deposits.get(server).remaining(d);
-        if (left == 0) return Component.translatable("minetorio.drill.depleted");
+        BlockPos t = target != null && OreFields.typeOf(server.getBlockState(target)) != null ? target : findTarget(server);
+        if (t == null) return Component.translatable("minetorio.drill.no_ore");
         if (!output.isEmpty()) return Component.translatable("minetorio.drill.blocked");
         if (!working) return Component.translatable(noEnergyKey());
-        return Component.translatable("minetorio.drill.mining", ScannerItem.oreName(d.type()), ScannerItem.amount(left));
+        OreType type = OreFields.typeOf(server.getBlockState(t));
+        return Component.translatable("minetorio.drill.mining", OreFields.oreName(type), OreFields.formatAmount(areaRemaining(server)));
+    }
+
+    /** Ore left in all field blocks under the mining area. */
+    public long areaRemaining(Level level) {
+        int[] a = miningArea();
+        long sum = 0;
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int x = a[0]; x <= a[2]; x++) {
+            for (int z = a[1]; z <= a[3]; z++) sum += OreFields.remaining(level, p.set(x, fieldY(), z));
+        }
+        return sum;
     }
 
     // --- drops -------------------------------------------------------------------------------------
@@ -214,7 +243,7 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
         if (tag.contains(KEY_PROGRESS)) progress = tag.getDouble(KEY_PROGRESS);
         if (tag.contains(KEY_OUTPUT)) output.load(tag.getCompound(KEY_OUTPUT));
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
-        invalidateDeposit();
+        invalidateTarget();
     }
 
     /** Only the working flag (see class doc). */

@@ -104,7 +104,6 @@ public final class Phase1Data {
         r.add(craft("small_electric_pole", "1 minecraft:stick, 2 copper_cable", 2, 0.5));
         r.add(craft("automation_science_pack", "1 copper_plate, 1 iron_gear_wheel", 1, 5));
         r.add(craft("logistic_science_pack", "1 inserter, 1 transport_belt", 1, 6));
-        r.add(craft("scanner", "5 electronic_circuit, 10 iron_plate, 5 copper_cable", 1, 2));
         return new RecipeBook(r);
     }
 

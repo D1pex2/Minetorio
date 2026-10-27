@@ -4,16 +4,15 @@ import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.LaneSide;
 import dev.minetorio.content.demo.DemoBuilder;
 import dev.minetorio.content.demo.DemoSavedData;
-import dev.minetorio.content.deposit.Deposits;
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.ElectricDrillBlockEntity;
+import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.content.research.LabBlockEntity;
 import dev.minetorio.content.research.ResearchSavedData;
-import dev.minetorio.core.deposit.Deposit;
-import dev.minetorio.core.deposit.PlacedDeposits;
+import dev.minetorio.core.orefield.OreType;
 import dev.minetorio.core.research.ResearchState;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +29,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.AABB;
@@ -43,7 +44,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * The demo showcase. 96×96 does not fit a test template, so the test runs {@code /minetorio demo}
  * for a spot {@value #OFFSET} blocks east of its own (empty) template, on the template's floor
  * level, force-loads the showcase's chunks while it runs and checks the showcase there. It changes
- * the world's research and adds a placed deposit and demo data, so it runs in its own batch and
+ * the world's research and adds demo ore fields and demo data, so it runs in its own batch and
  * puts all of that back afterwards.
  */
 @GameTestHolder("minetorio")
@@ -60,9 +61,6 @@ public class DemoGameTest {
         ResearchSavedData.get(level.getServer()).restore(Set.of(), null, Map.of());
         if (origin == null) return;
         DemoBuilder.Layout layout = DemoBuilder.layout(origin);
-        Deposits.get(level).depositAt(layout.depositCenter().getX(), layout.depositCenter().getZ())
-                .filter(d -> d.id() <= PlacedDeposits.FIRST_ID)
-                .ifPresent(d -> Deposits.removePlacedDeposit(level, d));
         for (ChunkPos c : chunks(layout.area())) level.setChunkForced(c.x, c.z, false);
         origin = null;
     }
@@ -133,9 +131,9 @@ public class DemoGameTest {
                 "minetorio demo " + feet.getX() + " " + feet.getY() + " " + feet.getZ(), server.createCommandSourceStack().withSuppressedOutput());
         h.assertTrue(result == 1, "command returned " + result);
         h.assertTrue(level.getEntitiesOfClass(Animal.class, AABB.of(layout.area())).isEmpty(), "animals left in the area");
-        Deposit deposit = Deposits.get(level).depositAt(layout.depositCenter().getX(), layout.depositCenter().getZ()).orElse(null);
-        h.assertTrue(deposit != null && deposit.id() <= PlacedDeposits.FIRST_ID && deposit.initialAmount() == DemoBuilder.DEPOSIT_AMOUNT,
-                "no demo deposit: " + deposit);
+        h.assertTrue(OreFields.typeOf(level.getBlockState(layout.ironField())) == OreType.IRON, "no iron field: " + level.getBlockState(layout.ironField()));
+        h.assertTrue(OreFields.remaining(level, layout.ironField()) == DemoBuilder.FIELD_AMOUNT, "iron field amount " + OreFields.remaining(level, layout.ironField()));
+        h.assertTrue(OreFields.typeOf(level.getBlockState(layout.coalField())) == OreType.COAL, "no coal field: " + level.getBlockState(layout.coalField()));
         ResearchState state = research.state();
         h.assertTrue(state.current().map(t -> t.id().equals("automation")).orElse(false), "research " + state.current());
 
@@ -171,7 +169,9 @@ public class DemoGameTest {
             }
             h.assertTrue(plates <= DemoBuilder.OUTPUT_KEEP, "output chest not trimmed: " + plates);
 
-            // demo off: no entries, no autopilot, no placed deposit
+            h.assertTrue(count(level, layout.coalField().offset(1, 1, -1), Items.COAL) > 0, "coal drill mined nothing");
+
+            // demo off: no entries, no autopilot, the fields turned into dirt
             try {
                 server.getCommands().getDispatcher().execute("minetorio demo off", server.createCommandSourceStack().withSuppressedOutput());
             } catch (Exception e) {
@@ -179,8 +179,9 @@ public class DemoGameTest {
             }
             DemoSavedData data = DemoSavedData.getIfPresent(server);
             h.assertTrue(data == null || data.isEmpty(), "demo data left after off");
-            h.assertFalse(Deposits.get(level).depositAt(layout.depositCenter().getX(), layout.depositCenter().getZ())
-                    .map(d -> d.id() <= PlacedDeposits.FIRST_ID).orElse(false), "placed deposit left after off");
+            for (BlockPos f : List.of(layout.ironField(), layout.coalField(), layout.ironField().offset(-7, 0, -4))) {
+                h.assertTrue(level.getBlockState(f).is(Blocks.DIRT), "field left after off at " + f.subtract(o));
+            }
             h.succeed();
         });
     }

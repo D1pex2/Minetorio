@@ -1,0 +1,38 @@
+{
+  "variants": {
+    "depleted=false": [
+      {
+        "model": "minetorio:block/iron_ore_field"
+      },
+      {
+        "model": "minetorio:block/iron_ore_field",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/iron_ore_field",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/iron_ore_field",
+        "y": 270
+      }
+    ],
+    "depleted=true": [
+      {
+        "model": "minetorio:block/iron_ore_field_depleted"
+      },
+      {
+        "model": "minetorio:block/iron_ore_field_depleted",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/iron_ore_field_depleted",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/iron_ore_field_depleted",
+        "y": 270
+      }
+    ]
+  }
+}

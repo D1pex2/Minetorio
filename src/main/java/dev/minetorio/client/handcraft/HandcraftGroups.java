@@ -51,7 +51,6 @@ public final class HandcraftGroups {
             Map.entry("offshore_pump", Group.PRODUCTION),
             Map.entry("boiler", Group.PRODUCTION),
             Map.entry("steam_engine", Group.PRODUCTION),
-            Map.entry("scanner", Group.PRODUCTION),
             Map.entry("iron_gear_wheel", Group.INTERMEDIATES),
             Map.entry("copper_cable", Group.INTERMEDIATES),
             Map.entry("electronic_circuit", Group.INTERMEDIATES),

@@ -1208,9 +1208,9 @@ for pre, tier in TIER_COLOR.items():
     j = {"parent": "minetorio:block/" + pre + "splitter", "display": display_for(tmpl.elements, hand_boost=1.2)}
     save_item(pre + "splitter", j)
 
-# flat icons for materials and the scanner
+# flat icons for materials
 for n in ("iron_ore", "copper_ore", "iron_plate", "copper_plate", "stone_brick", "iron_gear_wheel", "copper_cable",
-          "electronic_circuit", "automation_science_pack", "logistic_science_pack", "scanner"):
+          "electronic_circuit", "automation_science_pack", "logistic_science_pack"):
     item_flat(n)
 
 print(len(written), "models")

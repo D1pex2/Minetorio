@@ -1,7 +1,6 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
-import dev.minetorio.content.deposit.ScannerItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import java.util.List;
@@ -36,9 +35,6 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> LAB = multiblock(ModBlocks.LAB);
     public static final DeferredItem<BlockItem> RADAR = multiblock(ModBlocks.RADAR);
 
-    // Tools
-    public static final DeferredItem<ScannerItem> SCANNER = ITEMS.registerItem("scanner", ScannerItem::new, new Item.Properties().stacksTo(1));
-
     // Belts (express_* have no recipe: creative tab only)
     public static final DeferredItem<BlockItem> TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.TRANSPORT_BELT);
     public static final DeferredItem<BlockItem> FAST_TRANSPORT_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_TRANSPORT_BELT);
@@ -69,7 +65,6 @@ public final class ModItems {
             "electronic_circuit", "automation_science_pack", "logistic_science_pack",
             "stone_furnace", "burner_mining_drill", "electric_mining_drill", "assembling_machine_1", "assembling_machine_2", "lab",
             "radar",
-            "scanner",
             "transport_belt", "fast_transport_belt", "express_transport_belt",
             "underground_belt", "fast_underground_belt", "express_underground_belt",
             "splitter", "fast_splitter", "express_splitter",
