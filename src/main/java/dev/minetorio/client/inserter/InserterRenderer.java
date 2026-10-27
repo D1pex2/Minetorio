@@ -22,24 +22,36 @@ import net.minecraft.world.phys.AABB;
 import org.joml.Vector3f;
 
 /**
- * Draws an inserter's arm: a shoulder on top of the base, an upper arm rising to the elbow and a
- * forearm down to the hand, all in the vertical plane of the arm's heading. The hand is a tier
- * colored block with two gripper fingers hanging from it. The heading turns 180° about the base
- * through the inserter's right side as {@code armProgress} goes 0 (hand over the pickup block) → 1
- * (over the drop block). The held item hangs under the hand.
+ * Draws an inserter's arm, Factorio style: a dark shoulder joint on the base's pivot, a tier coloured
+ * upper arm rising to a dark elbow joint and a tier coloured forearm down to the hand, a small dark
+ * block with two claw fingers hanging from it, all in the vertical plane of the arm's heading.
+ * Long-handed arms reach twice as far with proportionally longer segments and a higher elbow. The
+ * heading turns 180° about the base through the inserter's right side as {@code armProgress} goes
+ * 0 (hand over the pickup block) → 1 (over the drop block). The held item hangs under the claw.
  */
 public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity> {
     private static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
-    private static final float SHOULDER_Y = 5f / 16;
-    private static final float ELBOW_RISE = 0.45f;
-    private static final float HAND_RISE = 0.12f;
+    private static final float SHOULDER_Y = 5.5f / 16;
+    /** Elbow height over the shoulder: a base plus a share per block of reach (long arms stand taller). */
+    private static final float ELBOW_RISE = 0.34f;
+    private static final float ELBOW_RISE_PER_REACH = 0.14f;
+    /** Horizontal elbow distance from the center as a fraction of the hand's. */
+    private static final float ELBOW_AT = 0.45f;
+    private static final float HAND_RISE = 0.14f;
     /** Horizontal hand distance from the inserter's center, per block of reach. */
     private static final float HAND_REACH = 0.85f;
+    /** Half thicknesses (blocks) of the shoulder joint, upper arm, elbow joint, forearm and hand. */
+    private static final float SHOULDER_HALF = 0.065f;
+    private static final float UPPER_HALF = 0.042f;
+    private static final float ELBOW_HALF = 0.055f;
+    private static final float FORE_HALF = 0.032f;
+    private static final float HAND_HALF = 0.055f;
     private static final int MAX_CACHED_STACKS = 64;
-    /** Gripper fingers: sideways offsets from the hand center, length and color. */
-    private static final float[] FINGER_OFFSETS = {-0.05f, 0.05f};
-    private static final float FINGER_LENGTH = 0.09f;
-    private static final int FINGER_COLOR = 0xFF505458;
+    private static final int JOINT_COLOR = 0xFF3A3D41;
+    /** Claw fingers: sideways offsets from the hand center, length and color. */
+    private static final float[] FINGER_OFFSETS = {-0.04f, 0.04f};
+    private static final float FINGER_LENGTH = 0.1f;
+    private static final int FINGER_COLOR = 0xFFB4B8BC;
 
     private final ItemRenderer items;
     /** Reused per finger (renderers run on the render thread only). */
@@ -56,13 +68,13 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
         items = ctx.getItemRenderer();
     }
 
-    /** Tier color of the hand (matches the base plate). */
+    /** Tier color of the arm segments. */
     static int tierColor(InserterType type) {
         return switch (type) {
-            case BURNER -> 0xFF8A5A2B;
+            case BURNER -> 0xFF6B5A48;
             case BASIC -> 0xFFE8B820;
-            case LONG -> 0xFFC03030;
-            case FAST -> 0xFF3070D0;
+            case LONG -> 0xFFC83A30;
+            case FAST -> 0xFF3A78D8;
         };
     }
 
@@ -84,20 +96,23 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
         float[] h = heading(be.facing(), be.renderArm(partialTick));
         float radius = HAND_REACH * type.reach;
         Vector3f shoulder = new Vector3f(0.5f, SHOULDER_Y, 0.5f);
-        Vector3f elbow = new Vector3f(0.5f + h[0] * radius * 0.45f, SHOULDER_Y + ELBOW_RISE, 0.5f + h[1] * radius * 0.45f);
+        Vector3f elbow = new Vector3f(0.5f + h[0] * radius * ELBOW_AT, SHOULDER_Y + ELBOW_RISE + ELBOW_RISE_PER_REACH * type.reach,
+                0.5f + h[1] * radius * ELBOW_AT);
         Vector3f hand = new Vector3f(0.5f + h[0] * radius, SHOULDER_Y + HAND_RISE, 0.5f + h[1] * radius);
         Vector3f side = new Vector3f(-h[1], 0, h[0]);
 
         VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(ARM_TEXTURE));
         PoseStack.Pose p = pose.last();
-        int metal = 0xFFE8E8E8;
-        box(vc, p, shoulder, elbow, side, 0.05f, metal, light);
-        box(vc, p, elbow, hand, side, 0.04f, metal, light);
-        box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.02f, 0), side, 0.07f, tierColor(type), light);
+        int tier = tierColor(type);
+        box(vc, p, shoulder, new Vector3f(shoulder).add(0, 0.1f, 0), side, SHOULDER_HALF, JOINT_COLOR, light);
+        box(vc, p, new Vector3f(shoulder).add(0, 0.05f, 0), elbow, side, UPPER_HALF, tier, light);
+        box(vc, p, new Vector3f(elbow).sub(0, 0.055f, 0), new Vector3f(elbow).add(0, 0.055f, 0), side, ELBOW_HALF, JOINT_COLOR, light);
+        box(vc, p, elbow, new Vector3f(hand).add(0, 0.03f, 0), side, FORE_HALF, tier, light);
+        box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.03f, 0), side, HAND_HALF, JOINT_COLOR, light);
         for (float offset : FINGER_OFFSETS) {
             fingerTop.set(side).mul(offset).add(hand).sub(0, 0.06f, 0);
             fingerTip.set(fingerTop).sub(0, FINGER_LENGTH, 0);
-            box(vc, p, fingerTop, fingerTip, side, 0.015f, FINGER_COLOR, light);
+            box(vc, p, fingerTop, fingerTip, side, 0.014f, FINGER_COLOR, light);
         }
 
         String held = be.logic().held();
@@ -106,7 +121,7 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
             ItemStack stack = stacks.computeIfAbsent(held, k -> LaneStacks.stack(k, level.registryAccess()));
             if (!stack.isEmpty()) {
                 pose.pushPose();
-                pose.translate(hand.x, hand.y - 0.22f, hand.z);
+                pose.translate(hand.x, hand.y - 0.26f, hand.z);
                 pose.scale(0.6f, 0.6f, 0.6f);
                 items.renderStatic(stack, ItemDisplayContext.GROUND, light, OverlayTexture.NO_OVERLAY, pose, buffers, level,
                         (int) be.getBlockPos().asLong());

@@ -12,7 +12,7 @@ import net.minecraft.core.Direction;
 public record MultiblockShape(int width, int depth, int height) {
     public static final MultiblockShape STONE_FURNACE = new MultiblockShape(2, 2, 2);
     public static final MultiblockShape BURNER_MINING_DRILL = new MultiblockShape(2, 2, 2);
-    public static final MultiblockShape ELECTRIC_MINING_DRILL = new MultiblockShape(3, 3, 2);
+    public static final MultiblockShape ELECTRIC_MINING_DRILL = new MultiblockShape(3, 3, 3);
     /** assembling_machine_1 and assembling_machine_2. */
     public static final MultiblockShape ASSEMBLING_MACHINE = new MultiblockShape(3, 3, 2);
     public static final MultiblockShape LAB = new MultiblockShape(3, 3, 2);

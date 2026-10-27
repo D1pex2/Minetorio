@@ -163,14 +163,101 @@ class Model:
         L = radius + tooth
         x_bars = [0, 22.5, -22.5, 45, -45][: max(1, bars - 3)]
         z_bars = [0, 22.5, -22.5][: max(0, bars - 5)]
-        for ang in x_bars:
+        # each bar is EPS thinner than the previous: crossing bars never share a cap plane
+        for i, ang in enumerate(x_bars):
             kw = {"rot": ("y", ang, [cx, y0, cz])} if ang else {}
-            self.box([cx - L, y0 + 0.5, cz - width / 2], [cx + L, y1 - 0.5, cz + width / 2], tex_teeth,
+            e = 0.5 + EPS * i
+            self.box([cx - L, y0 + e, cz - width / 2], [cx + L, y1 - e, cz + width / 2], tex_teeth,
                      split=False, **kw)
-        for ang in z_bars:
+        for i, ang in enumerate(z_bars, len(x_bars)):
             kw = {"rot": ("y", ang, [cx, y0, cz])} if ang else {}
-            self.box([cx - width / 2, y0 + 0.5, cz - L], [cx + width / 2, y1 - 0.5, cz + L], tex_teeth,
+            e = 0.5 + EPS * i
+            self.box([cx - width / 2, y0 + e, cz - L], [cx + width / 2, y1 - e, cz + L], tex_teeth,
                      split=False, **kw)
+        return self
+
+    # 16-gon parts. Step k (0..15) is a box built at a quarter turn q and turned by a residual angle of
+    # -22.5, 0, 22.5 or 45 degrees (the angles a model element allows), so the 16 boxes cover every
+    # 22.5 degree step whatever the sign convention. Neighbouring steps overlap at their corners, so odd
+    # steps are EPS thinner along the axis and their caps never share a plane with the even ones.
+    @staticmethod
+    def _step(k):
+        q, r = divmod(k + 1, 4)
+        return q % 4, (r - 1) * 22.5
+
+    @staticmethod
+    def _quarter(q, a, b):
+        """(a, b) offsets from the axis turned by q quarter turns."""
+        for _ in range(q):
+            a, b = -b, a
+        return a, b
+
+    def _poly(self, axis, c1, c2, r0, r1, w, s0, s1, tex, k, rot_origin):
+        """Box between radii r0..r1, w wide, s0..s1 along the axis, in 16-gon step k. Plane coords (c1, c2):
+        axis y -> (x, z), axis x -> (y, z)."""
+        q, res = self._step(k)
+        # corners of the step-0 box (offset toward -c2) turned by q
+        pts = [self._quarter(q, a, b) for a in (-w / 2, w / 2) for b in (-r1, -r0)]
+        a0, a1 = min(p[0] for p in pts), max(p[0] for p in pts)
+        b0, b1 = min(p[1] for p in pts), max(p[1] for p in pts)
+        kw = {"rot": (axis, res, rot_origin)} if res else {}
+        if axis == "y":
+            self.box([c1 + a0, s0, c2 + b0], [c1 + a1, s1, c2 + b1], tex, split=False, **kw)
+        else:
+            self.box([s0, c1 + a0, c2 + b0], [s1, c1 + a1, c2 + b1], tex, split=False, **kw)
+
+    def ring_y(self, cx, cz, R, t, y0, y1, tex, steps=range(16)):
+        """Flat 16-gon ring about a vertical axis: outer radius R, wall t, y0..y1."""
+        L = 2 * R * math.tan(math.pi / 16)
+        for k in steps:
+            e = EPS * (k % 2)
+            self._poly("y", cx, cz, R - t, R, L, y0 + e, y1 - e, tex, k, [cx, y0, cz])
+        return self
+
+    def ring_x(self, cy, cz, R, t, x0, x1, tex):
+        """Upright 16-gon ring about an axis along x through (cy, cz): outer radius R, wall t, x0..x1."""
+        L = 2 * R * math.tan(math.pi / 16)
+        for k in range(16):
+            e = EPS * (k % 2)
+            self._poly("x", cy, cz, R - t, R, L, x0 + e, x1 - e, tex, k, [x0, cy, cz])
+        return self
+
+    def teeth_y(self, cx, cz, r0, r1, w, y0, y1, tex):
+        """16 gear teeth (radial boxes) about a vertical axis."""
+        for k in range(16):
+            self._poly("y", cx, cz, r0, r1, w, y0, y1, tex, k, [cx, y0, cz])
+        return self
+
+    def spokes_y(self, cx, cz, r, w, y0, y1, tex):
+        """8 spokes about a vertical axis: four bars through the axis, each EPS thinner than the last."""
+        for i, (long_x, ang) in enumerate(((True, 0), (False, 0), (True, 45), (True, -45))):
+            kw = {"rot": ("y", ang, [cx, y0, cz])} if ang else {}
+            e = EPS * i
+            if long_x:
+                self.box([cx - r, y0 + e, cz - w / 2], [cx + r, y1 - e, cz + w / 2], tex, split=False, **kw)
+            else:
+                self.box([cx - w / 2, y0 + e, cz - r], [cx + w / 2, y1 - e, cz + r], tex, split=False, **kw)
+        return self
+
+    def spokes_x(self, cy, cz, r, w, x0, x1, tex):
+        """8 spokes in the y-z plane about an axis along x."""
+        for i, (long_y, ang) in enumerate(((True, 0), (False, 0), (True, 45), (True, -45))):
+            kw = {"rot": ("x", ang, [x0, cy, cz])} if ang else {}
+            e = EPS * i
+            if long_y:
+                self.box([x0 + e, cy - r, cz - w / 2], [x1 - e, cy + r, cz + w / 2], tex, split=False, **kw)
+            else:
+                self.box([x0 + e, cy - w / 2, cz - r], [x1 - e, cy + w / 2, cz + r], tex, split=False, **kw)
+        return self
+
+    def chamfer(self, x0, z0, x1, z1, y0, y1, tex, c=4, **kw):
+        """Box with its four vertical edges bevelled by c: a cross of two boxes plus turned corner pieces
+        (EPS shorter each, so their caps don't share a plane)."""
+        self.box([x0, y0, z0 + c], [x1, y1, z1 - c], tex, **kw)
+        self.box([x0 + c, y0 + EPS, z0], [x1 - c, y1 - EPS, z1], tex, **kw)
+        s = c * math.sqrt(2)
+        for (x, z) in ((x0 + c, z0 + c), (x1 - c, z0 + c), (x0 + c, z1 - c), (x1 - c, z1 - c)):
+            self.cbox(x, z, s, s, y0 + 2 * EPS, y1 - 2 * EPS, tex, split=False, rot=("y", 45, [x, y0, z]), **kw)
         return self
 
     def flange_z(self, cx, cy, z0, z1, tex="flange", size=10):
@@ -325,120 +412,148 @@ def empty(name, particle):
 TIER_COLOR = {"": "tier_yellow", "fast_": "tier_red", "express_": "tier_blue"}
 
 # =====================================================================================
-# Assembling machines (3x3, body + spinning gear; footprint center at 8, 8)
+# Assembling machines (3x3, body + spinning gear; footprint center at 8, 8). Factorio look: a chunky
+# square housing with bevelled corners and pipe stubs, the roof a round opening in which a big
+# spoked gear with a cross arm turns while crafting.
 # =====================================================================================
+ASM_COLLAR_R = 24      # static ring around the opening (outer radius)
+ASM_GEAR_R = 19        # gear rim (outer radius); teeth reach 21.5, inside the collar's 22
 
 
-def assembler_body(accent):
-    m = Model({"frame": "dark_panel", "body": "assembler_panel", "top": "steel_panel", "accent": accent + "_panel",
-               "pillar": "dark_panel", "window": "window", "vent": "vent", "steel": "steel", "dark": "dark"},
-              "assembler_panel")
-    m.box([-16, 0, -16], [32, 3, 32], "frame")
-    m.box([-14, 3, -14], [30, 20, 30], {"north": "body", "south": "body", "east": "body", "west": "body",
-                                         "up": "top", "down": "frame"})
-    for x in (-16, 25):
-        for z in (-16, 25):
-            m.box([x, 3, z], [x + 7, 24, z + 7], "pillar")
-            m.box([x + 1, 24, z + 1], [x + 6, 25, z + 6], "accent")
-    # accent band under the roof (tier color) and the roof deck
-    m.box([-15, 20, -15], [31, 22, 31], "accent")
-    m.box([-13, 22, -13], [29, 23, 29], {f: "dark" for f in FACES})
-    # front: window + two side vents; back: vent row
-    m.box([1, 7, -15], [15, 18, -14], "window", fit=("north",), skip=("south",), split=False)
-    m.box([-10, 6, -15], [-2, 14, -14], "vent", fit=("north",), skip=("south",), split=False)
-    m.box([18, 6, -15], [26, 14, -14], "vent", fit=("north",), skip=("south",), split=False)
-    m.box([-6, 6, 30], [22, 14, 31], "vent", fit=("south",), skip=("north",))
-    # side hatches
-    for x0, x1, fc in ((-15, -14, "west"), (30, 31, "east")):
-        m.box([x0, 6, -2], [x1, 16, 18], "accent", only=(fc, "up", "down", "north", "south"))
+def assembler_body(tier):
+    house, trim = ("beige", "dark_panel") if tier == 1 else ("slate", "tier_blue_panel")
+    m = Model({"frame": "dark_panel", "body": house + "_panel", "vent": house + "_vent", "plain": house,
+               "trim": trim, "roof": "dark", "collar": house + "_panel", "window": "window",
+               "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"},
+              house + "_panel")
+    m.chamfer(-16, -16, 32, 32, 0, 2, "frame", c=6)
+    m.chamfer(-14, -14, 30, 30, 2, 18, {"north": "body", "south": "vent", "east": "body", "west": "body",
+                                        "up": "roof", "down": "frame"}, c=5)
+    # trim band under the roof edge (tier colour on tier 2), its top is the roof deck
+    m.chamfer(-14.5, -14.5, 30.5, 30.5, 18, 21, {"north": "trim", "south": "trim", "east": "trim", "west": "trim",
+                                                 "up": "roof", "down": "trim"}, c=5)
+    # the opening's collar
+    m.ring_y(8, 8, ASM_COLLAR_R, 2, 21, 23.5, "collar")
+    # front window, pipe stubs on the sides
+    m.box([1, 6, -14.5], [15, 16, -14], "window", fit=("north",), skip=("south",), split=False)
+    m.pipe_x(9, 8, -16, -14, size=6, skip=("west",))
+    m.flange_x(9, 8, -16, -15.5, size=9)
+    m.pipe_x(9, 8, 30, 32, size=6, skip=("east",))
+    m.flange_x(9, 8, 31.5, 32, size=9)
     return m
 
 
-def assembler_gear():
-    m = Model({"disc": "steel_panel", "teeth": "steel", "hub": "gear_hub", "shaft": "brass"}, "steel")
-    m.octagon_y(8, 8, 8, 23, 26, "shaft")
-    m.gear_y(8, 8, 14, 26, 29, "disc", "teeth", tooth=4, bars=8, width=4)
-    m.octagon_y(8, 8, 9, 29, 31, "hub")
-    for ang in (0, 45, -45):
-        kw = {"rot": ("y", ang, [8, 29, 8])} if ang else {}
-        m.box([-3, 29, 7], [19, 30, 9], "shaft", split=False, **kw)
-    m.box([7, 29, -3], [9, 30, 19], "shaft", split=False)
+def assembler_gear(tier):
+    hub = "brass" if tier == 1 else "tier_blue"
+    m = Model({"rim": "steel_panel", "teeth": "steel", "spoke": "steel", "hub": "gear_hub", "boss": hub,
+               "arm": "steel_panel", "weight": hub}, "steel")
+    m.ring_y(8, 8, ASM_GEAR_R, 2.5, 21.5, 24, "rim")
+    m.teeth_y(8, 8, ASM_GEAR_R - 0.5, ASM_GEAR_R + 2.5, 2.5, 21.75, 23.75, "teeth")
+    m.spokes_y(8, 8, ASM_GEAR_R - 1, 3.5, 21.75, 23.5, "spoke")
+    m.octagon_y(8, 8, 9, 21.5, 26, {"north": "boss", "south": "boss", "east": "boss", "west": "boss",
+                                    "up": "hub", "down": "boss"})
+    # the cross arm over the gear with weights at its ends
+    m.box([-8, 26, 6.5], [24, 27.5, 9.5], "arm", split=False)
+    for x in (-9, 25):
+        m.cbox(x, 8, 4, 5, 24.5, 28, "weight", split=False)
     return m
 
 
-gear = assembler_gear()
-save_block("assembling_machine_gear", gear)
-for tier, accent in ((1, "tier_yellow"), (2, "tier_blue")):
-    body = assembler_body(accent)
+for tier in (1, 2):
+    body = assembler_body(tier)
+    gear = assembler_gear(tier)
     save_block(f"assembling_machine_{tier}_body", body)
-    empty(f"assembling_machine_{tier}", "assembler_panel")
+    save_block(f"assembling_machine_{tier}_gear", gear)
+    empty(f"assembling_machine_{tier}", "beige_panel" if tier == 1 else "slate_panel")
     item_from(f"assembling_machine_{tier}", body, gear)
 
 # =====================================================================================
-# Electric mining drill (3x3, body + spinning head)
+# Electric mining drill (3x3, ~3 blocks tall). body: housing with side motors; head (spins): a big
+# cog on the deck and the drill shaft; tower: an A-frame derrick over the shaft, drawn one block up
+# (DrillRenderer), so its y = world y - 16.
 # =====================================================================================
-edb = Model({"frame": "dark_panel", "body": "steel_panel", "dark": "dark", "hazard": "hazard", "vent": "vent",
-             "accent": "tier_yellow_panel", "steel": "steel", "chute": "dark_panel"}, "steel_panel")
-edb.box([-16, 0, -16], [32, 3, 32], "frame")
-for x in (-16, 26):
-    for z in (-16, 26):
-        edb.box([x, 3, z], [x + 6, 8, z + 6], "accent")
-edb.box([-13, 3, -13], [29, 13, 29], {"north": "body", "south": "body", "east": "vent", "west": "vent",
-                                      "up": "body", "down": "frame"})
-edb.box([-13.5, 3, -14], [29.5, 5, -13], "hazard", only=("north", "up"))
-edb.box([-9, 13, -9], [25, 16, 25], "dark")
-edb.octagon_y(8, 8, 20, 16, 19, "steel")
+edb = Model({"frame": "dark_panel", "body": "steel_panel", "deck": "dark_panel", "hazard": "hazard", "vent": "vent",
+             "accent": "tier_yellow_panel", "steel": "steel", "chute": "dark_panel", "dark": "dark"}, "steel_panel")
+edb.chamfer(-16, -16, 32, 32, 0, 3, "frame", c=6)
+edb.chamfer(-13, -13, 29, 29, 3, 14, {"north": "body", "south": "body", "east": "body", "west": "body",
+                                      "up": "deck", "down": "frame"}, c=4)
+edb.chamfer(-13.5, -13.5, 29.5, 29.5, 11, 13.5, "accent", c=4)
+edb.box([-9, 3, -13.5], [25, 5, -13], "hazard", only=("north", "up", "east", "west"), split=False)
+edb.octagon_y(8, 8, 30, 14, 15, "steel")
 # output chute on the front edge
-edb.box([2, 4, -15.5], [14, 11, -13], "chute", split=False)
+edb.box([2, 4, -15.5], [14, 10.5, -13.5], "chute", split=False)
 edb.box([3, 4, -16], [13, 9, -15.5], "dark", only=("north",), split=False)
 # side motors
-for x0, x1 in ((-16, -13), (29, 32)):
-    edb.box([x0, 3, 0], [x1, 11, 16], "frame", split=False)
+for x0, x1, out in ((-16, -13.5, "west"), (29.5, 32, "east")):
+    edb.box([x0, 3, -1], [x1, 12, 17], {f: ("vent" if f == out else "frame") for f in FACES}, fit=(out,), split=False)
 save_block("electric_mining_drill_body", edb)
 
-edh = Model({"bit": "drill_bit", "arm": "steel", "tip": "tier_yellow", "hub": "gear_hub", "dark": "dark"}, "drill_bit")
-edh.octagon_y(8, 8, 9, 19, 30, "bit")
-# crossing arms: each EPS thinner than the previous so their tops and bottoms never share a plane
-for i, ang in enumerate((0, 45, -45)):
-    kw = {"rot": ("y", ang, [8, 22, 8])} if ang else {}
-    edh.box([-6, 22 + EPS * i, 6], [22, 25 - EPS * i, 10], "arm", split=False, **kw)
-edh.box([6, 22 + EPS * 3, -6], [10, 25 - EPS * 3, 22], "arm", split=False)
-for (x, z) in ((-7, 8), (23, 8), (8, -7), (8, 23)):
-    edh.cbox(x, z, 4 + 2 * EPS, 4 + 2 * EPS, 21, 26, "tip", split=False)   # proud of the arm sides
-edh.octagon_y(8, 8, 6, 30, 32, "hub")
+edh = Model({"disc": "steel_panel", "teeth": "dark", "bit": "drill_bit", "collar": "tier_yellow", "hub": "gear_hub"},
+            "drill_bit")
+edh.octagon_y(8, 8, 22, 15.25, 17.25, {"north": "disc", "south": "disc", "east": "disc", "west": "disc",
+                                       "up": "disc", "down": "disc"})
+edh.teeth_y(8, 8, 10.5, 14, 3, 15.5, 17, "teeth")
+edh.octagon_y(8, 8, 7, 17.25, 32, "bit")
+for y in (21, 27):
+    edh.octagon_y(8, 8, 10, y, y + 1.5, "collar")
 save_block("electric_mining_drill_head", edh)
+
+edt = Model({"leg": "tier_yellow_panel", "bar": "dark_panel", "beam": "dark_panel", "cap": "tier_yellow",
+             "casing": "dark", "pulley": "steel"}, "tier_yellow_panel")
+LEG_LEN, LEG_TILT = 30, 22.5
+for z0, z1 in ((-8, -5), (21, 24)):
+    for i, (xf, ang) in enumerate(((-5, -LEG_TILT), (21, LEG_TILT))):
+        e = EPS * i   # the second leg is EPS slimmer in z where the two cross at the top
+        edt.box([xf - 1.5, -2, z0 + e], [xf + 1.5, -2 + LEG_LEN, z1 - e], "leg", split=False,
+                rot=("z", ang, [xf, -2, (z0 + z1) / 2]))
+    # cross bar half way up
+    edt.box([-1, 11, z0 + 2 * EPS], [17, 12.5, z1 - 2 * EPS], "bar", split=False)
+# crown: a beam joining the two A-frames, a pulley and a cap
+edt.box([4.5, 25, -9], [11.5, 28, 25], "beam")
+edt.octagon_axis("x", 29.5, 8, 4, 6, 10, "pulley", split=False)
+# static casing of the upper shaft
+edt.octagon_y(8, 8, 8, 16, 25, "casing")
+save_block("electric_mining_drill_tower", edt)
 empty("electric_mining_drill", "steel_panel")
-item_from("electric_mining_drill", edb, edh)
+item_from("electric_mining_drill", edb, edh, edt, offsets=[(0, -16, 0), (0, -16, 0), (0, 0, 0)])
 
 # =====================================================================================
-# Burner mining drill (2x2 on the controller's blockstate; head drawn by the BER on the center)
-# footprint: x 0..32, z -16..16; front (output) = north
+# Burner mining drill (2x2 on the controller's blockstate; head and chimney drawn by the BER on the
+# center). footprint: x 0..32, z -16..16; front (output) = north. The chimney model is authored in
+# the center frame (8, 8) one block up (y = world y - 16).
 # =====================================================================================
 bmd = Model({"body": "rust_panel", "frame": "dark_panel", "dark": "dark", "mouth": "furnace_mouth",
-             "chute": "dark_panel", "steel": "steel"}, "rust_panel")
+             "chute": "dark_panel", "steel": "steel", "band": "dark_panel", "deck": "dark_panel"}, "rust_panel")
 bmd.box([0, 0, -16], [32, 3, 16], "frame")
-bmd.box([2, 3, -14], [30, 17, 14], "body")
-bmd.box([1, 3, -15], [6, 18, -10], "frame", split=False)
-bmd.box([26, 3, -15], [31, 18, -10], "frame", split=False)
-bmd.box([1, 3, 10], [6, 18, 15], "frame", split=False)
-bmd.box([26, 3, 10], [31, 18, 15], "frame", split=False)
-bmd.box([10, 4, 14], [22, 12, 15], "mouth", only=("south",), fit=("south",), split=False)
+bmd.box([2, 3, -14], [30, 24, 14], {"north": "body", "south": "body", "east": "body", "west": "body",
+                                    "up": "deck", "down": "frame"})
+for x0 in (1, 26):
+    for z0 in (-15, 10):
+        bmd.box([x0, 3, z0], [x0 + 5, 26, z0 + 5], "frame", split=False)
+bmd.box([1.5, 13, -14.5], [30.5, 15, 14.5], "band")
+bmd.box([10, 4, 14.5], [22, 12, 15], "mouth", only=("south",), fit=("south",), split=False)
 bmd.box([9, 3, 14], [23, 13, 15.5], "dark", skip=("south",), split=False)
 bmd.box([11, 4, -15.5], [21, 11, -14], "chute", split=False)
 bmd.box([12, 5, -16], [20, 9, -15.5], "dark", only=("north",), split=False)
-bmd.box([5, 17, -9], [27, 19, 9], "frame")
-# chimney
-bmd.octagon_y(24, 10, 5, 17, 31 + 2.5 * EPS, "dark")   # soot core stands proud of the steel collar
-bmd.octagon_y(24, 10, 7, 29, 31, "steel")
+bmd.box([6, 24, -10], [26, 25, 10], "steel")
 save_block("burner_mining_drill", bmd)
 
 bmh = Model({"disc": "steel", "teeth": "rust", "hub": "gear_hub", "bit": "drill_bit"}, "steel")
-bmh.octagon_y(8, 8, 6, 19, 22, "bit")
-bmh.gear_y(8, 8, 8, 22, 24, "disc", "teeth", tooth=3, bars=8, width=3)
-bmh.octagon_y(8, 8, 6, 24, 27, "hub")
+bmh.octagon_y(8, 8, 6, 25, 28, "bit")
+bmh.gear_y(8, 8, 6, 25.5, 27.5, "disc", "teeth", tooth=2.5, bars=8, width=3)
+bmh.octagon_y(8, 8, 5, 28, 31, "hub")
 save_block("burner_mining_drill_head", bmh)
-# item: body + head moved from the center model frame (8, 8) to the footprint center (16, 0)
-item_from("burner_mining_drill", bmd, bmh, offsets=[(0, 0, 0), (8, 0, -8)])
+
+bmc = Model({"base": "dark_panel", "pipe": "dark", "collar": "steel", "soot": "dark"}, "dark")
+CHIM_X, CHIM_Z = 18, 18   # = controller frame (26, 10)
+bmc.cbox(CHIM_X, CHIM_Z, 7, 7, 8, 11, "base", split=False)
+bmc.octagon_y(CHIM_X, CHIM_Z, 5, 11, 28 + 2.5 * EPS, "pipe")
+bmc.octagon_y(CHIM_X, CHIM_Z, 7, 25, 28, "collar")
+bmc.octagon_y(CHIM_X, CHIM_Z, 6, 17, 18.5, "collar")
+save_block("burner_mining_drill_chimney", bmc)
+# item: body + head and chimney moved from the center frame (8, 8) to the footprint center (16, 0),
+# everything 13 px down so the chimney stays inside -16..32
+item_from("burner_mining_drill", bmd, bmh, bmc, offsets=[(0, -13, 0), (8, -13, -8), (8, 3, -8)])
 
 # =====================================================================================
 # Stone furnace (2x2x2 on the controller's blockstate; x 0..32, z -16..16; mouth on the south side)
@@ -470,32 +585,40 @@ save_block("stone_furnace_lit", furnace(True))
 item_from("stone_furnace", fur)
 
 # =====================================================================================
-# Lab (3x3, body + dome that glows while researching)
+# Lab (3x3): low dark base, a tall glass column with red and green fluid bands on top. The column
+# (lab_dome) turns slowly and glows blue at full brightness while researching; idle it is dim glass.
 # =====================================================================================
-lb = Model({"frame": "dark_panel", "panel": "lab_panel", "deck": "steel_panel", "brass": "brass", "steel": "steel",
-            "red": "tier_red", "green": "tier_green", "dark": "dark"}, "lab_panel")
-lb.textures["green"] = "tier_green"
-lb.box([-15, 0, -15], [31, 3, 31], "frame")
-lb.cbox(8, 8, 36, 36, EPS, 3 - EPS, "frame", split=False, rot=("y", 45, [8, 0, 8]))
-lb.box([-11, 3, -11], [27, 13, 27], {"north": "panel", "south": "panel", "east": "panel", "west": "panel",
-                                     "up": "deck", "down": "frame"})
-lb.box([-9, 13, -9], [25, 15, 25], "steel")
-lb.octagon_y(8, 8, 22, 15, 17, "brass")
+lb = Model({"frame": "dark_panel", "panel": "lab_panel", "deck": "dark_panel", "brass": "brass", "steel": "steel",
+            "red": "tier_red", "green": "tier_green", "dark": "dark", "vent": "vent", "plinth": "steel_panel"},
+           "lab_panel")
+lb.chamfer(-16, -16, 32, 32, 0, 2, "frame", c=6)
+lb.chamfer(-13, -13, 29, 29, 2, 7, {"north": "panel", "south": "panel", "east": "panel", "west": "panel",
+                                    "up": "deck", "down": "frame"}, c=5)
+# plinth under the column
+lb.octagon_y(8, 8, 26, 7, 9, "plinth")
+lb.octagon_y(8, 8, 22, 9, 10, "brass")
+# small vents around the plinth
+for (x, z, w, d, fc) in ((8, -6.5, 8, 2, "north"), (8, 22.5, 8, 2, "south"), (-6.5, 8, 2, 8, "west"),
+                         (22.5, 8, 2, 8, "east")):
+    lb.cbox(x, z, w, d, 7, 10, {f: ("vent" if f == fc else "dark") for f in FACES}, fit=(fc,), split=False)
 # science pack holders on the corners
-for i, (x, z) in enumerate(((-13, -13), (29, -13), (-13, 29), (29, 29))):
-    lb.cbox(x, z, 6, 6, 3, 12, "frame", split=False)
-    lb.cbox(x, z, 4, 4, 12, 16, "red" if i % 2 == 0 else "green", split=False)
-    lb.cbox(x, z, 2, 2, 16, 17, "steel", split=False)
+for i, (x, z) in enumerate(((-9, -9), (25, -9), (-9, 25), (25, 25))):
+    lb.cbox(x, z, 5, 5, 7, 10, "frame", split=False)
+    lb.cbox(x, z, 3.5, 3.5, 10, 14, "red" if i % 2 == 0 else "green", split=False)
+    lb.cbox(x, z, 2, 2, 14, 15, "steel", split=False)
 save_block("lab_body", lb)
 
 
 def lab_dome(tex):
-    m = Model({"glass": tex, "brass": "brass"}, tex)
-    m.octagon_y(8, 8, 20, 17, 23, "glass")
-    m.octagon_y(8, 8, 14, 23, 27, "glass")
-    m.octagon_y(8, 8, 7, 27, 29, "glass")
-    m.octagon_y(8, 8, 21, 20, 21, "brass")
-    m.cbox(8, 8, 2, 2, 29, 31, "brass", split=False)
+    m = Model({"glass": tex, "brass": "brass", "red": "tier_red", "green": "tier_green", "cap": "steel_panel"}, tex)
+    m.octagon_y(8, 8, 18, 10, 15, "glass")
+    m.octagon_y(8, 8, 17, 15, 17.5, "red")
+    m.octagon_y(8, 8, 18, 17.5, 22, "glass")
+    m.octagon_y(8, 8, 17, 22, 24.5, "green")
+    m.octagon_y(8, 8, 18, 24.5, 28, "glass")
+    m.octagon_y(8, 8, 19, 28, 29, "brass")
+    m.octagon_y(8, 8, 12, 29, 31, "glass")
+    m.cbox(8, 8, 3, 3, 31, 32, "cap", split=False)
     return m
 
 
@@ -545,65 +668,73 @@ empty("boiler", "boiler_shell")
 item_from("boiler", bb)
 
 # =====================================================================================
-# Steam engine (3x5). body: one half, drawn twice (z -16..24 at dz -1 and +1.5 blocks); center:
-# cylinder and slide (once, at the center); piston: slides along z; flywheel: turns about the x axis
-# at y 16, z 8 (the renderer's pivot).
+# Steam engine (3x5, z along the 5-block length; footprint center at x 8, z 8, so the machine spans
+# z -32..48 in the center frame). Parts (SteamMachineRenderer.Engine):
+#   body:     one half of the bed (z -16..24), drawn at dz -1 block and again turned 180 degrees about
+#             the center, so its end (pipe port at z -16) lands on both ends of the machine;
+#   center:   the long cylinder, valve chest and crosshead guides, drawn at dz -0.5 (center frame z = model z - 8);
+#   piston:   rod and crosshead, at dz -0.5 plus the stroke;
+#   flywheel: spoked flywheel on the east side plus the crankshaft, turning about x through
+#             (y 17, z 8) of the model; drawn at dz +1.5 (pivot at center frame z 32).
 # =====================================================================================
 eb = Model({"frame": "dark_panel", "rail": "steel", "dark": "dark", "pipe_h": "pipe_h", "pipe_v": "pipe_v",
-            "pipe_end": "pipe_end", "flange": "flange", "plate": "steel_panel"}, "dark_panel")
+            "pipe_end": "pipe_end", "flange": "flange", "post": "dark_panel", "cap": "brass"}, "dark_panel")
 eb.box([-14, 0, -16], [30, 3, 24], "frame")
-eb.box([-12, 3, -16], [-8, 6, 24], "rail")
-eb.box([24, 3, -16], [28, 6, 24], "rail")
-eb.box([-8, 3, -14], [24, 4, 22], "plate")
-# steam pipe along the bed, flanged at both ends of the half
-eb.pipe_z(8, 8, -16, 24, skip=("north", "south"))
-eb.flange_z(8, 8, -16, -15)
-eb.flange_z(8, 8, 23, 24)
+eb.box([-15, 0, -14], [-14, 4, 22], "rail")
+eb.box([30, 0, -14], [31, 4, 22], "rail")
+# steam port at the end
+eb.pipe_z(8, 8, -16, -7, size=6, skip=("north",))
+eb.flange_z(8, 8, -16, -15.5, size=9)
+# bearing pedestals: carry the crankshaft (center frame z 32 = model z 0 of the turned half) on both sides
+for x0 in (-14, 26):
+    eb.box([x0, 3, -2], [x0 + 4, 19, 2], "post", split=False)
+    eb.box([x0 + 0.5, 19, -1.5], [x0 + 3.5, 20, 1.5], "cap", split=False)
 save_block("steam_engine_body", eb)
 
-ec = Model({"cyl": "cylinder", "brass": "brass", "dark": "dark", "steel": "steel", "plate": "dark_panel"},
-           "cylinder")
-# cylinder (front), valve chest, slide bars, crank bearing
-# the front ring stands EPS back from z -16 (the item model has the body's flange there) and the
-# cylinder sits behind the ring's face
-ec.octagon_axis("z", 14, 4, 14, -16 + 4 * EPS, 2, "cyl")
-ec.octagon_axis("z", 14, 4, 16, -16 + EPS, -14, "brass", split=False)
-ec.octagon_axis("z", 14, 4, 16, 1, 3, "brass", split=False)
-ec.box([-1, 21, -12], [9, 24, 0], "plate", split=False)
-ec.box([3, 24, -8], [5, 27, -6], "brass", split=False)
-for y0 in (10, 17):
-    ec.box([1, y0, 3], [7, y0 + 1, 12], "steel", split=False)
-ec.box([-2, 4, 1 + 2.5 * EPS], [10, 10, 14], "plate", split=False)   # behind the rear ring's face
-ec.box([18, 4, 3], [26, 13, 13], "plate", split=False)
-ec.box([19, 13, 5], [25, 19, 11], "dark", split=False)
+ec = Model({"cyl": "steel_panel", "band": "dark_panel", "plate": "dark_panel", "brass": "brass", "steel": "steel",
+            "dark": "dark"}, "steel_panel")
+# cylinder along z, center (x 8, y 15), 22 across; caps and a middle band
+ec.octagon_axis("z", 15, 8, 22, -15 + 2 * EPS, 18, "cyl")
+for z0, z1 in ((-16 + EPS, -13), (0, 2), (16, 18 + 2 * EPS)):
+    ec.octagon_axis("z", 15, 8, 24, z0, z1, "band", split=False)
+# saddles under it, valve chest and a valve on top
+for z0 in (-11, 10):
+    ec.box([-4, 3, z0], [20, 8, z0 + 4], "plate", split=False)
+ec.box([3, 25, -9], [13, 28.5, 9], "plate", split=False)
+ec.cbox(8, 0, 3, 3, 28.5, 31, "brass", split=False)
+ec.cbox(8, 0, 6, 1.5, 31, 32, "brass", split=False)
+# rod gland and crosshead guides (bars above and below the crosshead), on a stand
+ec.octagon_axis("z", 15, 8, 6, 18 + 2 * EPS, 20, "steel", split=False)
+for y0 in (9.5, 19.5):
+    ec.box([4, y0, 20], [12, y0 + 1.5, 32], "steel", split=False)
+ec.box([4.5, 3, 26], [11.5, 9.5, 30], "plate", split=False)
 save_block("steam_engine_center", ec)
 
 ep = Model({"rod": "steel", "head": "brass"}, "steel")
-ep.box([3, 13, 2], [5, 15, 9], "rod", split=False)
-ep.box([1.5, 11, 6], [6.5, 17, 10], "head", split=False)
+ep.box([7, 14, 12], [9, 16, 27], "rod", split=False)
+ep.box([5, 11.25, 25], [11, 18.75, 30], "head", split=False)
 save_block("steam_engine_piston", ep)
 
-ef = Model({"rim": "dark", "spoke": "steel", "hub": "gear_hub", "crank": "brass"}, "dark")
-# flywheel on the east side, axle along x through (y 16, z 8)
-R = 13
-# rim bars cross each other: each is EPS thinner (in x) than the previous so their sides never share a plane
-bars = [("y", a) for a in (0, 22.5, -22.5, 45, -45)] + [("z", a) for a in (0, 22.5, -22.5)]
-for i, (long_axis, ang) in enumerate(bars):
-    kw = {"rot": ("x", ang, [27, 16, 8])} if ang else {}
-    x0, x1 = 27 + EPS * i, 31 - EPS * i
-    if long_axis == "y":
-        ef.box([x0, 16 - R, 8 - 2.5], [x1, 16 + R, 8 + 2.5], "rim", split=False, **kw)
-    else:
-        ef.box([x0, 16 - 2.5, 8 - R], [x1, 16 + 2.5, 8 + R], "rim", split=False, **kw)
-# spoke plates stop short of the hub's outer face
-ef.box([26, 16 - 8, 8 - 8], [32 - EPS, 16 + 8, 8 + 8], "spoke", split=False)
-ef.box([26 + EPS, 16 - 6, 8 - 6], [32 - 2 * EPS, 16 + 6, 8 + 6], "spoke", split=False, rot=("x", 45, [27, 16, 8]))
-ef.box([25.5, 13, 5], [32, 19, 11], "hub", split=False)
-ef.box([9, 14.5, 6.5], [26, 17.5, 9.5], "spoke", split=False)
-ef.box([10, 14, 6], [13, 22, 10], "crank", split=False)
+ef = Model({"rim": "dark_panel", "spoke": "steel", "hub": "gear_hub", "shaft": "steel", "crank": "brass"}, "dark")
+FW_Y, FW_Z, FW_R = 17, 8, 13.5
+ef.ring_x(FW_Y, FW_Z, FW_R, 2.5, 21, 25, "rim")
+ef.spokes_x(FW_Y, FW_Z, FW_R - 1.5, 1.75, 22, 24, "spoke")
+ef.box([20.5, FW_Y - 3, FW_Z - 3], [25.5, FW_Y + 3, FW_Z + 3], "hub", split=False)
+# crankshaft through both pedestals, crank webs and pin at the middle (under the crosshead line)
+ef.octagon_axis("x", FW_Y, FW_Z, 3, -14.5, 20.5, "shaft", split=False)
+ef.octagon_axis("x", FW_Y, FW_Z, 3, 25.5, 30.5, "shaft", split=False)
+for x0 in (4.5, 10.5):
+    ef.box([x0, FW_Y - 6, FW_Z - 2], [x0 + 1, FW_Y + 2, FW_Z + 2], "crank", split=False)
+ef.octagon_axis("x", FW_Y - 4, FW_Z, 2.5, 5.5, 10.5, "shaft", split=False)
 save_block("steam_engine_flywheel", ef)
 empty("steam_engine", "dark_panel")
-item_from("steam_engine", eb, ec, ep, ef)
+
+# item: a shortened engine - bed, cylinder and piston as drawn, flywheel moved toward the cylinder
+eitem = Model(dict(eb.textures), "dark_panel")
+eitem.box([-14, 0, -16], [30, 3, 32], "frame")
+for x0 in (-14, 26):
+    eitem.box([x0, 3, 15], [x0 + 4, 19, 19], "post", split=False)
+item_from("steam_engine", eitem, ec, ep, ef, offsets=[(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 9)])
 
 # =====================================================================================
 # Offshore pump (1x2 on the controller's blockstate: x 0..16, z -16..16; water beyond z -16;
@@ -672,31 +803,40 @@ save_block("small_electric_pole", sp)
 item_parent("small_electric_pole", "small_electric_pole")
 
 # =====================================================================================
-# Inserters (static base; the arm is drawn by InserterRenderer)
+# Inserters: a round low base with a pivot (the arm - two tier-coloured segments, joints and a claw -
+# is drawn by InserterRenderer from the pivot top at y 5.5)
 # =====================================================================================
 ti = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark"}, "#housing")
 ti.parent = "minecraft:block/block"
-ti.box([1, 0, 1], [15, 2, 15], "plate", split=False, cull=("down",))
-ti.box([3, 2, 3], [13, 4, 13], "housing", split=False)
-ti.octagon_y(8, 8, 6, 4, 5, "steel")
-ti.box([6, 2, 0.5], [10, 3, 3], "dark", split=False)  # marker on the pickup side
-ti.box([12.5, 2, 6], [14, 3.5, 10], "dark", split=False)
+ti.octagon_y(8, 8, 14, 0, 1.5, "plate", cull=("down",))
+ti.octagon_y(8, 8, 11, 1.5, 3.5, "housing")
+ti.octagon_y(8, 8, 8, 3.5, 4.5, "dark")
+ti.octagon_y(8, 8, 5, 4.5, 5.5, "steel")
+ti.box([6.5, 1.5, 0.5], [9.5, 2.5, 2.5], "dark", split=False)  # marker on the pickup side
 ti.textures.pop("particle")
 ti.textures["particle"] = "#housing"
 save_block("template_inserter", ti)
-for name, housing in (("burner_inserter", "rust_panel"), ("inserter", "tier_yellow_panel"),
-                      ("long_handed_inserter", "tier_red_panel"), ("fast_inserter", "tier_blue_panel")):
-    save_item_model = Model({"housing": housing}, None, parent="minetorio:block/template_inserter")
-    save_block(name, save_item_model)
-    # item: base + a raised arm pose
-    im = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark", "housing": housing, "arm": "steel"}, housing)
+INSERTER_TIERS = (("burner_inserter", "rust_panel", "rust"), ("inserter", "tier_yellow_panel", "tier_yellow"),
+                  ("long_handed_inserter", "tier_red_panel", "tier_red"), ("fast_inserter", "tier_blue_panel", "tier_blue"))
+for name, housing, arm in INSERTER_TIERS:
+    save_block(name, Model({"housing": housing}, None, parent="minetorio:block/template_inserter"))
+    # item: base + the arm raised over the pickup side
+    long = name.startswith("long")
+    up, fore = (11, 13) if long else (9, 10)
+    im = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark", "housing": housing, "arm": arm,
+                "joint": "dark_panel"}, housing)
     im.elements = json.loads(json.dumps(ti.elements))
-    im.box([7, 5, 7], [9, 14, 9], "arm", split=False)
-    im.box([7 + EPS, 12, 3], [9 - EPS, 14, 9], "arm", split=False, rot=("x", -22.5, [8, 13, 8]))
-    im.box([6, 10, 2], [10, 12, 5], housing.replace("_panel", "") if "tier" in housing else "rust", split=False)
-    im.textures.setdefault("rust", "rust")
-    for t in ("tier_yellow", "tier_red", "tier_blue"):
-        im.textures.setdefault(t, t)
+    im.cbox(8, 8, 3, 3, 5.5, 7.5, "joint", split=False)
+    im.box([7, 6, 7], [9, 6 + up, 9], "arm", split=False, rot=("x", 22.5, [8, 6, 8]))
+    ey = 6 + up * math.cos(math.radians(22.5))
+    ez = 8 + up * math.sin(math.radians(22.5))
+    im.cbox(8, ez, 3, 3, ey - 1.5, ey + 1.5, "joint", split=False)
+    im.box([7.25, ey - 0.75, ez - fore], [8.75, ey + 0.75, ez], "arm", split=False, rot=("x", -22.5, [8, ey, ez]))
+    hy = ey - fore * math.sin(math.radians(22.5))
+    hz = ez - fore * math.cos(math.radians(22.5))
+    im.cbox(8, hz, 3, 3, hy - 2.5, hy, "joint", split=False)
+    for x0 in (6.75, 8.75):
+        im.box([x0, hy - 4.5, hz - 0.5], [x0 + 0.5, hy - 2.5, hz + 0.5], "steel", split=False)
     im.parent = "minecraft:block/block"
     save_item(name, im.json())
 

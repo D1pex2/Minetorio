@@ -146,6 +146,19 @@ for y in (5, 7, 9):
     rect(im, 5, y + 1, 10, y + 1, DARK[2])
 blocks["assembler_panel"] = im
 
+# assembler housings: greyish beige (tier 1) and blue-grey slate (tier 2), plain and with a vent
+BEIGE = P("#e6dfcf", "#cdc4ae", "#b3a98f", "#978d75", "#79705a", "#56503f")
+SLATE = P("#d4dce6", "#b2bdcb", "#93a1b3", "#778598", "#5a677a", "#3f4a5a")
+for n, pal, seed in (("beige", BEIGE, 80), ("slate", SLATE, 84)):
+    blocks[n] = noisy(pal, seed)
+    blocks[n + "_panel"] = panel(pal, seed + 1)
+    im = panel(pal, seed + 2, with_rivets=False)
+    rect(im, 3, 3, 12, 12, DARK[4])
+    for y in (4, 6, 8, 10):
+        rect(im, 4, y, 11, y, BLACK)
+        rect(im, 4, y + 1, 11, y + 1, DARK[2])
+    blocks[n + "_vent"] = im
+
 # lab panel: three science lights
 im = panel(STEEL, 14)
 rect(im, 3, 9, 12, 12, DARK[4])

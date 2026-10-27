@@ -6,7 +6,7 @@
     "particle": "minetorio:block/steel"
   },
   "elements": [
-    {"from": [3, 13, 2], "to": [5, 15, 9], "faces": {"north": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "south": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "east": {"uv": [4.5, 7, 11.5, 9], "texture": "#rod"}, "west": {"uv": [4.5, 7, 11.5, 9], "texture": "#rod"}, "up": {"uv": [7, 4.5, 9, 11.5], "texture": "#rod"}, "down": {"uv": [7, 4.5, 9, 11.5], "texture": "#rod"}}},
-    {"from": [1.5, 11, 6], "to": [6.5, 17, 10], "faces": {"north": {"uv": [5.5, 5, 10.5, 11], "texture": "#head"}, "south": {"uv": [5.5, 5, 10.5, 11], "texture": "#head"}, "east": {"uv": [6, 5, 10, 11], "texture": "#head"}, "west": {"uv": [6, 5, 10, 11], "texture": "#head"}, "up": {"uv": [5.5, 6, 10.5, 10], "texture": "#head"}, "down": {"uv": [5.5, 6, 10.5, 10], "texture": "#head"}}}
+    {"from": [7, 14, 12], "to": [9, 16, 27], "faces": {"north": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "south": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "east": {"uv": [0.5, 7, 15.5, 9], "texture": "#rod"}, "west": {"uv": [0.5, 7, 15.5, 9], "texture": "#rod"}, "up": {"uv": [7, 0.5, 9, 15.5], "texture": "#rod"}, "down": {"uv": [7, 0.5, 9, 15.5], "texture": "#rod"}}},
+    {"from": [5, 11.25, 25], "to": [11, 18.75, 30], "faces": {"north": {"uv": [5, 4.25, 11, 11.75], "texture": "#head"}, "south": {"uv": [5, 4.25, 11, 11.75], "texture": "#head"}, "east": {"uv": [5.5, 4.25, 10.5, 11.75], "texture": "#head"}, "west": {"uv": [5.5, 4.25, 10.5, 11.75], "texture": "#head"}, "up": {"uv": [5, 5.5, 11, 10.5], "texture": "#head"}, "down": {"uv": [5, 5.5, 11, 10.5], "texture": "#head"}}}
   ]
 }

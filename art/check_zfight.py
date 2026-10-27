@@ -263,20 +263,24 @@ def pairs(group_a, group_b, everything):
 
 
 def inserter_arm(reach, arm, facing_deg=0):
-    """Shoulder and upper arm boxes of InserterRenderer.render (client/inserter/InserterRenderer.java:84-94),
-    in model pixels, for facing north (heading toward the pickup = north at arm 0)."""
-    SHOULDER_Y, ELBOW_RISE, HAND_RISE, HAND_REACH = 5 / 16, 0.45, 0.12, 0.85
+    """Joint, arm and hand boxes of InserterRenderer.render (client/inserter/InserterRenderer.java:97-111, the
+    claw fingers left out), in model pixels, for facing north (heading toward the pickup = north at arm 0)."""
+    SHOULDER_Y, ELBOW_RISE, ELBOW_RISE_PER_REACH, ELBOW_AT, HAND_RISE, HAND_REACH = 5.5 / 16, 0.34, 0.14, 0.45, 0.14, 0.85
     a = math.pi * arm
     c, s = -math.cos(a), math.sin(a)
     h = (0 * c + 1 * s, -1 * c + 0 * s)   # facing north (0,-1), right = east (1,0)
     radius = HAND_REACH * reach
     shoulder = (0.5, SHOULDER_Y, 0.5)
-    elbow = (0.5 + h[0] * radius * 0.45, SHOULDER_Y + ELBOW_RISE, 0.5 + h[1] * radius * 0.45)
+    elbow = (0.5 + h[0] * radius * ELBOW_AT, SHOULDER_Y + ELBOW_RISE + ELBOW_RISE_PER_REACH * reach,
+             0.5 + h[1] * radius * ELBOW_AT)
     hand = (0.5 + h[0] * radius, SHOULDER_Y + HAND_RISE, 0.5 + h[1] * radius)
     side = (-h[1], 0, h[0])
     quads = []
-    for a0, b0, half in ((shoulder, elbow, 0.05), (elbow, hand, 0.04),
-                         (sub(hand, (0, 0.06, 0)), add(hand, (0, 0.02, 0)), 0.07)):
+    for a0, b0, half in ((shoulder, add(shoulder, (0, 0.1, 0)), 0.065),
+                         (add(shoulder, (0, 0.05, 0)), elbow, 0.042),
+                         (sub(elbow, (0, 0.055, 0)), add(elbow, (0, 0.055, 0)), 0.055),
+                         (elbow, add(hand, (0, 0.03, 0)), 0.032),
+                         (sub(hand, (0, 0.06, 0)), add(hand, (0, 0.03, 0)), 0.055)):
         u = norm(sub(b0, a0))
         sv = norm(side)
         vv = norm(cross(u, sv))
@@ -312,34 +316,41 @@ def M(name):
 # (others line up for a single frame at most).
 Y, X = (0, 1, 0), (1, 0, 0)
 COMPOSITES = [
-    # AssemblerRenderer.java:36-41: body and gear both at translate(-0.5, 0, -0.5) of the footprint center;
-    # the gear turns about the vertical center axis (line 39).
+    # AssemblerRenderer.java:35-43: the tier's body and gear both at translate(-0.5, 0, -0.5) of the footprint
+    # center; the gear turns about the vertical center axis (line 42).
     *[(f"assembling_machine_{t}", [("body", M(f"assembling_machine_{t}_body"), [[]]),
-                                   ("gear", M("assembling_machine_gear"), [spin_y(a) for a in SPIN], Y)])
+                                   ("gear", M(f"assembling_machine_{t}_gear"), [spin_y(a) for a in SPIN], Y)])
       for t in (1, 2)],
-    # DrillRenderer.java:44-50: electric body at the center, head turning about the vertical axis.
+    # DrillRenderer.java:47-63: electric body at the center, head turning about the vertical axis, the
+    # tower one block up (translate(-0.5, 1, -0.5)).
     ("electric_mining_drill", [("body", M("electric_mining_drill_body"), [[]]),
-                               ("head", M("electric_mining_drill_head"), [spin_y(a) for a in SPIN], Y)]),
-    # Burner drill: body on the controller's blockstate (x 0..32, z -16..16); DrillRenderer.java:41,49 puts
-    # the head at MachineRender.center (2x2, north: 1.0, 0.0 blocks) - 0.5 = (+8, 0, -8) px.
+                               ("head", M("electric_mining_drill_head"), [spin_y(a) for a in SPIN], Y),
+                               ("tower", M("electric_mining_drill_tower"), [[("t", (0, 16, 0), None)]])]),
+    # Burner drill: body on the controller's blockstate (x 0..32, z -16..16); DrillRenderer.java puts the
+    # head and the chimney at MachineRender.center (2x2, north: 1.0, 0.0 blocks) - 0.5 = (+8, 0, -8) px,
+    # the chimney one block up.
     ("burner_mining_drill", [("body", M("burner_mining_drill"), [[]]),
                              ("head", M("burner_mining_drill_head"),
                               [[("y", a, (8, 0, 8)), ("t", (8, 0, -8), None)] if a else [("t", (8, 0, -8), None)]
-                               for a in SPIN], Y)]),
+                               for a in SPIN], Y),
+                             ("chimney", M("burner_mining_drill_chimney"), [[("t", (8, 16, -8), None)]])]),
     # LabRenderer.java:37-43: body and dome (glowing or idle) at the center, the dome turning.
     *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
       for d in ("lab_dome", "lab_dome_idle")],
     # SteamMachineRenderer.java:73-74: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
-    # SteamMachineRenderer.java:91-100: body at dz FRONT_HALF (-1) and BACK_HALF (+1.5) blocks, center at 0,
-    # piston at dz +-PISTON_THROW (3 px) * sin, flywheel turning about x through y 16 px (FLYWHEEL_PIVOT_Y),
-    # z 8 px (the footprint center after translate(-0.5)).
+    # SteamMachineRenderer.java:96-109: body at dz FRONT_HALF (-1 block) and again turned 180 degrees about
+    # the footprint center (x = z = 8 px), center at dz CENTER (-0.5), piston at CENTER +- PISTON_THROW (3 px)
+    # * sin, flywheel at dz FLYWHEEL (+1.5) turning about x through its model's (y 17, z 8).
     ("steam_engine", [("body_front", M("steam_engine_body"), [[("t", (0, 0, -16), None)]]),
-                      ("body_back", M("steam_engine_body"), [[("t", (0, 0, 24), None)]]),
-                      ("center", M("steam_engine_center"), [[]]),
-                      ("piston", M("steam_engine_piston"), [[("t", (0, 0, dz), None)] for dz in (-3, -1.5, 0, 1.5, 3)]),
-                      ("flywheel", M("steam_engine_flywheel"), [[("x", a, (0, 16, 8))] if a else [] for a in SPIN], X)]),
-    # InserterRenderer.java:84-94: procedural arm over the template_inserter base (shoulder at y 5 px).
+                      ("body_back", M("steam_engine_body"), [[("t", (0, 0, -16), None), ("y", 180, (8, 0, 8))]]),
+                      ("center", M("steam_engine_center"), [[("t", (0, 0, -8), None)]]),
+                      ("piston", M("steam_engine_piston"),
+                       [[("t", (0, 0, -8 + dz), None)] for dz in (-3, -1.5, 0, 1.5, 3)]),
+                      ("flywheel", M("steam_engine_flywheel"),
+                       [[("x", a, (0, 17, 8)), ("t", (0, 0, 24), None)] if a else [("t", (0, 0, 24), None)]
+                        for a in SPIN], X)]),
+    # InserterRenderer.java:97-111: procedural arm over the template_inserter base (shoulder at y 5.5 px).
     *[(f"{n}+arm", [("base", M(n), [[]]),
                     ("arm", lambda r=r: [inserter_arm(r, arm) for arm in (0, 0.25, 0.5, 0.75, 1)], None)])
       for n, r in (("burner_inserter", 1), ("inserter", 1), ("long_handed_inserter", 2), ("fast_inserter", 1))],

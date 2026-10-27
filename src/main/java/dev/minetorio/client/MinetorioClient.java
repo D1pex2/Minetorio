@@ -33,9 +33,9 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.SPLITTER.get(), SplitterRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.INSERTER.get(), InserterRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.BURNER_MINING_DRILL.get(),
-                ctx -> new DrillRenderer(ctx, null, DrillRenderer.BURNER_HEAD));
+                ctx -> new DrillRenderer(ctx, null, DrillRenderer.BURNER_HEAD, DrillRenderer.BURNER_CHIMNEY));
         event.registerBlockEntityRenderer(ModBlockEntities.ELECTRIC_MINING_DRILL.get(),
-                ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC_BODY, DrillRenderer.ELECTRIC_HEAD));
+                ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC_BODY, DrillRenderer.ELECTRIC_HEAD, DrillRenderer.ELECTRIC_TOWER));
         event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
@@ -53,8 +53,10 @@ public final class MinetorioClient {
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
         event.register(DrillRenderer.BURNER_HEAD);
+        event.register(DrillRenderer.BURNER_CHIMNEY);
         event.register(DrillRenderer.ELECTRIC_BODY);
         event.register(DrillRenderer.ELECTRIC_HEAD);
+        event.register(DrillRenderer.ELECTRIC_TOWER);
         event.register(SteamMachineRenderer.BOILER_BODY);
         event.register(SteamMachineRenderer.BOILER_FIRE);
         event.register(SteamMachineRenderer.ENGINE_BODY);
@@ -63,7 +65,8 @@ public final class MinetorioClient {
         event.register(SteamMachineRenderer.ENGINE_PISTON);
         event.register(AssemblerRenderer.BODY_1);
         event.register(AssemblerRenderer.BODY_2);
-        event.register(AssemblerRenderer.GEAR);
+        event.register(AssemblerRenderer.GEAR_1);
+        event.register(AssemblerRenderer.GEAR_2);
         event.register(LabRenderer.BODY);
         event.register(LabRenderer.DOME);
         event.register(LabRenderer.DOME_IDLE);

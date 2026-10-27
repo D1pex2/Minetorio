@@ -297,18 +297,22 @@ class ModelZFightTest {
         return new Part(label, model, poses, axis == 'x' ? X : Y, null);
     }
 
-    /** Shoulder, upper arm and hand boxes of InserterRenderer.render (lines 84-94), in pixels, facing north. */
+    /** Joint, arm and hand boxes of InserterRenderer.render (lines 97-111, claw fingers left out), in pixels, facing north. */
     static Solid inserterArm(int reach, double arm) {
         double a = Math.PI * arm;
         double c = -Math.cos(a), s = Math.sin(a);
         double hx = s, hz = -c; // facing north (0, -1), right = east (1, 0)
-        double radius = 0.85 * reach, shoulderY = 5 / 16.0;
+        double radius = 0.85 * reach, shoulderY = 5.5 / 16.0;
         V shoulder = new V(0.5, shoulderY, 0.5);
-        V elbow = new V(0.5 + hx * radius * 0.45, shoulderY + 0.45, 0.5 + hz * radius * 0.45);
-        V hand = new V(0.5 + hx * radius, shoulderY + 0.12, 0.5 + hz * radius);
+        V elbow = new V(0.5 + hx * radius * 0.45, shoulderY + 0.34 + 0.14 * reach, 0.5 + hz * radius * 0.45);
+        V hand = new V(0.5 + hx * radius, shoulderY + 0.14, 0.5 + hz * radius);
         V side = new V(-hz, 0, hx);
         List<Face> quads = new ArrayList<>();
-        Object[][] boxes = {{shoulder, elbow, 0.05}, {elbow, hand, 0.04}, {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.02, 0)), 0.07}};
+        Object[][] boxes = {{shoulder, shoulder.add(new V(0, 0.1, 0)), 0.065},
+            {shoulder.add(new V(0, 0.05, 0)), elbow, 0.042},
+            {elbow.sub(new V(0, 0.055, 0)), elbow.add(new V(0, 0.055, 0)), 0.055},
+            {elbow, hand.add(new V(0, 0.03, 0)), 0.032},
+            {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.03, 0)), 0.055}};
         for (Object[] box : boxes) {
             V a0 = (V) box[0], b0 = (V) box[1];
             double half = (double) box[2];
@@ -335,31 +339,36 @@ class ModelZFightTest {
     static List<Composite> composites() {
         V center = new V(8, 0, 8);
         List<Composite> c = new ArrayList<>();
-        // AssemblerRenderer.java:36-41: body and gear at the center, the gear turning about the vertical axis.
+        // AssemblerRenderer.java:35-43: the tier's body and gear at the center, the gear turning about the vertical axis.
         for (int t = 1; t <= 2; t++) {
             c.add(new Composite("assembling_machine_" + t, List.of(Part.fixed("body", "assembling_machine_" + t + "_body"),
-                    spinning("gear", "assembling_machine_gear", 'y', center))));
+                    spinning("gear", "assembling_machine_" + t + "_gear", 'y', center))));
         }
-        // DrillRenderer.java:44-50: electric body and turning head at the center.
+        // DrillRenderer.java:47-63: electric body and turning head at the center, the tower one block up.
         c.add(new Composite("electric_mining_drill", List.of(Part.fixed("body", "electric_mining_drill_body"),
-                spinning("head", "electric_mining_drill_head", 'y', center))));
-        // Burner drill: body on the controller's blockstate; DrillRenderer.java:41,49 puts the head at (+8, 0, -8) px.
+                spinning("head", "electric_mining_drill_head", 'y', center),
+                Part.fixed("tower", "electric_mining_drill_tower", Tr.t(0, 16, 0)))));
+        // Burner drill: body on the controller's blockstate; DrillRenderer puts the head at (+8, 0, -8) px and the
+        // chimney one block above that.
         c.add(new Composite("burner_mining_drill", List.of(Part.fixed("body", "burner_mining_drill"),
-                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)))));
+                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)),
+                Part.fixed("chimney", "burner_mining_drill_chimney", Tr.t(8, 16, -8)))));
         // LabRenderer.java:37-43: body and turning dome (glowing or idle).
         for (String dome : List.of("lab_dome", "lab_dome_idle")) {
             c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), spinning("dome", dome, 'y', center))));
         }
         // SteamMachineRenderer.java:73-74: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
-        // SteamMachineRenderer.java:91-100: body at dz -1 and +1.5 blocks, center, piston +-3 px, flywheel about x at y 16, z 8.
+        // SteamMachineRenderer.java:96-109: body at dz -1 block and again turned 180 degrees about the center, center at
+        // dz -0.5, piston at -0.5 block +-3 px, flywheel at dz +1.5 turning about x through its model's (y 17, z 8).
         List<List<Tr>> piston = new ArrayList<>();
-        for (double dz : new double[] {-3, -1.5, 0, 1.5, 3}) piston.add(List.of(Tr.t(0, 0, dz)));
+        for (double dz : new double[] {-3, -1.5, 0, 1.5, 3}) piston.add(List.of(Tr.t(0, 0, -8 + dz)));
         c.add(new Composite("steam_engine", List.of(Part.fixed("body_front", "steam_engine_body", Tr.t(0, 0, -16)),
-                Part.fixed("body_back", "steam_engine_body", Tr.t(0, 0, 24)), Part.fixed("center", "steam_engine_center"),
+                Part.fixed("body_back", "steam_engine_body", Tr.t(0, 0, -16), Tr.r('y', 180, center)),
+                Part.fixed("center", "steam_engine_center", Tr.t(0, 0, -8)),
                 new Part("piston", "steam_engine_piston", piston, null, null),
-                spinning("flywheel", "steam_engine_flywheel", 'x', new V(0, 16, 8)))));
-        // InserterRenderer.java:84-94: procedural arm over the base.
+                spinning("flywheel", "steam_engine_flywheel", 'x', new V(0, 17, 8), Tr.t(0, 0, 24)))));
+        // InserterRenderer.java:97-111: procedural arm over the base.
         for (Object[] ins : new Object[][] {{"burner_inserter", 1}, {"inserter", 1}, {"long_handed_inserter", 2}, {"fast_inserter", 1}}) {
             int reach = (int) ins[1];
             Supplier<List<Solid>> arms = () -> Stream.of(0.0, 0.25, 0.5, 0.75, 1.0).map(a -> inserterArm(reach, a)).toList();
