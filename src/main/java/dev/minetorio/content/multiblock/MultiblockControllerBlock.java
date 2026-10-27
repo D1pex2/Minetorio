@@ -90,8 +90,9 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
 
     /**
      * Placement at {@code ctx.getClickedPos()} as the origin (a {@link MultiblockBlockItem} has
-     * already moved it there): null unless the origin is replaceable and every other footprint cell
-     * is replaceable and free of entities. The origin's collision with entities is checked by
+     * already moved it there): null unless every footprint cell is inside the build height and the
+     * world border, the origin is replaceable and every other cell is replaceable and free of
+     * entities. The origin's collision with entities is checked by
      * {@link net.minecraft.world.item.BlockItem#place}.
      */
     @Nullable
@@ -102,7 +103,7 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
         Direction facing = ctx.getHorizontalDirection();
         for (BlockPos p : footprint(origin, facing, shape())) {
             boolean free = p.equals(origin)
-                    ? !level.isOutsideBuildHeight(p) && level.getBlockState(p).canBeReplaced(ctx)
+                    ? !level.isOutsideBuildHeight(p) && level.getWorldBorder().isWithinBounds(p) && level.getBlockState(p).canBeReplaced(ctx)
                     : canOccupy(level, p);
             if (!free) return null;
         }
@@ -111,6 +112,7 @@ public abstract class MultiblockControllerBlock extends BaseEntityBlock {
 
     private static boolean canOccupy(Level level, BlockPos p) {
         return !level.isOutsideBuildHeight(p)
+                && level.getWorldBorder().isWithinBounds(p)
                 && level.getBlockState(p).canBeReplaced()
                 && level.isUnobstructed(null, Shapes.block().move(p.getX(), p.getY(), p.getZ()));
     }

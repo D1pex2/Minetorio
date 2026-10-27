@@ -31,12 +31,6 @@ public record MultiblockShape(int width, int depth, int height) {
     public int volume() { return width * depth * height; }
 
     /**
-     * All block positions occupied by the machine whose controller sits at {@code origin}.
-     * Orientation: width runs along {@code facing.getClockWise()} (to the right when looking in the
-     * facing direction), depth runs along {@code facing}, height runs up. The controller is the
-     * left-front-bottom corner, i.e. the origin itself, which is always the first element.
-     */
-    /**
      * Width index of the placement anchor (R26), the footprint cell that lands on the cell the player
      * targets: {@code (width - 1) / 2}, the middle column for odd widths and, for even widths, the
      * left one of the two middle columns (2 wide: the left column).
@@ -60,6 +54,12 @@ public record MultiblockShape(int width, int depth, int height) {
         return origin.relative(facing.getClockWise(), anchorWidth()).relative(facing, anchorDepth());
     }
 
+    /**
+     * All block positions occupied by the machine whose controller sits at {@code origin}.
+     * Orientation: width runs along {@code facing.getClockWise()} (to the right when looking in the
+     * facing direction), depth runs along {@code facing}, height runs up. The controller is the
+     * left-front-bottom corner, i.e. the origin itself, which is always the first element.
+     */
     public List<BlockPos> footprint(BlockPos origin, Direction facing) {
         Direction right = facing.getClockWise();
         List<BlockPos> out = new ArrayList<>(volume());

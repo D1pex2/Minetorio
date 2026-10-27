@@ -3,9 +3,17 @@ package dev.minetorio.content.multiblock;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -14,16 +22,47 @@ import net.minecraft.world.phys.Vec3;
  * and centers the footprint on it (R26): the controller goes to
  * {@link MultiblockControllerBlock#placementOrigin}, the footprint's left-front-bottom corner, on the
  * targeted cell's layer. {@link BlockItem#place} then runs as usual on the moved context, so the
- * whole footprint (origin included) is checked by the block's placement state, the item is consumed
- * once and the place sound plays at the controller.
+ * whole footprint (origin included) is checked by the block's placement state and the item is
+ * consumed once. The place sound plays at the targeted cell, not at the controller: vanilla's sound
+ * at the controller is muted ({@link #getPlaceSound}) and replayed by {@link #place}.
  */
 public class MultiblockBlockItem extends BlockItem {
     public MultiblockBlockItem(MultiblockControllerBlock block, Properties properties) {
         super(block, properties);
     }
 
+    /** Set while {@link #place} runs on this thread, so vanilla's place sound (at the controller) is muted. */
+    private static final ThreadLocal<Boolean> PLACING = ThreadLocal.withInitial(() -> false);
+
     public MultiblockControllerBlock controller() {
         return (MultiblockControllerBlock) getBlock();
+    }
+
+    @Override
+    public InteractionResult place(BlockPlaceContext ctx) {
+        BlockPos target = ctx.getClickedPos();
+        BlockPos origin = controller().placementOrigin(target, ctx.getHorizontalDirection());
+        InteractionResult result;
+        PLACING.set(true);
+        try {
+            result = super.place(ctx);
+        } finally {
+            PLACING.set(false);
+        }
+        if (result.consumesAction()) {
+            Level level = ctx.getLevel();
+            Player player = ctx.getPlayer();
+            BlockState state = level.getBlockState(origin);
+            SoundType sound = state.getSoundType(level, origin, player);
+            level.playSound(player, target, sound.getPlaceSound(), SoundSource.BLOCKS,
+                    (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
+        }
+        return result;
+    }
+
+    @Override
+    protected SoundEvent getPlaceSound(BlockState state, Level level, BlockPos pos, Player player) {
+        return PLACING.get() ? SoundEvents.EMPTY : super.getPlaceSound(state, level, pos, player);
     }
 
     @Nullable
