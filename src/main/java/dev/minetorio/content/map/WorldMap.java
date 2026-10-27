@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.gametest.framework.GameTestServer;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -40,20 +41,24 @@ import net.neoforged.neoforge.network.PacketDistributor;
  *
  * <p><b>Data.</b> The set of explored chunks is this {@link SavedData} ({@value #NAME}); the
  * chunks' colors ({@link MapScanner}) live in deflated region files ({@link MapRegionStore}),
- * written when the world saves.
+ * written off the server thread when the world saves.
  *
  * <p><b>Exploring.</b> A chunk becomes explored when it is first scanned. Scans are requested
  * ({@link #requestScan}) by players (every chunk within {@value #PLAYER_RADIUS} of each Overworld
- * player), radars (their near area and their frontier) and block changes by players. Requests are
- * queued and at most {@value #SCANS_PER_TICK} scans run per tick. An unexplored chunk that is not
- * loaded is loaded with a ticket (at most {@value #MAX_PENDING_LOADS} at a time) and scanned once it
- * is; an explored one is re-scanned only if loaded, and at most once per {@link #RESCAN_TICKS}
- * ticks ({@link ScanThrottle}).
+ * player who is not a spectator), radars (their near area and their frontier) and block changes by
+ * players; chunks outside the world border are never requested. Requests are queued; per tick at
+ * most {@value #SCANS_PER_TICK} scans run (finished loads first) and at most
+ * {@value #QUEUE_LOOKS_PER_TICK} queue entries are looked at. An unexplored chunk that is not loaded
+ * is loaded with a ticket (at most {@value #MAX_PENDING_LOADS} at a time) and scanned once it is; a
+ * load that times out is queued again, so no request is lost. An explored chunk is re-scanned only
+ * if loaded, and at most once per {@link #RESCAN_TICKS} ticks ({@link ScanThrottle}). A region file
+ * that cannot be read makes its chunks unexplored again.
  *
- * <p><b>Clients</b> get only explored chunks: everything on login (nearest first), then each chunk
- * whose colors changed, in deflated batches of {@value MapChunkBatch#MAX_CHUNKS} chunks, at most one
- * batch per player per tick ({@link SendQueue}). Player positions go out every
- * {@value #PLAYERS_EVERY} ticks.
+ * <p><b>Clients</b> get only explored chunks: everything on login (region by region, nearest
+ * first, so each region file is read once), then each chunk whose colors changed, in deflated
+ * batches of {@value MapChunkBatch#MAX_CHUNKS} chunks, at most one batch per player per tick and
+ * {@value #SEND_BYTES_PER_TICK} bytes per tick on average ({@link SendQueue}). Player positions go
+ * out every {@value #PLAYERS_EVERY} ticks.
  */
 public final class WorldMap extends SavedData {
     public static final String NAME = "minetorio_map";
@@ -69,6 +74,10 @@ public final class WorldMap extends SavedData {
     /** Explored chunks around players are re-scanned this often (throttled, only changes are sent). */
     static final int PLAYER_REFRESH_EVERY = Units.ticks(10);
     static final int PLAYERS_EVERY = 10;
+    /** Queue entries looked at per tick at most (unloaded explored ones are skipped cheaply, but not without limit). */
+    static final int QUEUE_LOOKS_PER_TICK = 64;
+    /** Average map bytes sent to one client per tick at most (~240 kB/s). */
+    public static final int SEND_BYTES_PER_TICK = 12_000;
     private static final String KEY_EXPLORED = "explored";
     private static final TicketType<ChunkPos> TICKET = TicketType.create("minetorio_map", Comparator.comparingLong(ChunkPos::toLong));
 
@@ -99,10 +108,10 @@ public final class WorldMap extends SavedData {
     /** Binds a loaded map to its server and its region folder. */
     public void attach(MinecraftServer server) {
         this.server = server;
-        this.store = new MapRegionStore(regionDir(server));
+        this.store = new MapRegionStore(regionDir(server), this::forgetRegion);
     }
 
-    static Path regionDir(MinecraftServer server) {
+    public static Path regionDir(MinecraftServer server) {
         return server.getWorldPath(LevelResource.ROOT).resolve("data").resolve(NAME);
     }
 
@@ -115,7 +124,10 @@ public final class WorldMap extends SavedData {
             if (e.getEntity() instanceof ServerPlayer p) get(p.server).sendQueues.remove(p.getUUID());
         });
         NeoForge.EVENT_BUS.addListener((LevelEvent.Save e) -> {
-            if (e.getLevel() instanceof ServerLevel l && l.dimension() == Level.OVERWORLD) get(l.getServer()).flushRegions();
+            if (!(e.getLevel() instanceof ServerLevel l) || l.dimension() != Level.OVERWORLD) return;
+            WorldMap map = get(l.getServer());
+            map.flushRegions();
+            if (!l.getServer().isRunning() && map.store != null) map.store.awaitWrites(); // stopping: finish the files
         });
         NeoForge.EVENT_BUS.addListener((BlockEvent.BreakEvent e) -> blockChanged(e.getLevel(), e.getPos().getX(), e.getPos().getZ()));
         NeoForge.EVENT_BUS.addListener((BlockEvent.EntityPlaceEvent e) -> blockChanged(e.getLevel(), e.getPos().getX(), e.getPos().getZ()));
@@ -140,6 +152,11 @@ public final class WorldMap extends SavedData {
         return store == null || !explored.contains(chunk) ? null : store.colors(chunk);
     }
 
+    /** Whether the chunk lies inside the Overworld's world border (nothing outside is explored). */
+    public boolean inBorder(long chunk) {
+        return server == null || server.overworld().getWorldBorder().isWithinBounds(new ChunkPos(ChunkKeys.x(chunk), ChunkKeys.z(chunk)));
+    }
+
     /** Chunks queued or loading for a scan. */
     public int pendingScans() { return queue.size() + pendingLoads.size(); }
 
@@ -147,7 +164,7 @@ public final class WorldMap extends SavedData {
 
     /** Asks for a scan of the chunk (see class doc for queueing, loading and throttling). */
     public void requestScan(long chunk) {
-        if (queue.contains(chunk) || pendingLoads.containsKey(chunk)) return;
+        if (queue.contains(chunk) || pendingLoads.containsKey(chunk) || !inBorder(chunk)) return;
         if (explored.contains(chunk) && !throttle.request(chunk, now())) return; // comes back through due()
         queue.add(chunk);
     }
@@ -164,17 +181,18 @@ public final class WorldMap extends SavedData {
         ServerLevel level = server.overworld();
         long now = now();
         for (long k : throttle.due(now)) queue.add(k);
-        processQueue(level, now);
-        processLoads(level, now);
+        int scans = processLoads(level, now);
+        processQueue(level, now, SCANS_PER_TICK - scans);
         if (now % PLAYER_REVEAL_EVERY == 0) revealAroundPlayers(level, now % PLAYER_REFRESH_EVERY == 0);
         if (now % PLAYERS_EVERY == 0) sendPlayers();
         flushSends();
         if (now % 1200 == 0) throttle.prune(now);
     }
 
-    private void processQueue(ServerLevel level, long now) {
-        int scans = 0;
-        for (Iterator<Long> it = queue.iterator(); it.hasNext() && scans < SCANS_PER_TICK; ) {
+    /** Scans up to {@code budget} loaded queued chunks and starts loads, looking at {@value #QUEUE_LOOKS_PER_TICK} entries at most. */
+    private void processQueue(ServerLevel level, long now, int budget) {
+        int scans = 0, looks = 0;
+        for (Iterator<Long> it = queue.iterator(); it.hasNext() && scans < budget && looks++ < QUEUE_LOOKS_PER_TICK; ) {
             long k = it.next();
             LevelChunk chunk = level.getChunkSource().getChunkNow(ChunkKeys.x(k), ChunkKeys.z(k));
             if (chunk != null) {
@@ -192,7 +210,12 @@ public final class WorldMap extends SavedData {
         }
     }
 
-    private void processLoads(ServerLevel level, long now) {
+    /**
+     * Scans chunks whose load finished; a load that timed out is given up and, if the chunk is still
+     * unexplored, queued again (so no request is lost). Returns the number of scans done.
+     */
+    private int processLoads(ServerLevel level, long now) {
+        int scans = 0;
         for (Iterator<Map.Entry<Long, Long>> it = pendingLoads.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<Long, Long> e = it.next();
             long k = e.getKey();
@@ -201,17 +224,24 @@ public final class WorldMap extends SavedData {
             it.remove();
             ChunkPos pos = new ChunkPos(ChunkKeys.x(k), ChunkKeys.z(k));
             level.getChunkSource().removeRegionTicket(TICKET, pos, 0, pos);
-            if (chunk != null) scan(level, k, chunk, now);
+            if (chunk != null) {
+                scan(level, k, chunk, now);
+                scans++;
+            } else if (!explored.contains(k)) {
+                queue.add(k);
+            }
         }
+        return scans;
     }
 
     private void scan(ServerLevel level, long k, LevelChunk chunk, long now) {
         if (store == null) return;
         byte[] colors = MapScanner.scan(level, chunk);
         throttle.scanned(k, now);
+        boolean changed = store.put(k, colors); // first: a corrupt region file forgets its chunks here
         boolean added = explored.add(k);
         if (added) setDirty();
-        if (store.put(k, colors) || added) {
+        if (changed || added) {
             for (SendQueue q : sendQueues.values()) q.add(k);
         }
     }
@@ -220,7 +250,7 @@ public final class WorldMap extends SavedData {
 
     /** Explores the chunks around one player; with {@code refresh}, also re-scans explored ones (throttled). */
     public void revealAround(ServerPlayer player, boolean refresh) {
-        if (player.level().dimension() != Level.OVERWORLD) return;
+        if (player.isSpectator() || player.level().dimension() != Level.OVERWORLD) return;
         ChunkPos c = player.chunkPosition();
         for (long k : ChunkKeys.around(c.x, c.z, PLAYER_RADIUS)) {
             if (refresh || !explored.contains(k)) requestScan(k);
@@ -234,18 +264,22 @@ public final class WorldMap extends SavedData {
     private void onLogin(ServerPlayer player) {
         SendQueue q = new SendQueue();
         ChunkPos c = player.chunkPosition();
-        q.addAllNearestFirst(explored, c.x, c.z);
+        q.addAllByRegion(explored, c.x, c.z);
         sendQueues.put(player.getUUID(), q);
     }
 
-    /** At most one batch per player per tick. */
+    /** At most one batch per player per tick, within {@value #SEND_BYTES_PER_TICK} bytes per tick on average. */
     private void flushSends() {
         if (server == null || store == null || sendQueues.isEmpty()) return;
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             SendQueue q = sendQueues.get(p.getUUID());
-            if (q == null || q.size() == 0) continue;
+            if (q == null) continue;
+            q.refill(SEND_BYTES_PER_TICK, MapChunkBatch.MAX_BYTES);
+            if (q.size() == 0 || !q.canSend()) continue;
             MapPayloads.Chunks payload = nextBatch(q);
-            if (payload != null) PacketDistributor.sendToPlayer(p, payload);
+            if (payload == null) continue;
+            q.spend(payload.data().length);
+            PacketDistributor.sendToPlayer(p, payload);
         }
     }
 
@@ -276,21 +310,41 @@ public final class WorldMap extends SavedData {
 
     // --- persistence -------------------------------------------------------------------------------
 
-    /** Writes the changed region files (on world save). */
+    /** Starts writing the changed region files (on world save). */
     public void flushRegions() {
         if (store != null) store.saveDirty();
     }
 
-    /** Forgets the whole map, on disk too, and every pending scan (GameTests only). */
-    public void wipeForTests() {
-        if (server != null) {
-            for (long k : pendingLoads.keySet()) {
-                ChunkPos pos = new ChunkPos(ChunkKeys.x(k), ChunkKeys.z(k));
-                server.overworld().getChunkSource().removeRegionTicket(TICKET, pos, 0, pos);
-            }
+    /** Writes the changed region files and waits until they are on disk. */
+    public void flushRegionsAndWait() {
+        if (store == null) return;
+        store.saveDirty();
+        store.awaitWrites();
+    }
+
+    /** A region file was unreadable: its chunks count as unexplored again. */
+    private void forgetRegion(long region) {
+        if (explored.removeIf((java.util.function.LongPredicate) k -> ChunkKeys.region(k) == region)) setDirty();
+    }
+
+    private void requireGameTest() {
+        if (!(server instanceof GameTestServer)) throw new IllegalStateException("GameTest server only");
+    }
+
+    /** Drops every queued and loading scan, as if they were lost (GameTests only). */
+    public void dropRequestsForTests() {
+        requireGameTest();
+        for (long k : pendingLoads.keySet()) {
+            ChunkPos pos = new ChunkPos(ChunkKeys.x(k), ChunkKeys.z(k));
+            server.overworld().getChunkSource().removeRegionTicket(TICKET, pos, 0, pos);
         }
         pendingLoads.clear();
         queue.clear();
+    }
+
+    /** Forgets the whole map, on disk too, and every pending scan (GameTests only). */
+    public void wipeForTests() {
+        dropRequestsForTests();
         throttle.clear();
         explored.clear();
         if (store != null) store.wipe();

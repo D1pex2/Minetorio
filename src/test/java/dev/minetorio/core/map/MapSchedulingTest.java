@@ -42,10 +42,37 @@ class MapSchedulingTest {
     }
 
     @Test
-    void sendQueueSortsBacklogNearestFirst() {
+    void sendQueueSortsBacklogByRegionNearestFirst() {
         SendQueue q = new SendQueue();
-        q.addAllNearestFirst(List.of(ChunkKeys.of(10, 0), ChunkKeys.of(0, 1), ChunkKeys.of(-3, -3), ChunkKeys.of(0, 0)), 0, 0);
-        assertEquals(List.of(ChunkKeys.of(0, 0), ChunkKeys.of(0, 1), ChunkKeys.of(-3, -3), ChunkKeys.of(10, 0)), q.poll(10));
+        // (-3,-3) is the nearest chunk but lies in region (-1,-1); the player's own region (0,0) goes first
+        q.addAllByRegion(List.of(ChunkKeys.of(10, 0), ChunkKeys.of(0, 1), ChunkKeys.of(-3, -3), ChunkKeys.of(0, 0),
+                ChunkKeys.of(70, 0)), 0, 0);
+        assertEquals(List.of(ChunkKeys.of(0, 0), ChunkKeys.of(0, 1), ChunkKeys.of(10, 0), ChunkKeys.of(-3, -3),
+                ChunkKeys.of(70, 0)), q.poll(10));
+    }
+
+    @Test
+    void byteBudgetAveragesTheRatePerTick() {
+        SendQueue q = new SendQueue();
+        int sent = 0, bytes = 0;
+        for (int tick = 0; tick < 100; tick++) {
+            q.refill(12_000, 40_000);
+            if (q.canSend()) {
+                q.spend(30_000);
+                sent++;
+                bytes += 30_000;
+            }
+        }
+        assertTrue(bytes <= 100 * 12_000 + 40_000, "sent " + bytes);
+        assertTrue(sent >= 38, "only " + sent + " batches");
+    }
+
+    @Test
+    void byteBudgetDoesNotHoardWhileIdle() {
+        SendQueue q = new SendQueue();
+        for (int i = 0; i < 1000; i++) q.refill(12_000, 40_000);
+        q.spend(40_000);
+        assertFalse(q.canSend());
     }
 
     @Test
