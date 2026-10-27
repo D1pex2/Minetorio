@@ -112,52 +112,60 @@ def render(elements, tex, yaw, pitch=-30, size=260, extent=None):
         q = view @ (p - center)
         return np.array([size / 2 + q[0] * scale, size / 2 - q[1] * scale]), q[2]
 
-    for el in elements:
-        f, t = np.array(el["from"], float), np.array(el["to"], float)
-        rot = el.get("rotation")
-        R = None
-        if rot and rot.get("angle"):
-            R = rot_matrix(rot["axis"], rot["angle"])
-            origin = np.array(rot["origin"], float)
-        for face, fd in el.get("faces", {}).items():
-            n = np.array(NORMAL[face], float)
-            o, ea, eb = face_frame(face, f, t)
-            if R is not None:
-                o = R @ (o - origin) + origin
-                ea, eb, n = R @ ea, R @ eb, R @ n
-            if (view @ n)[2] > 0:  # facing away from the camera (camera looks toward +depth)
-                continue
-            arr = texture(fd.get("texture", "#missing"), tex)
-            u0, v0, u1, v1 = fd.get("uv", [0, 0, 16, 16])
-            r = fd.get("rotation", 0)
-            s0, d0 = project(o)
-            sa, da = project(o + ea)
-            sb, db = project(o + eb)
-            A = np.array([sa - s0, sb - s0]).T
-            if abs(np.linalg.det(A)) < 1e-6:
-                continue
-            Ai = np.linalg.inv(A)
-            pts = [s0, sa, sb, sa + sb - s0]
-            x0 = max(int(min(p[0] for p in pts)), 0); x1 = min(int(max(p[0] for p in pts)) + 1, size)
-            y0 = max(int(min(p[1] for p in pts)), 0); y1 = min(int(max(p[1] for p in pts)) + 1, size)
-            if x0 >= x1 or y0 >= y1:
-                continue
-            xs, ys = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
-            rel = np.stack([xs - s0[0], ys - s0[1]], -1) @ Ai.T
-            a, b = rel[..., 0], rel[..., 1]
-            inside = (a >= 0) & (a <= 1) & (b >= 0) & (b <= 1)
-            depth = d0 + a * (da - d0) + b * (db - d0)
-            for _ in range(r // 90):
-                a, b = b, 1 - a
-            u = u0 + (u1 - u0) * a
-            v = v0 + (v1 - v0) * b
-            ui = np.clip(np.floor(u).astype(int), 0, 15)
-            vi = np.clip(np.floor(v).astype(int), 0, 15)
-            col = arr[vi, ui]
-            mask = inside & (col[..., 3] > 0) & (depth < zb[y0:y1, x0:x1])
-            sh = 1.0 if el.get("shade") is False else SHADE[face] if R is None else 0.85
-            zb[y0:y1, x0:x1][mask] = depth[mask]
-            img[y0:y1, x0:x1][mask] = col[..., :3][mask] * sh
+    # opaque faces first, then translucent ones (glass) blended on top
+    for pass_ in (0, 1):
+        for el in elements:
+            f, t = np.array(el["from"], float), np.array(el["to"], float)
+            rot = el.get("rotation")
+            R = None
+            if rot and rot.get("angle"):
+                R = rot_matrix(rot["axis"], rot["angle"])
+                origin = np.array(rot["origin"], float)
+            for face, fd in el.get("faces", {}).items():
+                n = np.array(NORMAL[face], float)
+                o, ea, eb = face_frame(face, f, t)
+                if R is not None:
+                    o = R @ (o - origin) + origin
+                    ea, eb, n = R @ ea, R @ eb, R @ n
+                if (view @ n)[2] > 0:  # facing away from the camera (camera looks toward +depth)
+                    continue
+                arr = texture(fd.get("texture", "#missing"), tex)
+                if bool(((arr[..., 3] > 0) & (arr[..., 3] < 250)).any()) != (pass_ == 1):
+                    continue
+                u0, v0, u1, v1 = fd.get("uv", [0, 0, 16, 16])
+                r = fd.get("rotation", 0)
+                s0, d0 = project(o)
+                sa, da = project(o + ea)
+                sb, db = project(o + eb)
+                A = np.array([sa - s0, sb - s0]).T
+                if abs(np.linalg.det(A)) < 1e-6:
+                    continue
+                Ai = np.linalg.inv(A)
+                pts = [s0, sa, sb, sa + sb - s0]
+                x0 = max(int(min(p[0] for p in pts)), 0); x1 = min(int(max(p[0] for p in pts)) + 1, size)
+                y0 = max(int(min(p[1] for p in pts)), 0); y1 = min(int(max(p[1] for p in pts)) + 1, size)
+                if x0 >= x1 or y0 >= y1:
+                    continue
+                xs, ys = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+                rel = np.stack([xs - s0[0], ys - s0[1]], -1) @ Ai.T
+                a, b = rel[..., 0], rel[..., 1]
+                inside = (a >= 0) & (a <= 1) & (b >= 0) & (b <= 1)
+                depth = d0 + a * (da - d0) + b * (db - d0)
+                for _ in range(r // 90):
+                    a, b = b, 1 - a
+                u = u0 + (u1 - u0) * a
+                v = v0 + (v1 - v0) * b
+                ui = np.clip(np.floor(u).astype(int), 0, 15)
+                vi = np.clip(np.floor(v).astype(int), 0, 15)
+                col = arr[vi, ui]
+                mask = inside & (col[..., 3] > 0) & (depth < zb[y0:y1, x0:x1])
+                sh = 1.0 if el.get("shade") is False else SHADE[face] if R is None else 0.85
+                if pass_ == 0:
+                    zb[y0:y1, x0:x1][mask] = depth[mask]
+                    img[y0:y1, x0:x1][mask] = col[..., :3][mask] * sh
+                else:   # glass: blended over what is behind, no depth write
+                    al = (col[..., 3:4] / 255.0)[mask]
+                    img[y0:y1, x0:x1][mask] = img[y0:y1, x0:x1][mask] * (1 - al) + col[..., :3][mask] * sh * al
     return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
 
 
@@ -200,9 +208,10 @@ def placed(rl, dx=0, dy=0, dz=0, turn=False):
 # whole machines as their block entity renderers draw them (in-world size, not the item)
 COMPOSITE_ENTRIES = [
     ("steam_engine (in world, 3x5)", lambda: placed("minetorio:block/steam_engine_body", dz=-16)
-     + placed("minetorio:block/steam_engine_body", dz=-16, turn=True)
-     + placed("minetorio:block/steam_engine_center", dz=-8) + placed("minetorio:block/steam_engine_piston", dz=-8)
+     + placed("minetorio:block/steam_engine_rear", dz=24) + placed("minetorio:block/steam_engine_piston", dz=24)
      + placed("minetorio:block/steam_engine_flywheel", dz=24)),
+    ("lab (in world, researching)", lambda: placed("minetorio:block/lab_body") + placed("minetorio:block/lab_dome")
+     + placed("minetorio:block/lab_shell")),
     ("electric_mining_drill (in world)", lambda: placed("minetorio:block/electric_mining_drill_body")
      + placed("minetorio:block/electric_mining_drill_head") + placed("minetorio:block/electric_mining_drill_tower", dy=16)),
     ("burner_mining_drill (in world)", lambda: placed("minetorio:block/burner_mining_drill")
@@ -228,7 +237,7 @@ ENTRIES = [
     ("minetorio:item/lab", "lab (idle)"),
     ("minetorio:block/lab_dome", "lab dome (researching)"),
     ("minetorio:item/boiler", "boiler"),
-    ("minetorio:item/steam_engine", "steam_engine (item: shortened)"),
+    ("minetorio:item/steam_engine", "steam_engine (item: whole, scaled 0.6)"),
     ("minetorio:item/offshore_pump", "offshore_pump"),
     ("minetorio:item/pipe", "pipe"),
     ("minetorio:block/small_electric_pole", "small_electric_pole"),

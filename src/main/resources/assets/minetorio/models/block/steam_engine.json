@@ -1,7 +1,7 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/dark_panel"
+    "particle": "minetorio:block/slate_panel"
   },
   "elements": [
 

@@ -250,6 +250,39 @@ class Model:
                 self.box([x0 + e, cy - w / 2, cz - r], [x1 - e, cy + w / 2, cz + r], tex, split=False, **kw)
         return self
 
+    # Solid round prisms: a regular 16-gon of apothem a is exactly the union of 8 strips (2a long, one
+    # 16-gon side wide) through the axis at 22.5 degree steps: long along one plane axis turned by 0, 22.5,
+    # -22.5, 45 and long along the other turned by the same. Each strip is EPS shorter along the prism's
+    # axis than the previous, so their caps never share a plane.
+    PRISM16 = ((0, 0), (0, 22.5), (0, -22.5), (0, 45), (1, 0), (1, 22.5), (1, -22.5), (1, 45))
+
+    def prism16_y(self, cx, cz, a, y0, y1, tex, **kw):
+        """Upright 16-gon prism with apothem a (= half its width across flats)."""
+        s = a * math.tan(math.pi / 16)
+        for i, (along_z, ang) in enumerate(self.PRISM16):
+            e = EPS * i
+            r = {"rot": ("y", ang, [cx, y0, cz])} if ang else {}
+            w, d = (s, a) if along_z else (a, s)
+            self.box([cx - w, y0 + e, cz - d], [cx + w, y1 - e, cz + d], tex, split=False, **r, **kw)
+        return self
+
+    def prism16_z(self, cx, cy, a, z0, z1, tex, **kw):
+        """Horizontal 16-gon prism along z through (cx, cy), apothem a. Long prisms are cut into equal
+        lengths of at most 16 px (texel density); the cut faces inside are dropped."""
+        s = a * math.tan(math.pi / 16)
+        n = max(1, math.ceil((z1 - z0) / 16 - 1e-6))
+        cuts = [z0 + (z1 - z0) * k / n for k in range(n + 1)]
+        for i, (along_y, ang) in enumerate(self.PRISM16):
+            e = EPS * i
+            r = {"rot": ("z", ang, [cx, cy, z0])} if ang else {}
+            w, h = (s, a) if along_y else (a, s)
+            for k in range(n):
+                za = cuts[k] + (e if k == 0 else 0)
+                zb = cuts[k + 1] - (e if k == n - 1 else 0)
+                skip = tuple(f for f, inner in (("north", k > 0), ("south", k < n - 1)) if inner)
+                self.box([cx - w, cy - h, za], [cx + w, cy + h, zb], tex, split=False, skip=skip, **r, **kw)
+        return self
+
     def chamfer(self, x0, z0, x1, z1, y0, y1, tex, c=4, **kw):
         """Box with its four vertical edges bevelled by c: a cross of two boxes plus turned corner pieces
         (EPS shorter each, so their caps don't share a plane)."""
@@ -379,7 +412,7 @@ def display_for(elements, hand_boost=1.4):
     return out
 
 
-def item_from(name, *models, offsets=None, particle=None, hand_boost=1.4):
+def item_from(name, *models, offsets=None, particle=None, hand_boost=1.4, render_type=None):
     """Item model with all elements of the given block models (shifted by offsets) + fitted display."""
     els = []
     tex = {}
@@ -390,6 +423,45 @@ def item_from(name, *models, offsets=None, particle=None, hand_boost=1.4):
     j = {"parent": "minecraft:block/block", "ambientocclusion": False,
          "textures": {k: (v if ":" in v else NS + v) for k, v in tex.items()},
          "display": display_for(els, hand_boost), "elements": els}
+    if render_type:
+        j = {"render_type": render_type, **j}
+    if particle:
+        j["textures"]["particle"] = NS + particle
+    save_item(name, j)
+
+
+def item_scaled(name, parts, k, particle=None):
+    """Item model of a machine too long for -16..32: every part placed as its renderer draws it
+    (parts: (model, dx, dy, dz)), then the whole scaled by k about the middle of its bounding box onto
+    the block's center; display_for fits the result into a slot. Element rotations keep their angles; their origins scale with the rest."""
+    els, tex = [], {}
+    for m, dx, dy, dz in parts:
+        for el in m.elements:
+            e = json.loads(json.dumps(el))
+            e["from"] = [e["from"][0] + dx, e["from"][1] + dy, e["from"][2] + dz]
+            e["to"] = [e["to"][0] + dx, e["to"][1] + dy, e["to"][2] + dz]
+            if "rotation" in e:
+                o = e["rotation"]["origin"]
+                e["rotation"]["origin"] = [o[0] + dx, o[1] + dy, o[2] + dz]
+            els.append(e)
+        tex.update(m.textures)
+    lo = [min(e["from"][i] for e in els) for i in range(3)]
+    hi = [max(e["to"][i] for e in els) for i in range(3)]
+    c = [(lo[i] + hi[i]) / 2 for i in range(3)]
+    target = [8, 8, 8]
+
+    def sc(p):
+        return [r4((p[i] - c[i]) * k + target[i]) for i in range(3)]
+
+    for e in els:
+        e["from"], e["to"] = sc(e["from"]), sc(e["to"])
+        if "rotation" in e:
+            e["rotation"]["origin"] = sc(e["rotation"]["origin"])
+        for v in e["from"] + e["to"]:
+            assert -16 <= v <= 32, e
+    j = {"parent": "minecraft:block/block", "ambientocclusion": False,
+         "textures": {kk: (v if ":" in v else NS + v) for kk, v in tex.items()},
+         "display": display_for(els), "elements": els}
     if particle:
         j["textures"]["particle"] = NS + particle
     save_item(name, j)
@@ -585,40 +657,45 @@ save_block("stone_furnace_lit", furnace(True))
 item_from("stone_furnace", fur)
 
 # =====================================================================================
-# Lab (3x3): low dark base, a tall glass column with red and green fluid bands on top. The column
-# (lab_dome) turns slowly and glows blue at full brightness while researching; idle it is dim glass.
+# Lab (3x3): dark base plate, a dark round pedestal and on it a tall slender glass tube (16-sided,
+# one block across, ~1.5 blocks tall) with a cap. Inside the tube stands a fluid column with red and
+# green bands (lab_dome / lab_dome_idle), which turns slowly and glows blue at full brightness while
+# researching. The tube (lab_shell) is translucent and drawn by LabRenderer in a translucent buffer.
 # =====================================================================================
+LAB_TUBE_A, LAB_Y0, LAB_Y1 = 8, 7, 30   # tube apothem (half width), bottom and top
 lb = Model({"frame": "dark_panel", "panel": "lab_panel", "deck": "dark_panel", "brass": "brass", "steel": "steel",
-            "red": "tier_red", "green": "tier_green", "dark": "dark", "vent": "vent", "plinth": "steel_panel"},
-           "lab_panel")
+            "red": "tier_red", "green": "tier_green", "dark": "dark", "vent": "vent", "pedestal": "dark_panel",
+            "cap": "steel_panel"}, "lab_panel")
 lb.chamfer(-16, -16, 32, 32, 0, 2, "frame", c=6)
-lb.chamfer(-13, -13, 29, 29, 2, 7, {"north": "panel", "south": "panel", "east": "panel", "west": "panel",
+lb.chamfer(-12, -12, 28, 28, 2, 4.5, {"north": "panel", "south": "panel", "east": "panel", "west": "panel",
                                     "up": "deck", "down": "frame"}, c=5)
-# plinth under the column
-lb.octagon_y(8, 8, 26, 7, 9, "plinth")
-lb.octagon_y(8, 8, 22, 9, 10, "brass")
-# small vents around the plinth
+# round pedestal and the brass seat of the tube
+lb.prism16_y(8, 8, 11, 4.5, 6.25, "pedestal")
+lb.prism16_y(8, 8, 9.5, 6.25, LAB_Y0, "brass")
+# cap on the tube
+lb.prism16_y(8, 8, 9, LAB_Y1, 31.25, "cap")
+lb.prism16_y(8, 8, 3, 31.25, 32, "brass")
+# small vents around the pedestal
 for (x, z, w, d, fc) in ((8, -6.5, 8, 2, "north"), (8, 22.5, 8, 2, "south"), (-6.5, 8, 2, 8, "west"),
                          (22.5, 8, 2, 8, "east")):
-    lb.cbox(x, z, w, d, 7, 10, {f: ("vent" if f == fc else "dark") for f in FACES}, fit=(fc,), split=False)
+    lb.cbox(x, z, w, d, 4.5, 7.5, {f: ("vent" if f == fc else "dark") for f in FACES}, fit=(fc,), split=False)
 # science pack holders on the corners
-for i, (x, z) in enumerate(((-9, -9), (25, -9), (-9, 25), (25, 25))):
-    lb.cbox(x, z, 5, 5, 7, 10, "frame", split=False)
-    lb.cbox(x, z, 3.5, 3.5, 10, 14, "red" if i % 2 == 0 else "green", split=False)
-    lb.cbox(x, z, 2, 2, 14, 15, "steel", split=False)
+for i, (x, z) in enumerate(((-8, -8), (24, -8), (-8, 24), (24, 24))):
+    lb.cbox(x, z, 5, 5, 4.5, 7.5, "frame", split=False)
+    lb.cbox(x, z, 3.5, 3.5, 7.5, 11.5, "red" if i % 2 == 0 else "green", split=False)
+    lb.cbox(x, z, 2, 2, 11.5, 12.5, "steel", split=False)
 save_block("lab_body", lb)
 
+shell = Model({"glass": "lab_shell"}, "lab_shell")
+shell.ring_y(8, 8, LAB_TUBE_A, 0.5, LAB_Y0, LAB_Y1, "glass")
+save_block("lab_shell", shell)
 
-def lab_dome(tex):
-    m = Model({"glass": tex, "brass": "brass", "red": "tier_red", "green": "tier_green", "cap": "steel_panel"}, tex)
-    m.octagon_y(8, 8, 18, 10, 15, "glass")
-    m.octagon_y(8, 8, 17, 15, 17.5, "red")
-    m.octagon_y(8, 8, 18, 17.5, 22, "glass")
-    m.octagon_y(8, 8, 17, 22, 24.5, "green")
-    m.octagon_y(8, 8, 18, 24.5, 28, "glass")
-    m.octagon_y(8, 8, 19, 28, 29, "brass")
-    m.octagon_y(8, 8, 12, 29, 31, "glass")
-    m.cbox(8, 8, 3, 3, 31, 32, "cap", split=False)
+
+def lab_dome(core):
+    m = Model({"core": core, "red": "tier_red", "green": "tier_green", "brass": "brass"}, core)
+    m.prism16_y(8, 8, 4, LAB_Y0, LAB_Y1, "core")
+    m.prism16_y(8, 8, 5.5, 11, 15, "red")
+    m.prism16_y(8, 8, 5.5, 19.5, 23.5, "green")
     return m
 
 
@@ -626,7 +703,7 @@ save_block("lab_dome", lab_dome("lab_glow"))
 idle_dome = lab_dome("lab_glass")
 save_block("lab_dome_idle", idle_dome)
 empty("lab", "lab_panel")
-item_from("lab", lb, idle_dome)
+item_from("lab", lb, idle_dome, shell, render_type="minecraft:translucent")
 
 # =====================================================================================
 # Boiler (3x2: x -16..32, z -8..24; steam out north at x 0..16, water ports west/east of the
@@ -670,71 +747,78 @@ item_from("boiler", bb)
 # =====================================================================================
 # Steam engine (3x5, z along the 5-block length; footprint center at x 8, z 8, so the machine spans
 # z -32..48 in the center frame). Parts (SteamMachineRenderer.Engine):
-#   body:     one half of the bed (z -16..24), drawn at dz -1 block and again turned 180 degrees about
-#             the center, so its end (pipe port at z -16) lands on both ends of the machine;
-#   center:   the long cylinder, valve chest and crosshead guides, drawn at dz -0.5 (center frame z = model z - 8);
-#   piston:   rod and crosshead, at dz -0.5 plus the stroke;
-#   flywheel: spoked flywheel on the east side plus the crankshaft, turning about x through
-#             (y 17, z 8) of the model; drawn at dz +1.5 (pivot at center frame z 32).
+#   body:     front half (center frame z -32..8, drawn at dz -1 block): bed, crankcase, steam port, the
+#             long round cylinder with dark bands and brass rivets, valve chest;
+#   rear:     back half (z 8..48, drawn at dz +1.5): bed, cylinder cover and gland, crosshead guides,
+#             crankshaft pedestals, exhaust port;
+#   piston:   rod, crosshead and connecting rod, at dz +1.5 plus the stroke;
+#   flywheel: big spoked flywheel on the east side plus crankshaft and crank, turning about x through
+#             (y 16, z 8) of the model; drawn at dz +1.5 (pivot at center frame z 32).
 # =====================================================================================
-eb = Model({"frame": "dark_panel", "rail": "steel", "dark": "dark", "pipe_h": "pipe_h", "pipe_v": "pipe_v",
-            "pipe_end": "pipe_end", "flange": "flange", "post": "dark_panel", "cap": "brass"}, "dark_panel")
-eb.box([-14, 0, -16], [30, 3, 24], "frame")
-eb.box([-15, 0, -14], [-14, 4, 22], "rail")
-eb.box([30, 0, -14], [31, 4, 22], "rail")
-# steam port at the end
-eb.pipe_z(8, 8, -16, -7, size=6, skip=("north",))
+ENG_Y = 16          # cylinder and crankshaft axis height
+eb = Model({"frame": "dark_panel", "case": "dark", "cyl": "slate_panel", "band": "dark_panel", "rivet": "brass",
+            "plate": "dark_panel", "brass": "brass", "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end",
+            "flange": "flange"}, "slate_panel")
+eb.box([-6, 0, -16], [22, 3, 24], "frame")
+eb.box([-3, 3, -12], [19, 5, 24], "case")
+eb.pipe_z(8, 8, -16, -10, size=6, skip=("north",))
 eb.flange_z(8, 8, -16, -15.5, size=9)
-# bearing pedestals: carry the crankshaft (center frame z 32 = model z 0 of the turned half) on both sides
-for x0 in (-14, 26):
-    eb.box([x0, 3, -2], [x0 + 4, 19, 2], "post", split=False)
-    eb.box([x0 + 0.5, 19, -1.5], [x0 + 3.5, 20, 1.5], "cap", split=False)
+# the cylinder: 16-sided, 22 across, local z -10..23 (center frame -26..7), under a front cover and bands
+eb.prism16_z(8, ENG_Y, 11, -10, 23, "cyl")
+for z0, z1, a in ((-11, -8, 12), (6, 8, 11.75), (21, 24, 12)):
+    eb.prism16_z(8, ENG_Y, a, z0, z1, "band")
+    zm = (z0 + z1) / 2
+    for (x, y) in ((8, ENG_Y + a), (8 - a, ENG_Y), (8 + a, ENG_Y)):
+        eb.box([x - 0.5, y - 0.5, zm - 0.5], [x + 0.5, y + 0.5, zm + 0.5], "rivet", split=False)
+# saddles hugging it, valve chest and valve wheel on top
+for z0 in (-6, 14):
+    eb.box([-2, 4, z0], [18, 9, z0 + 4], "plate", split=False)
+eb.box([3, 26, -4], [13, 29.5, 16], "plate")
+eb.cbox(8, 6, 1.5, 1.5, 29.5, 31, "brass", split=False)
+eb.cbox(8, 6, 5, 5, 31, 32, "brass", split=False)
 save_block("steam_engine_body", eb)
 
-ec = Model({"cyl": "steel_panel", "band": "dark_panel", "plate": "dark_panel", "brass": "brass", "steel": "steel",
-            "dark": "dark"}, "steel_panel")
-# cylinder along z, center (x 8, y 15), 22 across; caps and a middle band
-ec.octagon_axis("z", 15, 8, 22, -15 + 2 * EPS, 18, "cyl")
-for z0, z1 in ((-16 + EPS, -13), (0, 2), (16, 18 + 2 * EPS)):
-    ec.octagon_axis("z", 15, 8, 24, z0, z1, "band", split=False)
-# saddles under it, valve chest and a valve on top
-for z0 in (-11, 10):
-    ec.box([-4, 3, z0], [20, 8, z0 + 4], "plate", split=False)
-ec.box([3, 25, -9], [13, 28.5, 9], "plate", split=False)
-ec.cbox(8, 0, 3, 3, 28.5, 31, "brass", split=False)
-ec.cbox(8, 0, 6, 1.5, 31, 32, "brass", split=False)
-# rod gland and crosshead guides (bars above and below the crosshead), on a stand
-ec.octagon_axis("z", 15, 8, 6, 18 + 2 * EPS, 20, "steel", split=False)
-for y0 in (9.5, 19.5):
-    ec.box([4, y0, 20], [12, y0 + 1.5, 32], "steel", split=False)
-ec.box([4.5, 3, 26], [11.5, 9.5, 30], "plate", split=False)
-save_block("steam_engine_center", ec)
+er = Model({"frame": "dark_panel", "case": "dark", "cover": "dark_panel", "steel": "steel", "plate": "dark_panel",
+            "post": "dark_panel", "cap": "brass", "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end",
+            "flange": "flange"}, "dark_panel")
+er.box([-6, 0, -16], [22, 3, 24], "frame")
+er.box([-3, 3, -16], [19, 5, -12], "case", split=False)
+# cylinder back cover and rod gland (the cylinder's last band ends at local z -16)
+er.prism16_z(8, ENG_Y, 10.5, -16, -13, "cover")
+er.prism16_z(8, ENG_Y, 3, -13, -11, "steel")
+# crosshead guides above and below the rod line, on a stand
+for y0 in (10.5, 20):
+    er.box([4, y0, -11], [12, y0 + 1.5, 3], "steel", split=False)
+er.box([4.5, 3, -3], [11.5, 10.5, 1], "plate", split=False)
+# crankshaft pedestals (crank pivot at local z 8) either side of the crank
+for x0 in (-3, 15):
+    er.box([x0, 3, 5], [x0 + 4, 18, 11], "post", split=False)
+    er.box([x0 + 0.5, 18, 5.5], [x0 + 3.5, 19, 10.5], "cap", split=False)
+# exhaust port at the back end
+er.pipe_z(8, 8, 18, 24, size=6, skip=("south",))
+er.flange_z(8, 8, 23.5, 24, size=9)
+save_block("steam_engine_rear", er)
 
-ep = Model({"rod": "steel", "head": "brass"}, "steel")
-ep.box([7, 14, 12], [9, 16, 27], "rod", split=False)
-ep.box([5, 11.25, 25], [11, 18.75, 30], "head", split=False)
+ep = Model({"rod": "steel", "head": "brass", "conrod": "dark_panel"}, "steel")
+ep.box([7, ENG_Y - 1, -13], [9, ENG_Y + 1, -1], "rod", split=False)
+ep.box([5.5, ENG_Y - 3.8, -3], [10.5, ENG_Y + 3.8, 2], "head", split=False)
+ep.box([7.25, ENG_Y - 0.75, 2], [8.75, ENG_Y + 0.75, 7.3], "conrod", split=False)
 save_block("steam_engine_piston", ep)
 
-ef = Model({"rim": "dark_panel", "spoke": "steel", "hub": "gear_hub", "shaft": "steel", "crank": "brass"}, "dark")
-FW_Y, FW_Z, FW_R = 17, 8, 13.5
-ef.ring_x(FW_Y, FW_Z, FW_R, 2.5, 21, 25, "rim")
-ef.spokes_x(FW_Y, FW_Z, FW_R - 1.5, 1.75, 22, 24, "spoke")
-ef.box([20.5, FW_Y - 3, FW_Z - 3], [25.5, FW_Y + 3, FW_Z + 3], "hub", split=False)
-# crankshaft through both pedestals, crank webs and pin at the middle (under the crosshead line)
-ef.octagon_axis("x", FW_Y, FW_Z, 3, -14.5, 20.5, "shaft", split=False)
-ef.octagon_axis("x", FW_Y, FW_Z, 3, 25.5, 30.5, "shaft", split=False)
-for x0 in (4.5, 10.5):
-    ef.box([x0, FW_Y - 6, FW_Z - 2], [x0 + 1, FW_Y + 2, FW_Z + 2], "crank", split=False)
-ef.octagon_axis("x", FW_Y - 4, FW_Z, 2.5, 5.5, 10.5, "shaft", split=False)
+ef = Model({"rim": "steel_panel", "spoke": "dark_panel", "hub": "gear_hub", "shaft": "steel", "crank": "brass"},
+           "steel_panel")
+FW_Z, FW_R = 8, 15.5
+ef.ring_x(ENG_Y, FW_Z, FW_R, 3, 22, 26.5, "rim")
+ef.spokes_x(ENG_Y, FW_Z, FW_R - 2, 2, 23.25, 25.25, "spoke")
+ef.box([21.5, ENG_Y - 3.5, FW_Z - 3.5], [27, ENG_Y + 3.5, FW_Z + 3.5], "hub", split=False)
+ef.octagon_axis("x", ENG_Y, FW_Z, 3, -3.5, 21.5, "shaft", split=False)
+for x0 in (4, 11):
+    ef.box([x0, ENG_Y - 5, FW_Z - 2], [x0 + 1, ENG_Y + 2, FW_Z + 2], "crank", split=False)
+ef.octagon_axis("x", ENG_Y - 3, FW_Z, 2.5, 5, 11, "shaft", split=False)
 save_block("steam_engine_flywheel", ef)
-empty("steam_engine", "dark_panel")
-
-# item: a shortened engine - bed, cylinder and piston as drawn, flywheel moved toward the cylinder
-eitem = Model(dict(eb.textures), "dark_panel")
-eitem.box([-14, 0, -16], [30, 3, 32], "frame")
-for x0 in (-14, 26):
-    eitem.box([x0, 3, 15], [x0 + 4, 19, 19], "post", split=False)
-item_from("steam_engine", eitem, ec, ep, ef, offsets=[(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 9)])
+empty("steam_engine", "slate_panel")
+# item: the whole engine as drawn, scaled to 0.6
+item_scaled("steam_engine", [(eb, 0, 0, -16), (er, 0, 0, 24), (ep, 0, 0, 24), (ef, 0, 0, 24)], 0.6)
 
 # =====================================================================================
 # Offshore pump (1x2 on the controller's blockstate: x 0..16, z -16..16; water beyond z -16;

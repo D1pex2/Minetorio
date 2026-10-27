@@ -61,7 +61,7 @@ public final class MinetorioClient {
         event.register(SteamMachineRenderer.BOILER_FIRE);
         event.register(SteamMachineRenderer.ENGINE_BODY);
         event.register(SteamMachineRenderer.ENGINE_FLYWHEEL);
-        event.register(SteamMachineRenderer.ENGINE_CENTER);
+        event.register(SteamMachineRenderer.ENGINE_REAR);
         event.register(SteamMachineRenderer.ENGINE_PISTON);
         event.register(AssemblerRenderer.BODY_1);
         event.register(AssemblerRenderer.BODY_2);
@@ -70,5 +70,6 @@ public final class MinetorioClient {
         event.register(LabRenderer.BODY);
         event.register(LabRenderer.DOME);
         event.register(LabRenderer.DOME_IDLE);
+        event.register(LabRenderer.SHELL);
     }
 }

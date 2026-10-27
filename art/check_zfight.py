@@ -334,21 +334,20 @@ COMPOSITES = [
                               [[("y", a, (8, 0, 8)), ("t", (8, 0, -8), None)] if a else [("t", (8, 0, -8), None)]
                                for a in SPIN], Y),
                              ("chimney", M("burner_mining_drill_chimney"), [[("t", (8, 16, -8), None)]])]),
-    # LabRenderer.java:37-43: body and dome (glowing or idle) at the center, the dome turning.
-    *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
+    # LabRenderer.java:37-46: body, glass tube and fluid column (glowing or idle) at the center, the column turning.
+    *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("shell", M("lab_shell"), [[]]),
+                    ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
       for d in ("lab_dome", "lab_dome_idle")],
     # SteamMachineRenderer.java:73-74: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
-    # SteamMachineRenderer.java:96-109: body at dz FRONT_HALF (-1 block) and again turned 180 degrees about
-    # the footprint center (x = z = 8 px), center at dz CENTER (-0.5), piston at CENTER +- PISTON_THROW (3 px)
-    # * sin, flywheel at dz FLYWHEEL (+1.5) turning about x through its model's (y 17, z 8).
-    ("steam_engine", [("body_front", M("steam_engine_body"), [[("t", (0, 0, -16), None)]]),
-                      ("body_back", M("steam_engine_body"), [[("t", (0, 0, -16), None), ("y", 180, (8, 0, 8))]]),
-                      ("center", M("steam_engine_center"), [[("t", (0, 0, -8), None)]]),
+    # SteamMachineRenderer.java:93-102: body at dz FRONT_HALF (-1 block), rear at BACK_HALF (+1.5), piston at
+    # BACK_HALF +- PISTON_THROW (3 px) * sin, flywheel at BACK_HALF turning about x through its model's (y 16, z 8).
+    ("steam_engine", [("body", M("steam_engine_body"), [[("t", (0, 0, -16), None)]]),
+                      ("rear", M("steam_engine_rear"), [[("t", (0, 0, 24), None)]]),
                       ("piston", M("steam_engine_piston"),
-                       [[("t", (0, 0, -8 + dz), None)] for dz in (-3, -1.5, 0, 1.5, 3)]),
+                       [[("t", (0, 0, 24 + dz), None)] for dz in (-3, -1.5, 0, 1.5, 3)]),
                       ("flywheel", M("steam_engine_flywheel"),
-                       [[("x", a, (0, 17, 8)), ("t", (0, 0, 24), None)] if a else [("t", (0, 0, 24), None)]
+                       [[("x", a, (0, 16, 8)), ("t", (0, 0, 24), None)] if a else [("t", (0, 0, 24), None)]
                         for a in SPIN], X)]),
     # InserterRenderer.java:97-111: procedural arm over the template_inserter base (shoulder at y 5.5 px).
     *[(f"{n}+arm", [("base", M(n), [[]]),

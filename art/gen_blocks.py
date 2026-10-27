@@ -339,6 +339,13 @@ def glow_frame(t):
     return im
 
 
+# lab tube: translucent pale blue glass with a bright edge and a highlight streak
+im = new((170, 220, 240, 70))
+for y in range(16):
+    px(im, 0, y, (210, 240, 255, 130)); px(im, 15, y, (120, 170, 200, 110))
+    px(im, 4, y, (235, 250, 255, 150)); px(im, 5, y, (220, 245, 255, 110))
+blocks["lab_shell"] = im
+
 strip = new(h=16 * 8)
 for t in range(8):
     strip.paste(glow_frame(t), (0, 16 * t))

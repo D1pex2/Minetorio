@@ -353,21 +353,21 @@ class ModelZFightTest {
         c.add(new Composite("burner_mining_drill", List.of(Part.fixed("body", "burner_mining_drill"),
                 spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)),
                 Part.fixed("chimney", "burner_mining_drill_chimney", Tr.t(8, 16, -8)))));
-        // LabRenderer.java:37-43: body and turning dome (glowing or idle).
+        // LabRenderer.java:37-46: body, glass tube and turning fluid column (glowing or idle).
         for (String dome : List.of("lab_dome", "lab_dome_idle")) {
-            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), spinning("dome", dome, 'y', center))));
+            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), Part.fixed("shell", "lab_shell"),
+                    spinning("dome", dome, 'y', center))));
         }
         // SteamMachineRenderer.java:73-74: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
-        // SteamMachineRenderer.java:96-109: body at dz -1 block and again turned 180 degrees about the center, center at
-        // dz -0.5, piston at -0.5 block +-3 px, flywheel at dz +1.5 turning about x through its model's (y 17, z 8).
+        // SteamMachineRenderer.java:93-102: body at dz -1 block, rear at +1.5, piston at +1.5 block +-3 px, flywheel at
+        // dz +1.5 turning about x through its model's (y 16, z 8).
         List<List<Tr>> piston = new ArrayList<>();
-        for (double dz : new double[] {-3, -1.5, 0, 1.5, 3}) piston.add(List.of(Tr.t(0, 0, -8 + dz)));
-        c.add(new Composite("steam_engine", List.of(Part.fixed("body_front", "steam_engine_body", Tr.t(0, 0, -16)),
-                Part.fixed("body_back", "steam_engine_body", Tr.t(0, 0, -16), Tr.r('y', 180, center)),
-                Part.fixed("center", "steam_engine_center", Tr.t(0, 0, -8)),
+        for (double dz : new double[] {-3, -1.5, 0, 1.5, 3}) piston.add(List.of(Tr.t(0, 0, 24 + dz)));
+        c.add(new Composite("steam_engine", List.of(Part.fixed("body", "steam_engine_body", Tr.t(0, 0, -16)),
+                Part.fixed("rear", "steam_engine_rear", Tr.t(0, 0, 24)),
                 new Part("piston", "steam_engine_piston", piston, null, null),
-                spinning("flywheel", "steam_engine_flywheel", 'x', new V(0, 17, 8), Tr.t(0, 0, 24)))));
+                spinning("flywheel", "steam_engine_flywheel", 'x', new V(0, 16, 8), Tr.t(0, 0, 24)))));
         // InserterRenderer.java:97-111: procedural arm over the base.
         for (Object[] ins : new Object[][] {{"burner_inserter", 1}, {"inserter", 1}, {"long_handed_inserter", 2}, {"fast_inserter", 1}}) {
             int reach = (int) ins[1];

@@ -3,10 +3,12 @@
   "textures": {
     "rod": "minetorio:block/steel",
     "head": "minetorio:block/brass",
+    "conrod": "minetorio:block/dark_panel",
     "particle": "minetorio:block/steel"
   },
   "elements": [
-    {"from": [7, 14, 12], "to": [9, 16, 27], "faces": {"north": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "south": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "east": {"uv": [0.5, 7, 15.5, 9], "texture": "#rod"}, "west": {"uv": [0.5, 7, 15.5, 9], "texture": "#rod"}, "up": {"uv": [7, 0.5, 9, 15.5], "texture": "#rod"}, "down": {"uv": [7, 0.5, 9, 15.5], "texture": "#rod"}}},
-    {"from": [5, 11.25, 25], "to": [11, 18.75, 30], "faces": {"north": {"uv": [5, 4.25, 11, 11.75], "texture": "#head"}, "south": {"uv": [5, 4.25, 11, 11.75], "texture": "#head"}, "east": {"uv": [5.5, 4.25, 10.5, 11.75], "texture": "#head"}, "west": {"uv": [5.5, 4.25, 10.5, 11.75], "texture": "#head"}, "up": {"uv": [5, 5.5, 11, 10.5], "texture": "#head"}, "down": {"uv": [5, 5.5, 11, 10.5], "texture": "#head"}}}
+    {"from": [7, 15, -13], "to": [9, 17, -1], "faces": {"north": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "south": {"uv": [7, 7, 9, 9], "texture": "#rod"}, "east": {"uv": [2, 7, 14, 9], "texture": "#rod"}, "west": {"uv": [2, 7, 14, 9], "texture": "#rod"}, "up": {"uv": [7, 2, 9, 14], "texture": "#rod"}, "down": {"uv": [7, 2, 9, 14], "texture": "#rod"}}},
+    {"from": [5.5, 12.2, -3], "to": [10.5, 19.8, 2], "faces": {"north": {"uv": [5.5, 4.2, 10.5, 11.8], "texture": "#head"}, "south": {"uv": [5.5, 4.2, 10.5, 11.8], "texture": "#head"}, "east": {"uv": [5.5, 4.2, 10.5, 11.8], "texture": "#head"}, "west": {"uv": [5.5, 4.2, 10.5, 11.8], "texture": "#head"}, "up": {"uv": [5.5, 5.5, 10.5, 10.5], "texture": "#head"}, "down": {"uv": [5.5, 5.5, 10.5, 10.5], "texture": "#head"}}},
+    {"from": [7.25, 15.25, 2], "to": [8.75, 16.75, 7.3], "faces": {"north": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#conrod"}, "south": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#conrod"}, "east": {"uv": [5.35, 7.25, 10.65, 8.75], "texture": "#conrod"}, "west": {"uv": [5.35, 7.25, 10.65, 8.75], "texture": "#conrod"}, "up": {"uv": [7.25, 5.35, 8.75, 10.65], "texture": "#conrod"}, "down": {"uv": [7.25, 5.35, 8.75, 10.65], "texture": "#conrod"}}}
   ]
 }

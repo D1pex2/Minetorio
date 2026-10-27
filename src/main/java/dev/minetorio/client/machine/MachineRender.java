@@ -1,6 +1,7 @@
 package dev.minetorio.client.machine;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.multiblock.MultiblockShape;
@@ -52,9 +53,19 @@ public final class MachineRender {
     /** Draws a standalone block model at the pose (model 0..16 = one block from the pose origin). */
     public static void renderModel(ModelBlockRenderer renderer, ModelResourceLocation location, PoseStack pose,
                                    MultiBufferSource buffers, int light, int overlay) {
+        renderModel(renderer, location, pose, buffers.getBuffer(Sheets.solidBlockSheet()), light, overlay);
+    }
+
+    /** Like {@link #renderModel(ModelBlockRenderer, ModelResourceLocation, PoseStack, MultiBufferSource, int, int)}, blended (glass). */
+    public static void renderTranslucentModel(ModelBlockRenderer renderer, ModelResourceLocation location, PoseStack pose,
+                                              MultiBufferSource buffers, int light, int overlay) {
+        renderModel(renderer, location, pose, buffers.getBuffer(Sheets.translucentCullBlockSheet()), light, overlay);
+    }
+
+    private static void renderModel(ModelBlockRenderer renderer, ModelResourceLocation location, PoseStack pose,
+                                    VertexConsumer buffer, int light, int overlay) {
         BakedModel model = Minecraft.getInstance().getModelManager().getModel(location);
-        renderer.renderModel(pose.last(), buffers.getBuffer(Sheets.solidBlockSheet()), null, model, 1f, 1f, 1f,
-                light, overlay, ModelData.EMPTY, null);
+        renderer.renderModel(pose.last(), buffer, null, model, 1f, 1f, 1f, light, overlay, ModelData.EMPTY, null);
     }
 
     /** The whole footprint of a machine (models extend past the controller block). */
