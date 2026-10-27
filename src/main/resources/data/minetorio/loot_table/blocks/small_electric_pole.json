@@ -12,6 +12,13 @@
       ],
       "conditions": [
         {
+          "condition": "minecraft:block_state_property",
+          "block": "minetorio:small_electric_pole",
+          "properties": {
+            "part": "0"
+          }
+        },
+        {
           "condition": "minecraft:survives_explosion"
         }
       ]

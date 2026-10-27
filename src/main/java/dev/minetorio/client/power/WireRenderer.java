@@ -2,6 +2,7 @@ package dev.minetorio.client.power;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -17,8 +18,8 @@ import net.minecraft.world.phys.AABB;
  * that pole is off screen.
  */
 public class WireRenderer implements BlockEntityRenderer<ElectricPoleBlockEntity> {
-    /** Wire attachment height above the pole's block origin (top of the post). */
-    private static final float ATTACH_Y = 22 / 16f;
+    /** Wire attachment height above the pole's lower block origin: the top insulator of the three-block pole. */
+    private static final float ATTACH_Y = 47 / 16f;
     private static final int SEGMENTS = 16;
     /** Sag at mid-span per block of span, capped at {@link #MAX_SAG}. */
     private static final float SAG_PER_BLOCK = 0.06f;
@@ -64,8 +65,9 @@ public class WireRenderer implements BlockEntityRenderer<ElectricPoleBlockEntity
     /** This pole and every pole it is wired to. */
     @Override
     public AABB getRenderBoundingBox(ElectricPoleBlockEntity be) {
-        AABB box = new AABB(be.getBlockPos()).expandTowards(0, 1, 0);
-        for (BlockPos p : be.connections()) box = box.minmax(new AABB(p).expandTowards(0, 1, 0));
+        int up = ElectricPoleBlock.HEIGHT - 1;
+        AABB box = new AABB(be.getBlockPos()).expandTowards(0, up, 0);
+        for (BlockPos p : be.connections()) box = box.minmax(new AABB(p).expandTowards(0, up, 0));
         return box;
     }
 }

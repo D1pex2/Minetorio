@@ -1,7 +1,13 @@
 {
   "variants": {
-    "": {
+    "part=0": {
       "model": "minetorio:block/small_electric_pole"
+    },
+    "part=1": {
+      "model": "minetorio:block/small_electric_pole_middle"
+    },
+    "part=2": {
+      "model": "minetorio:block/small_electric_pole_top"
     }
   }
 }

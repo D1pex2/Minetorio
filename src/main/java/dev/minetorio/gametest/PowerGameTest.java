@@ -7,7 +7,9 @@ import static dev.minetorio.gametest.InserterGameTest.inserter;
 
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.power.BoilerBlockEntity;
+import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
+import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
 import dev.minetorio.content.power.PipeBlock;
 import dev.minetorio.content.power.PipeBlockEntity;
@@ -322,5 +324,44 @@ public class PowerGameTest {
             h.assertTrue(load.satisfaction() >= 0.9999, "satisfaction " + load.satisfaction());
             h.succeed();
         });
+    }
+
+    // --- three-block small electric pole ---------------------------------------------------------
+
+    /** Placing the item builds the lower block (with the block entity), the middle and the top. */
+    @GameTest(template = "empty16")
+    public static void polePlacesThreeParts(GameTestHelper h) {
+        BlockPos pole = new BlockPos(4, 1, 4);
+        place(h, ModItems.SMALL_ELECTRIC_POLE.get(), pole, Direction.NORTH);
+        for (int part = 0; part < ElectricPoleBlock.HEIGHT; part++) {
+            h.assertBlockProperty(pole.above(part), ElectricPoleBlock.PART, part);
+        }
+        h.assertTrue(h.getBlockEntity(pole) instanceof ElectricPoleBlockEntity, "no block entity on the lower block");
+        h.assertTrue(h.getLevel().getBlockEntity(h.absolutePos(pole.above(2))) == null, "block entity on the top");
+        h.succeed();
+    }
+
+    /** The pole needs the two cells above it free. */
+    @GameTest(template = "empty16")
+    public static void poleNeedsRoomAbove(GameTestHelper h) {
+        BlockPos pole = new BlockPos(4, 1, 4);
+        h.setBlock(pole.above(2), Blocks.STONE);
+        h.assertFalse(tryPlace(h, (BlockItem) ModItems.SMALL_ELECTRIC_POLE.get(), pole, Direction.NORTH), "placed under stone");
+        h.assertBlockNotPresent(ModBlocks.SMALL_ELECTRIC_POLE.get(), pole);
+        h.succeed();
+    }
+
+    /** Breaking any part breaks the whole pole, which drops one item. */
+    @GameTest(template = "empty16")
+    public static void breakingAnyPoleBlockBreaksAllAndDropsOne(GameTestHelper h) {
+        BlockPos[] poles = {new BlockPos(2, 1, 2), new BlockPos(7, 1, 2), new BlockPos(12, 1, 2)};
+        for (int part = 0; part < ElectricPoleBlock.HEIGHT; part++) {
+            BlockPos pole = poles[part];
+            place(h, ModItems.SMALL_ELECTRIC_POLE.get(), pole, Direction.NORTH);
+            h.getLevel().destroyBlock(h.absolutePos(pole.above(part)), true);
+            for (int i = 0; i < ElectricPoleBlock.HEIGHT; i++) h.assertBlockPresent(Blocks.AIR, pole.above(i));
+            h.assertItemEntityCountIs(ModItems.SMALL_ELECTRIC_POLE.get(), pole.above(1), 2.5, 1);
+        }
+        h.succeed();
     }
 }
