@@ -304,15 +304,15 @@ class ModelZFightTest {
         double hx = s, hz = -c; // facing north (0, -1), right = east (1, 0)
         double radius = 0.85 * reach, shoulderY = 5.5 / 16.0;
         V shoulder = new V(0.5, shoulderY, 0.5);
-        V elbow = new V(0.5 + hx * radius * 0.45, shoulderY + 0.34 + 0.14 * reach, 0.5 + hz * radius * 0.45);
-        V hand = new V(0.5 + hx * radius, shoulderY + 0.14, 0.5 + hz * radius);
+        V elbow = new V(0.5 + hx * radius * 0.1, shoulderY + 0.40 + 0.06 * reach, 0.5 + hz * radius * 0.1);
+        V hand = new V(0.5 + hx * radius, shoulderY + 0.2, 0.5 + hz * radius);
         V side = new V(-hz, 0, hx);
         List<Face> quads = new ArrayList<>();
         Object[][] boxes = {{shoulder, shoulder.add(new V(0, 0.1, 0)), 0.065},
-            {shoulder.add(new V(0, 0.05, 0)), elbow, 0.042},
-            {elbow.sub(new V(0, 0.055, 0)), elbow.add(new V(0, 0.055, 0)), 0.055},
-            {elbow, hand.add(new V(0, 0.03, 0)), 0.032},
-            {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.03, 0)), 0.055}};
+            {shoulder.add(new V(0, 0.05, 0)), elbow, 0.035},
+            {elbow.sub(new V(0, 0.045, 0)), elbow.add(new V(0, 0.045, 0)), 0.045},
+            {elbow, hand.add(new V(0, 0.03, 0)), 0.024},
+            {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.03, 0)), 0.05}};
         for (Object[] box : boxes) {
             V a0 = (V) box[0], b0 = (V) box[1];
             double half = (double) box[2];
@@ -344,30 +344,38 @@ class ModelZFightTest {
             c.add(new Composite("assembling_machine_" + t, List.of(Part.fixed("body", "assembling_machine_" + t + "_body"),
                     spinning("gear", "assembling_machine_" + t + "_gear", 'y', center))));
         }
-        // DrillRenderer.java:47-63: electric body and turning head at the center, the tower one block up.
+        // DrillRenderer: electric body and turning head at the center, the carriage riding 0..4 px up, the tower one
+        // block up.
+        List<List<Tr>> carriage = new ArrayList<>();
+        for (int dy = 0; dy <= 4; dy++) carriage.add(dy == 0 ? List.of() : List.of(Tr.t(0, dy, 0)));
         c.add(new Composite("electric_mining_drill", List.of(Part.fixed("body", "electric_mining_drill_body"),
                 spinning("head", "electric_mining_drill_head", 'y', center),
+                new Part("carriage", "electric_mining_drill_carriage", carriage, null, null),
                 Part.fixed("tower", "electric_mining_drill_tower", Tr.t(0, 16, 0)))));
-        // Burner drill: body on the controller's blockstate; DrillRenderer puts the head at (+8, 0, -8) px and the
-        // chimney one block above that.
+        // Burner drill: body on the controller's blockstate; DrillRenderer puts the head at (+8, 0, -8) px.
         c.add(new Composite("burner_mining_drill", List.of(Part.fixed("body", "burner_mining_drill"),
-                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)),
-                Part.fixed("chimney", "burner_mining_drill_chimney", Tr.t(8, 16, -8)))));
-        // LabRenderer.java:37-46: body, glass tube and turning fluid column (glowing or idle).
+                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)))));
+        // LabRenderer: body and turning dome (glowing or idle).
         for (String dome : List.of("lab_dome", "lab_dome_idle")) {
-            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), Part.fixed("shell", "lab_shell"),
-                    spinning("dome", dome, 'y', center))));
+            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), spinning("dome", dome, 'y', center))));
         }
-        // SteamMachineRenderer.java:73-74: boiler body and fire.
+        // SteamMachineRenderer.Boiler: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
-        // SteamMachineRenderer.java:93-102: body at dz -1 block, rear at +1.5, piston at +1.5 block +-3 px, flywheel at
-        // dz +1.5 turning about x through its model's (y 16, z 8).
-        List<List<Tr>> piston = new ArrayList<>();
-        for (double dz : new double[] {-3, -1.5, 0, 1.5, 3}) piston.add(List.of(Tr.t(0, 0, 24 + dz)));
-        c.add(new Composite("steam_engine", List.of(Part.fixed("body", "steam_engine_body", Tr.t(0, 0, -16)),
-                Part.fixed("rear", "steam_engine_rear", Tr.t(0, 0, 24)),
-                new Part("piston", "steam_engine_piston", piston, null, null),
-                spinning("flywheel", "steam_engine_flywheel", 'x', new V(0, 16, 8), Tr.t(0, 0, 24)))));
+        // SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x through
+        // their models' (y 8, z 8), drawn at their pivots (Engine.GEARS).
+        List<Part> engine = new ArrayList<>(List.of(Part.fixed("body", "steam_engine_body"),
+                Part.fixed("front", "steam_engine_front", Tr.t(0, 0, -24)),
+                Part.fixed("rear", "steam_engine_rear", Tr.t(0, 0, 24))));
+        for (Object[] g : new Object[][] {{"steam_engine_gear", 15.0, 10.0}, {"steam_engine_gear_small", 12.0, -6.0},
+            {"steam_engine_gear_small", 21.0, 25.0}}) {
+            double py = (double) g[1], pz = (double) g[2];
+            engine.add(spinning("gear@" + py + "," + pz, (String) g[0], 'x', new V(0, 8, 8), Tr.t(0, py - 8, pz - 8)));
+        }
+        c.add(new Composite("steam_engine", engine));
+        // blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
+        c.add(new Composite("small_electric_pole", List.of(Part.fixed("lower", "small_electric_pole"),
+                Part.fixed("middle", "small_electric_pole_middle", Tr.t(0, 16, 0)),
+                Part.fixed("top", "small_electric_pole_top", Tr.t(0, 32, 0)))));
         // InserterRenderer.java:97-111: procedural arm over the base.
         for (Object[] ins : new Object[][] {{"burner_inserter", 1}, {"inserter", 1}, {"long_handed_inserter", 2}, {"fast_inserter", 1}}) {
             int reach = (int) ins[1];

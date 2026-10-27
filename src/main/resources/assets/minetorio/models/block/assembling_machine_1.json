@@ -1,7 +1,7 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/beige_panel"
+    "particle": "minetorio:block/asm1_skirt"
   },
   "elements": [
 

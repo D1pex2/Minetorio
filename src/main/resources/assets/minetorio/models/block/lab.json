@@ -1,7 +1,7 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "particle": "minetorio:block/lab_panel"
+    "particle": "minetorio:block/lab_dome_glass"
   },
   "elements": [
 

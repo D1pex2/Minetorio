@@ -18,21 +18,21 @@ import net.minecraft.world.phys.AABB;
  * footprint's center (−16..32).
  * <ul>
  *   <li>Boiler (3×2): "boiler_body", plus "boiler_fire" drawn at full brightness while it burns.</li>
- *   <li>Steam engine (3×5, too long for one model): two halves of 2.5 blocks each,
- *       "steam_engine_body" (front: bed, steam port, the long round cylinder, valve chest) and
- *       "steam_engine_rear" (back: cylinder cover, crosshead guides, crankshaft pedestals, exhaust
- *       port); "steam_engine_flywheel" (big spoked flywheel, crankshaft and crank) turns about the
- *       width axis through its pivot near the back end while the engine produces, and
- *       "steam_engine_piston" (rod, crosshead, connecting rod) slides along the length in step with it.</li>
+ *   <li>Steam engine (3×5, too long for one model), Factorio's three upright tanks in a row:
+ *       "steam_engine_body" (middle tank, gear mounting plate) at the center, "steam_engine_front" and
+ *       "steam_engine_rear" (end tanks and the blue fluid connections) 1.5 blocks before and behind it,
+ *       and a cluster of gears on the east side ("steam_engine_gear", "steam_engine_gear_small") that
+ *       turn about the width axis while the engine produces, the small ones the other way.</li>
  * </ul>
  */
 public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamMachineBlockEntity> {
     public static final ModelResourceLocation BOILER_BODY = MachineRender.model("block/boiler_body");
     public static final ModelResourceLocation BOILER_FIRE = MachineRender.model("block/boiler_fire");
     public static final ModelResourceLocation ENGINE_BODY = MachineRender.model("block/steam_engine_body");
-    public static final ModelResourceLocation ENGINE_FLYWHEEL = MachineRender.model("block/steam_engine_flywheel");
+    public static final ModelResourceLocation ENGINE_FRONT = MachineRender.model("block/steam_engine_front");
     public static final ModelResourceLocation ENGINE_REAR = MachineRender.model("block/steam_engine_rear");
-    public static final ModelResourceLocation ENGINE_PISTON = MachineRender.model("block/steam_engine_piston");
+    public static final ModelResourceLocation ENGINE_GEAR = MachineRender.model("block/steam_engine_gear");
+    public static final ModelResourceLocation ENGINE_GEAR_SMALL = MachineRender.model("block/steam_engine_gear_small");
 
     protected final ModelBlockRenderer modelRenderer;
 
@@ -77,29 +77,39 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
     }
 
     public static final class Engine extends SteamMachineRenderer {
-        /** Half models span −1.5..+1.0 blocks from the center; these shifts make them cover −2.5..0 and 0..+2.5. */
-        private static final double FRONT_HALF = -1.0;
-        private static final double BACK_HALF = 1.5;
-        /** The flywheel and piston models are drawn with the back half; the flywheel pivot is 1 block up at the model's center. */
-        private static final double FLYWHEEL_PIVOT_Y = 1.0;
-        /** Piston stroke half-length in blocks. */
-        private static final double PISTON_THROW = 3 / 16.0;
+        /** The end models are authored around the center block and drawn this many blocks before and behind it. */
+        private static final double END_SHIFT = 1.5;
+        /** The gear models are authored around this point (model pixels, y and z), their pivot. */
+        private static final float GEAR_CENTER = 8;
+        private static final Gear[] GEARS = {
+            new Gear(ENGINE_GEAR, 15, 10, 1, 0),
+            new Gear(ENGINE_GEAR_SMALL, 12, -6, -18 / 11f, 11.25f),
+            new Gear(ENGINE_GEAR_SMALL, 21, 25, -18 / 11f, 11.25f),
+        };
+
+        /**
+         * A gear drawn with its pivot at (y, z) center-frame pixels (art/gen_models.py ENG_GEARS), turning
+         * {@code ratio} times per engine turn (negative: the other way), offset by {@code phase} degrees.
+         */
+        private record Gear(ModelResourceLocation model, float y, float z, float ratio, float phase) {}
 
         public Engine(BlockEntityRendererProvider.Context ctx) { super(ctx); }
 
         @Override
         protected void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
                                    int light, int overlay) {
-            draw(ENGINE_BODY, FRONT_HALF, pose, buffers, light, overlay);
-            draw(ENGINE_REAR, BACK_HALF, pose, buffers, light, overlay);
+            draw(ENGINE_BODY, 0, pose, buffers, light, overlay);
+            draw(ENGINE_FRONT, -END_SHIFT, pose, buffers, light, overlay);
+            draw(ENGINE_REAR, END_SHIFT, pose, buffers, light, overlay);
             float angle = be.renderAngle(partialTick);
-            draw(ENGINE_PISTON, BACK_HALF + PISTON_THROW * Math.sin(Math.toRadians(angle)), pose, buffers, light, overlay);
-            pose.pushPose();
-            pose.translate(0, FLYWHEEL_PIVOT_Y, BACK_HALF);
-            pose.mulPose(Axis.XP.rotationDegrees(angle));
-            pose.translate(0, -FLYWHEEL_PIVOT_Y, -BACK_HALF);
-            draw(ENGINE_FLYWHEEL, BACK_HALF, pose, buffers, light, overlay);
-            pose.popPose();
+            for (Gear gear : GEARS) {
+                pose.pushPose();
+                pose.translate(0, gear.y() / 16f, (gear.z() - GEAR_CENTER) / 16f);
+                pose.mulPose(Axis.XP.rotationDegrees(angle * gear.ratio() + gear.phase()));
+                pose.translate(-0.5, -GEAR_CENTER / 16f, -GEAR_CENTER / 16f);
+                MachineRender.renderModel(modelRenderer, gear.model(), pose, buffers, light, overlay);
+                pose.popPose();
+            }
         }
     }
 }

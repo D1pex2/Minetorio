@@ -192,7 +192,7 @@ class Model:
             a, b = -b, a
         return a, b
 
-    def _poly(self, axis, c1, c2, r0, r1, w, s0, s1, tex, k, rot_origin):
+    def _poly(self, axis, c1, c2, r0, r1, w, s0, s1, tex, k, rot_origin, **box_kw):
         """Box between radii r0..r1, w wide, s0..s1 along the axis, in 16-gon step k. Plane coords (c1, c2):
         axis y -> (x, z), axis x -> (y, z)."""
         q, res = self._step(k)
@@ -202,16 +202,16 @@ class Model:
         b0, b1 = min(p[1] for p in pts), max(p[1] for p in pts)
         kw = {"rot": (axis, res, rot_origin)} if res else {}
         if axis == "y":
-            self.box([c1 + a0, s0, c2 + b0], [c1 + a1, s1, c2 + b1], tex, split=False, **kw)
+            self.box([c1 + a0, s0, c2 + b0], [c1 + a1, s1, c2 + b1], tex, split=False, **kw, **box_kw)
         else:
-            self.box([s0, c1 + a0, c2 + b0], [s1, c1 + a1, c2 + b1], tex, split=False, **kw)
+            self.box([s0, c1 + a0, c2 + b0], [s1, c1 + a1, c2 + b1], tex, split=False, **kw, **box_kw)
 
-    def ring_y(self, cx, cz, R, t, y0, y1, tex, steps=range(16)):
+    def ring_y(self, cx, cz, R, t, y0, y1, tex, steps=range(16), **kw):
         """Flat 16-gon ring about a vertical axis: outer radius R, wall t, y0..y1."""
         L = 2 * R * math.tan(math.pi / 16)
         for k in steps:
             e = EPS * (k % 2)
-            self._poly("y", cx, cz, R - t, R, L, y0 + e, y1 - e, tex, k, [cx, y0, cz])
+            self._poly("y", cx, cz, R - t, R, L, y0 + e, y1 - e, tex, k, [cx, y0, cz], **kw)
         return self
 
     def ring_x(self, cy, cz, R, t, x0, x1, tex):
@@ -281,6 +281,44 @@ class Model:
                 zb = cuts[k + 1] - (e if k == n - 1 else 0)
                 skip = tuple(f for f, inner in (("north", k > 0), ("south", k < n - 1)) if inner)
                 self.box([cx - w, cy - h, za], [cx + w, cy + h, zb], tex, split=False, skip=skip, **r, **kw)
+        return self
+
+    def prism16_x(self, cy, cz, a, x0, x1, tex, **kw):
+        """Disc / prism along x through (cy, cz), apothem a (an upright gear face, a round end cap)."""
+        s = a * math.tan(math.pi / 16)
+        for i, (along_z, ang) in enumerate(self.PRISM16):
+            e = EPS * i
+            r = {"rot": ("x", ang, [x0, cy, cz])} if ang else {}
+            h, d = (s, a) if along_z else (a, s)
+            self.box([x0 + e, cy - h, cz - d], [x1 - e, cy + h, cz + d], tex, split=False, **r, **kw)
+        return self
+
+    def teeth_x(self, cy, cz, r0, r1, w, x0, x1, tex):
+        """16 gear teeth about an axis along x; neighbours overlap near the root, so odd ones are EPS thinner."""
+        for k in range(16):
+            e = EPS * (k % 2)
+            self._poly("x", cy, cz, r0, r1, w, x0 + e, x1 - e, tex, k, [x0, cy, cz])
+        return self
+
+    def gear_x(self, cy, cz, r, x0, x1, tex):
+        """Upright toothed gear about an axis along x: a solid 16-sided disc, 16 teeth, a dark hub."""
+        self.prism16_x(cy, cz, r, x0, x1, tex["disc"])
+        self.teeth_x(cy, cz, r - 0.5, r + 2, 2, x0 + 0.25, x1 - 0.25, tex["teeth"])
+        self.prism16_x(cy, cz, max(1.5, r * 0.35), x0 - 0.5, x1 + 0.5, tex["hub"])
+        return self
+
+    def dome(self, cx, cz, R, y0, n, tex):
+        """Hollow hemisphere of radius R standing on y0 (for glass): n stacked 16-sided rings (apothem at mid
+        height), each wall reaching just inside the next ring, so the dome is closed but one glass layer
+        thick; the top ring is a solid cap. Every face shows the whole texture (one lattice cell per face)."""
+        h = R / n
+        a = [math.sqrt(R * R - ((i + 0.5) * h) ** 2) for i in range(n)]
+        for i in range(n):
+            y0i, y1i = y0 + i * h, y0 + (i + 1) * h
+            if i == n - 1:
+                self.prism16_y(cx, cz, a[i], y0i, y1i, tex, fit=FACES)
+            else:
+                self.ring_y(cx, cz, a[i], max(1.0, a[i] - a[i + 1] + 0.75), y0i, y1i, tex, fit=FACES)
         return self
 
     def chamfer(self, x0, z0, x1, z1, y0, y1, tex, c=4, **kw):
@@ -484,50 +522,75 @@ def empty(name, particle):
 TIER_COLOR = {"": "tier_yellow", "fast_": "tier_red", "express_": "tier_blue"}
 
 # =====================================================================================
-# Assembling machines (3x3, body + spinning gear; footprint center at 8, 8). Factorio look: a chunky
-# square housing with bevelled corners and pipe stubs, the roof a round opening in which a big
-# spoked gear with a cross arm turns while crafting.
+# Machines, each modelled from its Factorio wiki image (checked side by side in art/render_compare.py).
 # =====================================================================================
-ASM_COLLAR_R = 24      # static ring around the opening (outer radius)
-ASM_GEAR_R = 19        # gear rim (outer radius); teeth reach 21.5, inside the collar's 22
+
+# =====================================================================================
+# Assembling machines (3x3, 2 high; footprint center at 8, 8). Factorio: a chunky box on a sloped,
+# ribbed skirt (grey-green tier 1, blue tier 2), its top deck crowded with machinery. The body holds
+# the static machinery (vertical gears, pipes, a motor, a crane arm); the gear part - a big flat gear
+# with a cross arm in the middle of the deck - spins while crafting.
+# =====================================================================================
+ASM_DECK = 18          # top of the housing
+ASM_GEAR_Y = 24        # the spinning gear's underside (its pedestal's top)
+ASM_GEAR_R = 8         # flat gear (outer radius of the rim); teeth reach 10.5
 
 
 def assembler_body(tier):
-    house, trim = ("beige", "dark_panel") if tier == 1 else ("slate", "tier_blue_panel")
-    m = Model({"frame": "dark_panel", "body": house + "_panel", "vent": house + "_vent", "plain": house,
-               "trim": trim, "roof": "dark", "collar": house + "_panel", "window": "window",
-               "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"},
-              house + "_panel")
-    m.chamfer(-16, -16, 32, 32, 0, 2, "frame", c=6)
-    m.chamfer(-14, -14, 30, 30, 2, 18, {"north": "body", "south": "vent", "east": "body", "west": "body",
-                                        "up": "roof", "down": "frame"}, c=5)
-    # trim band under the roof edge (tier colour on tier 2), its top is the roof deck
-    m.chamfer(-14.5, -14.5, 30.5, 30.5, 18, 21, {"north": "trim", "south": "trim", "east": "trim", "west": "trim",
-                                                 "up": "roof", "down": "trim"}, c=5)
-    # the opening's collar
-    m.ring_y(8, 8, ASM_COLLAR_R, 2, 21, 23.5, "collar")
-    # front window, pipe stubs on the sides
-    m.box([1, 6, -14.5], [15, 16, -14], "window", fit=("north",), skip=("south",), split=False)
-    m.pipe_x(9, 8, -16, -14, size=6, skip=("west",))
-    m.flange_x(9, 8, -16, -15.5, size=9)
-    m.pipe_x(9, 8, 30, 32, size=6, skip=("east",))
-    m.flange_x(9, 8, 31.5, 32, size=9)
+    m = Model({"skirt": f"asm{tier}_skirt", "body": f"asm{tier}_body", "deck": "asm_deck", "frame": "dark_panel",
+               "dark": "dark", "steel": "steel", "copper": "copper", "brass": "brass", "rust": "rust_panel",
+               "rusty": "rust", "vent": "vent", "disc": "steel_panel", "teeth": "dark", "hub": "gear_hub",
+               "window": "window", "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"},
+              f"asm{tier}_skirt")
+    # sloped skirt: three steps, each 1.5 px further in
+    for i, (y0, y1) in enumerate(((0, 3), (3, 6), (6, 9))):
+        d = 1.5 * i
+        m.chamfer(-16 + d, -16 + d, 32 - d, 32 - d, y0, y1,
+                  {"north": "skirt", "south": "skirt", "east": "skirt", "west": "skirt", "up": "skirt",
+                   "down": "frame"}, c=5)
+    # housing, its top is the deck
+    m.chamfer(-12.5, -12.5, 28.5, 28.5, 9, ASM_DECK,
+              {"north": "body", "south": "body", "east": "body", "west": "body", "up": "deck", "down": "frame"}, c=4)
+    # the pile of machinery under the spinning gear (which turns at y ASM_GEAR_Y over the middle)
+    # back: a rusty gearbox with a copper pipe run and a valve
+    m.box([-10, ASM_DECK, -11], [20, ASM_DECK + 5, -1], {"north": "rust", "south": "rust", "east": "rust",
+                                                         "west": "rust", "up": "rusty", "down": "rust"})
+    m.pipe_x(ASM_DECK + 6.5, -8, -9, 24, size=3)
+    m.box([20.5, ASM_DECK, -11.5], [26.5, ASM_DECK + 9, -5.5], "copper", split=False)
+    m.cbox(23.5, -8.5, 3, 3, ASM_DECK + 9, ASM_DECK + 11, "brass", split=False)
+    # west: two upright gears on a bearing block
+    m.box([-11, ASM_DECK, 1], [-7, ASM_DECK + 1.5, 25], "dark", split=False)
+    for cz in (4.5, 19.5):
+        m.gear_x(ASM_DECK + 6.5, cz, 5, -10, -8, {"disc": "disc", "teeth": "teeth", "hub": "hub"})
+    # east: a motor with a vent and a pipe column
+    m.box([19, ASM_DECK, 2], [27, ASM_DECK + 6, 14], {"north": "rust", "south": "rust", "east": "vent", "west": "rust",
+                                                     "up": "rusty", "down": "rust"}, fit=("east",), split=False)
+    m.pipe_y(24, 20, ASM_DECK, ASM_DECK + 10, size=4)
+    # front: a copper tank lying across, a control box with a window, a brass crate
+    m.prism16_x(ASM_DECK + 3, 15, 3, -5, 17, "copper")
+    m.box([-6, ASM_DECK, 21], [6, ASM_DECK + 5, 27], {"north": "dark", "south": "window", "east": "dark",
+                                                     "west": "dark", "up": "dark", "down": "dark"},
+          fit=("south",), split=False)
+    m.box([12, ASM_DECK, 21], [22, ASM_DECK + 3.5, 27], "brass", split=False)
+    # the gear's pedestal
+    m.octagon_y(8, 8, 5, ASM_DECK, ASM_GEAR_Y, "frame")
     return m
 
 
 def assembler_gear(tier):
     hub = "brass" if tier == 1 else "tier_blue"
-    m = Model({"rim": "steel_panel", "teeth": "steel", "spoke": "steel", "hub": "gear_hub", "boss": hub,
-               "arm": "steel_panel", "weight": hub}, "steel")
-    m.ring_y(8, 8, ASM_GEAR_R, 2.5, 21.5, 24, "rim")
-    m.teeth_y(8, 8, ASM_GEAR_R - 0.5, ASM_GEAR_R + 2.5, 2.5, 21.75, 23.75, "teeth")
-    m.spokes_y(8, 8, ASM_GEAR_R - 1, 3.5, 21.75, 23.5, "spoke")
-    m.octagon_y(8, 8, 9, 21.5, 26, {"north": "boss", "south": "boss", "east": "boss", "west": "boss",
-                                    "up": "hub", "down": "boss"})
-    # the cross arm over the gear with weights at its ends
-    m.box([-8, 26, 6.5], [24, 27.5, 9.5], "arm", split=False)
-    for x in (-9, 25):
-        m.cbox(x, 8, 4, 5, 24.5, 28, "weight", split=False)
+    m = Model({"rim": "steel_panel", "teeth": "dark", "spoke": "steel", "hub": "gear_hub", "boss": hub,
+               "arm": "dark_panel", "weight": hub}, "steel")
+    y = ASM_GEAR_Y + 0.25
+    m.ring_y(8, 8, ASM_GEAR_R, 2.5, y, y + 2, "rim")
+    m.teeth_y(8, 8, ASM_GEAR_R - 0.5, ASM_GEAR_R + 2.5, 2.5, y + 0.25, y + 1.75, "teeth")
+    m.spokes_y(8, 8, ASM_GEAR_R - 1, 2.5, y + 0.25, y + 1.75, "spoke")
+    m.octagon_y(8, 8, 6, y, y + 4.5, {"north": "boss", "south": "boss", "east": "boss", "west": "boss",
+                                      "up": "hub", "down": "boss"})
+    # a crane arm across the gear with weights at its ends
+    m.box([-1, y + 4.5, 6.5], [17, y + 6, 9.5], "arm", split=False)
+    for x in (-2, 18):
+        m.cbox(x, 8, 3, 4, y + 3, y + 6.5, "weight", split=False)
     return m
 
 
@@ -536,118 +599,138 @@ for tier in (1, 2):
     gear = assembler_gear(tier)
     save_block(f"assembling_machine_{tier}_body", body)
     save_block(f"assembling_machine_{tier}_gear", gear)
-    empty(f"assembling_machine_{tier}", "beige_panel" if tier == 1 else "slate_panel")
+    empty(f"assembling_machine_{tier}", f"asm{tier}_skirt")
     item_from(f"assembling_machine_{tier}", body, gear)
 
 # =====================================================================================
-# Electric mining drill (3x3, ~3 blocks tall). body: housing with side motors; head (spins): a big
-# cog on the deck and the drill shaft; tower: an A-frame derrick over the shaft, drawn one block up
-# (DrillRenderer), so its y = world y - 16.
+# Electric mining drill (3x3, 3 high). Factorio: a dark base, two tall upright rails on the left and
+# right with a mechanism carriage between them, a yellow output chute at the front and a status light.
+#   body:     base, deck, chute, the rails' lower half;
+#   tower:    the rails' upper half with hazard caps, drawn one block up (y = world y - 16);
+#   carriage: motor housing riding up and down between the rails while mining (DrillRenderer);
+#   head:     drill shaft from the deck into the carriage, spinning while mining.
 # =====================================================================================
-edb = Model({"frame": "dark_panel", "body": "steel_panel", "deck": "dark_panel", "hazard": "hazard", "vent": "vent",
-             "accent": "tier_yellow_panel", "steel": "steel", "chute": "dark_panel", "dark": "dark"}, "steel_panel")
-edb.chamfer(-16, -16, 32, 32, 0, 3, "frame", c=6)
-edb.chamfer(-13, -13, 29, 29, 3, 14, {"north": "body", "south": "body", "east": "body", "west": "body",
-                                      "up": "deck", "down": "frame"}, c=4)
-edb.chamfer(-13.5, -13.5, 29.5, 29.5, 11, 13.5, "accent", c=4)
-edb.box([-9, 3, -13.5], [25, 5, -13], "hazard", only=("north", "up", "east", "west"), split=False)
-edb.octagon_y(8, 8, 30, 14, 15, "steel")
-# output chute on the front edge
-edb.box([2, 4, -15.5], [14, 10.5, -13.5], "chute", split=False)
-edb.box([3, 4, -16], [13, 9, -15.5], "dark", only=("north",), split=False)
-# side motors
-for x0, x1, out in ((-16, -13.5, "west"), (29.5, 32, "east")):
-    edb.box([x0, 3, -1], [x1, 12, 17], {f: ("vent" if f == out else "frame") for f in FACES}, fit=(out,), split=False)
+EDR_RAILS = ((-14, -8), (24, 30))     # rail x ranges; rails run z -12..28
+edb = Model({"frame": "dark_panel", "body": "dark_panel", "deck": "dark", "rail": "dark_panel",
+             "hazard": "hazard", "chute": "tier_yellow_panel", "arrow": "chute_arrow", "dark": "dark",
+             "green": "tier_green", "steel": "steel"}, "dark_panel")
+edb.chamfer(-16, -16, 32, 32, 0, 3, "frame", c=5)
+edb.chamfer(-14, -14, 30, 30, 3, 7, {"north": "body", "south": "body", "east": "body", "west": "body",
+                                    "up": "deck", "down": "frame"}, c=4)
+for x0, x1 in EDR_RAILS:
+    edb.box([x0, 7, -12], [x1, 32, 28], "rail", skip=("up",))
+    # a yellow-black band low on each rail's front
+    edb.box([x0 - EPS, 9, -12.5], [x1 + EPS, 13, -11.5], "hazard", split=False)
+# output chute: a yellow spout on the front edge, the drop arrow on top, a dark mouth
+edb.box([2, 3, -15.5], [14, 8, -10], {"north": "chute", "south": "chute", "east": "chute", "west": "chute",
+                                     "up": "arrow", "down": "chute"}, fit=("up",), split=False)
+edb.box([3.5, 3.5, -16], [12.5, 7, -15.5], "dark", only=("north", "east", "west", "up"), split=False)
+# status light on the deck, front right
+edb.cbox(20, -10, 2, 2, 7, 9, "green", split=False)
 save_block("electric_mining_drill_body", edb)
 
-edh = Model({"disc": "steel_panel", "teeth": "dark", "bit": "drill_bit", "collar": "tier_yellow", "hub": "gear_hub"},
-            "drill_bit")
-edh.octagon_y(8, 8, 22, 15.25, 17.25, {"north": "disc", "south": "disc", "east": "disc", "west": "disc",
-                                       "up": "disc", "down": "disc"})
-edh.teeth_y(8, 8, 10.5, 14, 3, 15.5, 17, "teeth")
-edh.octagon_y(8, 8, 7, 17.25, 32, "bit")
-for y in (21, 27):
-    edh.octagon_y(8, 8, 10, y, y + 1.5, "collar")
-save_block("electric_mining_drill_head", edh)
-
-edt = Model({"leg": "tier_yellow_panel", "bar": "dark_panel", "beam": "dark_panel", "cap": "tier_yellow",
-             "casing": "dark", "pulley": "steel"}, "tier_yellow_panel")
-LEG_LEN, LEG_TILT = 30, 22.5
-for z0, z1 in ((-8, -5), (21, 24)):
-    for i, (xf, ang) in enumerate(((-5, -LEG_TILT), (21, LEG_TILT))):
-        e = EPS * i   # the second leg is EPS slimmer in z where the two cross at the top
-        edt.box([xf - 1.5, -2, z0 + e], [xf + 1.5, -2 + LEG_LEN, z1 - e], "leg", split=False,
-                rot=("z", ang, [xf, -2, (z0 + z1) / 2]))
-    # cross bar half way up
-    edt.box([-1, 11, z0 + 2 * EPS], [17, 12.5, z1 - 2 * EPS], "bar", split=False)
-# crown: a beam joining the two A-frames, a pulley and a cap
-edt.box([4.5, 25, -9], [11.5, 28, 25], "beam")
-edt.octagon_axis("x", 29.5, 8, 4, 6, 10, "pulley", split=False)
-# static casing of the upper shaft
-edt.octagon_y(8, 8, 8, 16, 25, "casing")
+edt = Model({"rail": "dark_panel", "cap": "dark", "hazard": "hazard", "steel": "steel"}, "dark_panel")
+for x0, x1 in EDR_RAILS:
+    edt.box([x0, 16, -12], [x1, 26, 28], "rail", skip=("down",))
+    edt.box([x0 - 0.5, 26, -11.5], [x1 + 0.5, 27.5, 28.5], "cap", split=False)
+    # yellow-black tip at the front of each rail
+    edt.box([x0 - 0.6, 23, -12.5], [x1 + 0.6, 28, -9.5], "hazard", split=False)
 save_block("electric_mining_drill_tower", edt)
-empty("electric_mining_drill", "steel_panel")
-item_from("electric_mining_drill", edb, edh, edt, offsets=[(0, -16, 0), (0, -16, 0), (0, 0, 0)])
+
+edc = Model({"beam": "dark_panel", "hub": "dark", "band": "tier_yellow_panel", "cap": "tier_yellow", "drum": "steel",
+             "end": "dark"}, "dark_panel")
+EDR_CAR_Y = 16        # carriage bottom at rest; it rides up to EDR_CAR_Y + DrillRenderer.CARRIAGE_TRAVEL px
+# an open frame between the rails: front and back cross beams, a spine and the gearbox around the shaft
+for z0, z1 in ((-6, -2), (18, 22)):
+    edc.box([-8, EDR_CAR_Y, z0], [24, EDR_CAR_Y + 4, z1], "beam")
+edc.box([-7.5, EDR_CAR_Y + 1, -6.5], [23.5, EDR_CAR_Y + 3, -6], "band", only=("north", "up", "east", "west"), split=False)
+edc.box([5, EDR_CAR_Y + 0.5, -2], [11, EDR_CAR_Y + 3.5, 18], "beam", split=False)
+edc.octagon_y(8, 8, 11, EDR_CAR_Y, EDR_CAR_Y + 5, "hub")
+edc.octagon_y(8, 8, 7, EDR_CAR_Y + 5, EDR_CAR_Y + 6.5, "cap")
+# motor drum on the back beam
+edc.prism16_x(EDR_CAR_Y + 7.5, 20, 3.5, -4, 20, "drum")
+for x0, x1 in ((-5, -4), (20, 21)):
+    edc.prism16_x(EDR_CAR_Y + 7.5, 20, 2.75, x0, x1, "end")
+save_block("electric_mining_drill_carriage", edc)
+
+edh = Model({"bit": "drill_bit", "collar": "tier_yellow", "disc": "steel_panel", "teeth": "dark", "hub": "gear_hub"},
+            "drill_bit")
+# the drill head on the deck: a big toothed cutter disc, the auger shaft up into the carriage, yellow collars
+edh.gear_y(8, 8, 9, 7.25, 9.25, "disc", "teeth", tooth=3, bars=8, width=3)
+edh.octagon_y(8, 8, 7, 7, EDR_CAR_Y + 4.75, "bit")
+for y in (10.5, 14):
+    edh.octagon_y(8, 8, 9, y, y + 1.5, "collar")
+save_block("electric_mining_drill_head", edh)
+empty("electric_mining_drill", "dark_panel")
+item_from("electric_mining_drill", edb, edh, edc, edt, offsets=[(0, -14, 0), (0, -14, 0), (0, -14, 0), (0, 2, 0)])
 
 # =====================================================================================
-# Burner mining drill (2x2 on the controller's blockstate; head and chimney drawn by the BER on the
-# center). footprint: x 0..32, z -16..16; front (output) = north. The chimney model is authored in
-# the center frame (8, 8) one block up (y = world y - 16).
+# Burner mining drill (2x2, 2 high, on the controller's blockstate: x 0..32, z -16..16, front = north;
+# the spinning head is drawn by the BER on the footprint center, its model in the center frame (8, 8)).
+# Factorio: a rusty mechanism box held up on splayed legs like a derrick, a chimney on top and the
+# output chute at the front.
 # =====================================================================================
-bmd = Model({"body": "rust_panel", "frame": "dark_panel", "dark": "dark", "mouth": "furnace_mouth",
-             "chute": "dark_panel", "steel": "steel", "band": "dark_panel", "deck": "dark_panel"}, "rust_panel")
-bmd.box([0, 0, -16], [32, 3, 16], "frame")
-bmd.box([2, 3, -14], [30, 24, 14], {"north": "body", "south": "body", "east": "body", "west": "body",
-                                    "up": "deck", "down": "frame"})
-for x0 in (1, 26):
-    for z0 in (-15, 10):
-        bmd.box([x0, 3, z0], [x0 + 5, 26, z0 + 5], "frame", split=False)
-bmd.box([1.5, 13, -14.5], [30.5, 15, 14.5], "band")
-bmd.box([10, 4, 14.5], [22, 12, 15], "mouth", only=("south",), fit=("south",), split=False)
-bmd.box([9, 3, 14], [23, 13, 15.5], "dark", skip=("south",), split=False)
-bmd.box([11, 4, -15.5], [21, 11, -14], "chute", split=False)
-bmd.box([12, 5, -16], [20, 9, -15.5], "dark", only=("north",), split=False)
-bmd.box([6, 24, -10], [26, 25, 10], "steel")
+bmd = Model({"body": "steel_panel", "frame": "dark_panel", "dark": "dark", "leg": "dark", "steel": "steel",
+             "chute": "copper", "arrow": "chute_arrow", "band": "rust_panel", "mouth": "furnace_mouth", "pipe": "dark", "collar": "steel"},
+            "rust_panel")
+# four long legs, leaning in from the corners (front and back A-frames)
+for z in (-12, 12):
+    for i, (xf, ang) in enumerate(((2.5, -22.5), (29.5, 22.5))):
+        e = EPS * i
+        bmd.box([xf - 2, 0, z - 2 + e], [xf + 2, 24, z + 2 - e], "leg", split=False, rot=("z", ang, [xf, 0, z]))
+        bmd.cbox(xf, z, 4.5, 6, 0, 1.5, "frame", split=False)
+    # brace between the legs of an A-frame
+    bmd.box([5, 7, z - 1 + 2 * EPS], [27, 8.5, z + 1 - 2 * EPS], "frame", split=False)
+# the mechanism box: steel housing with rusty bands, a fire door at the back
+bmd.box([9, 6, -9], [23, 22, 9], {"north": "body", "south": "body", "east": "body", "west": "body",
+                                  "up": "frame", "down": "frame"})
+for y0 in (9, 18):
+    bmd.box([8.5, y0, -9.5], [23.5, y0 + 1.5, 9.5], "band", split=False)
+bmd.box([12, 11, 9], [20, 16, 9.5], "mouth", only=("south",), fit=("south",), split=False)
+# orange output chute out of the front with the drop arrow on top
+bmd.box([11, 3, -15.5], [21, 9, -9], {"north": "chute", "south": "chute", "east": "chute", "west": "chute",
+                                     "up": "arrow", "down": "chute"}, fit=("up",), split=False)
+bmd.box([12.5, 4, -16], [19.5, 8, -15.5], "dark", only=("north",), split=False)
+# chimney at the back corner of the deck (clear of the turning pick)
+bmd.octagon_y(21, 6, 4, 22, 31, "pipe")
+bmd.octagon_y(21, 6, 5.5, 28.5, 30.5, "collar")
 save_block("burner_mining_drill", bmd)
 
-bmh = Model({"disc": "steel", "teeth": "rust", "hub": "gear_hub", "bit": "drill_bit"}, "steel")
-bmh.octagon_y(8, 8, 6, 25, 28, "bit")
-bmh.gear_y(8, 8, 6, 25.5, 27.5, "disc", "teeth", tooth=2.5, bars=8, width=3)
-bmh.octagon_y(8, 8, 5, 28, 31, "hub")
+bmh = Model({"disc": "steel_panel", "teeth": "rust", "hub": "gear_hub", "bit": "drill_bit", "pick": "steel_panel",
+             "tip": "dark"}, "steel")
+# the turning mechanism: a gear on the deck, the drill mast and a pick across its top
+bmh.gear_y(8, 8, 5.5, 22.5, 24.5, "disc", "teeth", tooth=2.5, bars=8, width=2.5)
+bmh.octagon_y(8, 8, 3.5, 22.25, 28.5, "bit")
+bmh.box([3, 26, 7], [13, 27.5, 9], "pick", split=False)
+for x0, x1 in ((2, 3), (13, 14)):
+    bmh.box([x0, 25, 7.25], [x1, 27.25, 8.75], "tip", split=False)
 save_block("burner_mining_drill_head", bmh)
-
-bmc = Model({"base": "dark_panel", "pipe": "dark", "collar": "steel", "soot": "dark"}, "dark")
-CHIM_X, CHIM_Z = 18, 18   # = controller frame (26, 10)
-bmc.cbox(CHIM_X, CHIM_Z, 7, 7, 8, 11, "base", split=False)
-bmc.octagon_y(CHIM_X, CHIM_Z, 5, 11, 28 + 2.5 * EPS, "pipe")
-bmc.octagon_y(CHIM_X, CHIM_Z, 7, 25, 28, "collar")
-bmc.octagon_y(CHIM_X, CHIM_Z, 6, 17, 18.5, "collar")
-save_block("burner_mining_drill_chimney", bmc)
-# item: body + head and chimney moved from the center frame (8, 8) to the footprint center (16, 0),
-# everything 13 px down so the chimney stays inside -16..32
-item_from("burner_mining_drill", bmd, bmh, bmc, offsets=[(0, -13, 0), (8, -13, -8), (8, 3, -8)])
+# item: body + head moved from the center frame (8, 8) to the footprint center (16, 0)
+item_from("burner_mining_drill", bmd, bmh, offsets=[(0, 0, 0), (8, 0, -8)])
 
 # =====================================================================================
-# Stone furnace (2x2x2 on the controller's blockstate; x 0..32, z -16..16; mouth on the south side)
+# Stone furnace (2x2x2 on the controller's blockstate; x 0..32, z -16..16; mouth on the south side).
+# Factorio: a stepped mound of weathered grey-brown stone, a small fire opening in a brick arch on the
+# front, a small chimney with a glowing vent on top.
 # =====================================================================================
 
 
 def furnace(lit):
-    m = Model({"stone": "furnace_stone", "dark": "dark", "mouth": "fire" if lit else "furnace_mouth",
-               "steel": "steel"}, "furnace_stone")
-    m.box([0, 0, -16], [32, 4, 16], "stone")
-    m.box([1, 4, -15], [31, 15, 15], "stone")
-    m.box([3, 15, -13], [29, 22, 13], "stone")
-    m.box([6, 22, -10], [26, 27, 10], "stone")
-    m.box([10, 27, -6], [22, 29, 6], "stone")
-    m.box([12, 29, -4], [20, 29.5, 4], "dark", only=("up",), split=False)
-    # arched mouth on the south face
-    m.box([8, 4, 15], [11, 15, 17], "stone", split=False)
-    m.box([21, 4, 15], [24, 15, 17], "stone", split=False)
-    m.box([8 - EPS, 13, 15], [24 + EPS, 16, 17.5], "stone", split=False)   # proud of the jambs
-    m.box([11, 4, 15], [21, 13, 15.5], "mouth", only=("south",), fit=("south",), split=False,
+    m = Model({"stone": "furnace_stone", "ledge": "furnace_ledge", "dark": "dark",
+               "mouth": "fire" if lit else "furnace_mouth", "vent": "fire" if lit else "furnace_mouth", "steel": "steel"},
+              "furnace_stone")
+    step = {"north": "stone", "south": "stone", "east": "stone", "west": "stone", "up": "ledge", "down": "stone"}
+    # eight courses, each 1.6 px further in: the stepped slope of the reference's pyramid
+    for i in range(8):
+        d = 1 + 1.6 * i
+        m.box([d, 3 * i, -16 + d], [32 - d, 3 * (i + 1), 16 - d], step)
+    # chimney with the vent on top
+    m.box([12.5, 24, -3.5], [19.5, 27.5, 3.5], "stone", split=False)
+    m.box([13.5, 27.5, -2.5], [18.5, 27.75, 2.5], "vent", only=("up",), split=False, light=15 if lit else None, shade=not lit)
+    # brick arch around the mouth on the front
+    m.box([11, 0, 13.5], [21, 12, 16], step, skip=("down",), split=False)
+    m.box([13, 1, 16], [19, 7, 16.02], "mouth", only=("south",), fit=("south",), split=False,
           light=15 if lit else None, shade=not lit)
-    m.box([11, 4, 15.5], [21, 4.5, 17], "steel", only=("up",), split=False)
     return m
 
 
@@ -657,186 +740,214 @@ save_block("stone_furnace_lit", furnace(True))
 item_from("stone_furnace", fur)
 
 # =====================================================================================
-# Lab (3x3): dark base plate, a dark round pedestal and on it a tall slender glass tube (16-sided,
-# one block across, ~1.5 blocks tall) with a cap. Inside the tube stands a fluid column with red and
-# green bands (lab_dome / lab_dome_idle), which turns slowly and glows blue at full brightness while
-# researching. The tube (lab_shell) is translucent and drawn by LabRenderer in a translucent buffer.
+# Lab (3x3, 2 high): Factorio's geodesic glass dome - a hemisphere glazed with a bright triangle
+# lattice - on a low round base. The dome (lab_dome / lab_dome_idle) is drawn by LabRenderer and
+# glows at full brightness, turning slowly, while researching.
 # =====================================================================================
-LAB_TUBE_A, LAB_Y0, LAB_Y1 = 8, 7, 30   # tube apothem (half width), bottom and top
-lb = Model({"frame": "dark_panel", "panel": "lab_panel", "deck": "dark_panel", "brass": "brass", "steel": "steel",
-            "red": "tier_red", "green": "tier_green", "dark": "dark", "vent": "vent", "pedestal": "dark_panel",
-            "cap": "steel_panel"}, "lab_panel")
-lb.chamfer(-16, -16, 32, 32, 0, 2, "frame", c=6)
-lb.chamfer(-12, -12, 28, 28, 2, 4.5, {"north": "panel", "south": "panel", "east": "panel", "west": "panel",
-                                    "up": "deck", "down": "frame"}, c=5)
-# round pedestal and the brass seat of the tube
-lb.prism16_y(8, 8, 11, 4.5, 6.25, "pedestal")
-lb.prism16_y(8, 8, 9.5, 6.25, LAB_Y0, "brass")
-# cap on the tube
-lb.prism16_y(8, 8, 9, LAB_Y1, 31.25, "cap")
-lb.prism16_y(8, 8, 3, 31.25, 32, "brass")
-# small vents around the pedestal
-for (x, z, w, d, fc) in ((8, -6.5, 8, 2, "north"), (8, 22.5, 8, 2, "south"), (-6.5, 8, 2, 8, "west"),
-                         (22.5, 8, 2, 8, "east")):
-    lb.cbox(x, z, w, d, 4.5, 7.5, {f: ("vent" if f == fc else "dark") for f in FACES}, fit=(fc,), split=False)
-# science pack holders on the corners
-for i, (x, z) in enumerate(((-8, -8), (24, -8), (-8, 24), (24, 24))):
-    lb.cbox(x, z, 5, 5, 4.5, 7.5, "frame", split=False)
-    lb.cbox(x, z, 3.5, 3.5, 7.5, 11.5, "red" if i % 2 == 0 else "green", split=False)
-    lb.cbox(x, z, 2, 2, 11.5, 12.5, "steel", split=False)
+LAB_R, LAB_DOME_Y = 20, 4.5
+lb = Model({"frame": "dark_panel", "rim": "steel_panel", "dark": "dark", "core": "steel_panel", "brass": "brass",
+            "red": "tier_red", "green": "tier_green"}, "steel_panel")
+lb.prism16_y(8, 8, 23, 0, 2.5, "frame")
+lb.prism16_y(8, 8, 21.5, 2.5, LAB_DOME_Y, "rim")
+# the equipment seen through the glass: a dark pedestal, a column with science bands and a brass top
+lb.prism16_y(8, 8, 9, LAB_DOME_Y, 7, "dark")
+lb.prism16_y(8, 8, 4, 7, 17, "core")
+for y0, tex in ((9, "red"), (12.5, "green")):
+    lb.prism16_y(8, 8, 4.5, y0, y0 + 2, tex)
+lb.prism16_y(8, 8, 2.5, 17, 18.5, "brass")
 save_block("lab_body", lb)
 
-shell = Model({"glass": "lab_shell"}, "lab_shell")
-shell.ring_y(8, 8, LAB_TUBE_A, 0.5, LAB_Y0, LAB_Y1, "glass")
-save_block("lab_shell", shell)
 
-
-def lab_dome(core):
-    m = Model({"core": core, "red": "tier_red", "green": "tier_green", "brass": "brass"}, core)
-    m.prism16_y(8, 8, 4, LAB_Y0, LAB_Y1, "core")
-    m.prism16_y(8, 8, 5.5, 11, 15, "red")
-    m.prism16_y(8, 8, 5.5, 19.5, 23.5, "green")
+def lab_dome(glass):
+    """The glass dome: see-through glass with an opaque lattice, drawn by LabRenderer in a translucent buffer."""
+    m = Model({"glass": glass, "cap": "steel_panel"}, glass)
+    m.dome(8, 8, LAB_R, LAB_DOME_Y, 8, "glass")
+    m.prism16_y(8, 8, 3, LAB_DOME_Y + LAB_R, LAB_DOME_Y + LAB_R + 0.75, "cap")
     return m
 
 
-save_block("lab_dome", lab_dome("lab_glow"))
-idle_dome = lab_dome("lab_glass")
+save_block("lab_dome", lab_dome("lab_dome_glow"))
+idle_dome = lab_dome("lab_dome_glass")
 save_block("lab_dome_idle", idle_dome)
-empty("lab", "lab_panel")
-item_from("lab", lb, idle_dome, shell, render_type="minecraft:translucent")
+empty("lab", "lab_dome_glass")
+item_from("lab", lb, idle_dome, render_type="minecraft:translucent")
 
 # =====================================================================================
-# Boiler (3x2: x -16..32, z -8..24; steam out north at x 0..16, water ports west/east of the
-# near row z 8..24, fire door south)
+# Boiler (3x2, 2 high: x -16..32, z -8..24; steam out north at x 0..16, water ports west/east of the
+# near row z 8..24, fire south). Factorio: a bronze barrel lying front to back with a fire window in
+# its front, a tall smokestack at the back left and blue pipe ends left and right.
 # =====================================================================================
-bb = Model({"frame": "dark_panel", "shell": "boiler_shell", "cap": "dark_panel", "box": "rust_panel",
-            "dark": "dark", "mouth": "furnace_mouth", "steel": "steel", "brass": "brass",
-            "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"}, "boiler_shell")
-bb.box([-15, 0, -7], [31, 3, 23], "frame")
-# horizontal tank along x
-bb.octagon_axis("x", 13, 6, 18, -14, 30, "shell")
-for x0, x1 in ((-15, -13), (29, 31)):
-    bb.octagon_axis("x", 13, 6, 14, x0, x1, "cap", split=False)
-for x in (-6, 8, 22):
-    bb.box([x - 1, 3, -2], [x + 1, 5, 14], "steel", split=False)
-# firebox with door (south)
-bb.box([-6, 3, 13], [22, 14, 23], "box")
-bb.box([1, 4, 23], [15, 11, 23.5], "mouth", only=("south",), fit=("south",), split=False)
-bb.box([0, 3, 23], [16, 12, 23.5], "dark", only=("east", "west", "up"), split=False)
-# chimney on the firebox
-bb.octagon_y(18, 19, 5, 14, 31 + 2.5 * EPS, "dark")
-bb.octagon_y(18, 19, 7, 29, 31, "steel")
-# safety valve on the tank
-bb.cbox(-4, 6, 3, 3, 22, 26, "brass", split=False)
-bb.cbox(-4, 6, 5, 2, 26, 27, "brass", split=False)
-# water ports (west/east of the near row, centered at z 16, y 8) and steam port (north, x 8)
-bb.pipe_x(8, 16, -16, -6, skip=("west",))
-bb.flange_x(8, 16, -16, -15)
-bb.pipe_x(8, 16, 22, 32, skip=("east",))
-bb.flange_x(8, 16, 31, 32)
-bb.pipe_z(8, 12, -8, -1, skip=("north",))
-bb.flange_z(8, 12, -8, -7)
+BOIL_Y = 15     # drum axis height
+bb = Model({"frame": "dark_panel", "drum": "boiler_bronze", "band": "dark_panel", "dark": "dark", "steel": "steel",
+            "brass": "brass", "copper": "copper", "mouth": "furnace_mouth", "port": "fluid_port",
+            "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"}, "boiler_bronze")
+bb.box([-14, 0, -6], [30, 3, 22], "frame")
+# the drum along z with dark bands and a dark front cover
+bb.prism16_z(8, BOIL_Y, 11, -5, 18, "drum")
+for z0, z1 in ((-5.5, -3.5), (6, 8)):
+    bb.prism16_z(8, BOIL_Y, 11.5, z0, z1, "band")
+bb.prism16_z(8, BOIL_Y, 10.5, 18, 19.5, "band")
+# fire window in the front cover (boiler_fire glows in front of it)
+bb.box([2, 9, 19.5], [14, 16, 20], "mouth", only=("south", "up", "east", "west"), fit=("south",), split=False)
+# saddles and the firebox under the front
+for z0 in (-2, 12):
+    bb.box([-1, 3, z0], [17, 6, z0 + 4], "band", split=False)
+bb.box([0, 3, 18], [16, 7, 22], "dark", split=False)
+# manhole on top
+bb.prism16_y(8, 4, 4, BOIL_Y + 10.5, BOIL_Y + 12.5, "band")
+# smokestack at the back left, piped to the drum
+bb.box([-14, 3, -5], [-6, 6, 3], "band", split=False)
+bb.octagon_y(-10, -1, 5, 6, 31, "dark")
+bb.octagon_y(-10, -1, 6.5, 28, 30.5, "steel")
+bb.octagon_y(-10, -1, 6.5, 12, 13.5, "steel")
+bb.pipe_x(BOIL_Y + 3, -1, -7.5, -2.5, size=4)
+# water: a pipe across the near row with blue ports on both ends; steam: a blue port at the back
+bb.pipe_x(8, 16, -13, -2.5, skip=("west",))
+bb.pipe_x(8, 16, 18.5, 29, skip=("east",))
+bb.box([-16, 3, 11], [-13, 13, 21], "port", fit=FACES, split=False)
+bb.box([29, 3, 11], [32, 13, 21], "port", fit=FACES, split=False)
+bb.pipe_z(8, 12, -7, -4.5, skip=("north",))
+bb.box([3, 7, -8], [13, 17, -7], {f: ("port" if f == "north" else "band") for f in FACES}, fit=("north",), split=False)
+# brass pipes along the drum's sides
+for x in (-4.5, 20.5):
+    bb.pipe_z(x, 10, -3, 16, size=2.5)
 save_block("boiler_body", bb)
 
 bf = Model({"fire": "fire"}, "fire")
-bf.box([1.5, 4.5, 23.5], [14.5, 10.5, 23.6], "fire", only=("south",), fit=("south",), split=False, shade=False)
+bf.box([2.5, 9.5, 20], [13.5, 15.5, 20.1], "fire", only=("south",), fit=("south",), split=False, shade=False)
 save_block("boiler_fire", bf)
-empty("boiler", "boiler_shell")
+empty("boiler", "boiler_bronze")
 item_from("boiler", bb)
 
 # =====================================================================================
-# Steam engine (3x5, z along the 5-block length; footprint center at x 8, z 8, so the machine spans
-# z -32..48 in the center frame). Parts (SteamMachineRenderer.Engine):
-#   body:     front half (center frame z -32..8, drawn at dz -1 block): bed, crankcase, steam port, the
-#             long round cylinder with dark bands and brass rivets, valve chest;
-#   rear:     back half (z 8..48, drawn at dz +1.5): bed, cylinder cover and gland, crosshead guides,
-#             crankshaft pedestals, exhaust port;
-#   piston:   rod, crosshead and connecting rod, at dz +1.5 plus the stroke;
-#   flywheel: big spoked flywheel on the east side plus crankshaft and crank, turning about x through
-#             (y 16, z 8) of the model; drawn at dz +1.5 (pivot at center frame z 32).
+# Steam engine (3x5, 2 high; z along the 5-block length, footprint center at x 8, z 8, so the machine
+# spans z -32..48 in the center frame). Factorio: three upright round tanks in a row along the length,
+# each with a domed top and a valve, wrapped in pipes on a dark frame, a cluster of gears on one long
+# side (east) and blue fluid connections at both ends. Parts (SteamMachineRenderer.Engine):
+#   body:   middle tank, frame z -8..24, the gear mounting plate (drawn at dz 0);
+#   front:  front tank, frame z -28..-8, front fluid port (drawn at dz -1.5 blocks: model z = z + 24);
+#   rear:   the front's mirror image (drawn at dz +1.5: model z = z - 24);
+#   gear / gear_small: gears turning about x, authored around (y 8, z 8) and drawn at their pivots
+#           (SteamMachineRenderer.Engine.GEARS); the small ones turn the other way.
 # =====================================================================================
-ENG_Y = 16          # cylinder and crankshaft axis height
-eb = Model({"frame": "dark_panel", "case": "dark", "cyl": "slate_panel", "band": "dark_panel", "rivet": "brass",
-            "plate": "dark_panel", "brass": "brass", "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end",
-            "flange": "flange"}, "slate_panel")
-eb.box([-6, 0, -16], [22, 3, 24], "frame")
-eb.box([-3, 3, -12], [19, 5, 24], "case")
-eb.pipe_z(8, 8, -16, -10, size=6, skip=("north",))
-eb.flange_z(8, 8, -16, -15.5, size=9)
-# the cylinder: 16-sided, 22 across, local z -10..23 (center frame -26..7), under a front cover and bands
-eb.prism16_z(8, ENG_Y, 11, -10, 23, "cyl")
-for z0, z1, a in ((-11, -8, 12), (6, 8, 11.75), (21, 24, 12)):
-    eb.prism16_z(8, ENG_Y, a, z0, z1, "band")
-    zm = (z0 + z1) / 2
-    for (x, y) in ((8, ENG_Y + a), (8 - a, ENG_Y), (8 + a, ENG_Y)):
-        eb.box([x - 0.5, y - 0.5, zm - 0.5], [x + 0.5, y + 0.5, zm + 0.5], "rivet", split=False)
-# saddles hugging it, valve chest and valve wheel on top
-for z0 in (-6, 14):
-    eb.box([-2, 4, z0], [18, 9, z0 + 4], "plate", split=False)
-eb.box([3, 26, -4], [13, 29.5, 16], "plate")
-eb.cbox(8, 6, 1.5, 1.5, 29.5, 31, "brass", split=False)
-eb.cbox(8, 6, 5, 5, 31, 32, "brass", split=False)
-save_block("steam_engine_body", eb)
+ENG_TANK_X, ENG_TANK_A = 6, 11     # tank axis x and apothem
+ENG_TANK_Y = (4, 25)               # tank wall bottom/top
+ENG_PLATE_X = 26                   # east face of the gear mounting plate
+ENG_GEARS = ((None, 15, 10), ("small", 12, -6), ("small", 21, 25))   # (model suffix, pivot y, pivot z)
+ENG_TEX = {"frame": "dark_panel", "tank": "engine_tank", "band": "dark_panel", "cap": "steel_panel", "valve": "brass",
+           "wheel": "tier_red", "port": "fluid_port", "copper": "copper", "dark": "dark",
+           "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"}
 
-er = Model({"frame": "dark_panel", "case": "dark", "cover": "dark_panel", "steel": "steel", "plate": "dark_panel",
-            "post": "dark_panel", "cap": "brass", "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end",
-            "flange": "flange"}, "dark_panel")
-er.box([-6, 0, -16], [22, 3, 24], "frame")
-er.box([-3, 3, -16], [19, 5, -12], "case", split=False)
-# cylinder back cover and rod gland (the cylinder's last band ends at local z -16)
-er.prism16_z(8, ENG_Y, 10.5, -16, -13, "cover")
-er.prism16_z(8, ENG_Y, 3, -13, -11, "steel")
-# crosshead guides above and below the rod line, on a stand
-for y0 in (10.5, 20):
-    er.box([4, y0, -11], [12, y0 + 1.5, 3], "steel", split=False)
-er.box([4.5, 3, -3], [11.5, 10.5, 1], "plate", split=False)
-# crankshaft pedestals (crank pivot at local z 8) either side of the crank
-for x0 in (-3, 15):
-    er.box([x0, 3, 5], [x0 + 4, 18, 11], "post", split=False)
-    er.box([x0 + 0.5, 18, 5.5], [x0 + 3.5, 19, 10.5], "cap", split=False)
-# exhaust port at the back end
-er.pipe_z(8, 8, 18, 24, size=6, skip=("south",))
-er.flange_z(8, 8, 23.5, 24, size=9)
-save_block("steam_engine_rear", er)
 
-ep = Model({"rod": "steel", "head": "brass", "conrod": "dark_panel"}, "steel")
-ep.box([7, ENG_Y - 1, -13], [9, ENG_Y + 1, -1], "rod", split=False)
-ep.box([5.5, ENG_Y - 3.8, -3], [10.5, ENG_Y + 3.8, 2], "head", split=False)
-ep.box([7.25, ENG_Y - 0.75, 2], [8.75, ENG_Y + 0.75, 7.3], "conrod", split=False)
-save_block("steam_engine_piston", ep)
+def engine_tank(m, cz):
+    """An upright tank on the frame: wall, two dark hoops, domed top, a valve with a red hand wheel."""
+    y0, y1 = ENG_TANK_Y
+    m.prism16_y(ENG_TANK_X, cz, ENG_TANK_A, y0, y1, "tank")
+    for yb in (8, 19):
+        m.prism16_y(ENG_TANK_X, cz, ENG_TANK_A + 0.5, yb, yb + 1.5, "band")
+    m.prism16_y(ENG_TANK_X, cz, ENG_TANK_A - 1.5, y1, y1 + 1.5, "tank")
+    m.prism16_y(ENG_TANK_X, cz, ENG_TANK_A - 4, y1 + 1.5, y1 + 3, "cap")
+    m.cbox(ENG_TANK_X, cz, 2, 2, y1 + 3, y1 + 5.5, "valve", split=False)
+    m.cbox(ENG_TANK_X, cz, 5, 1, y1 + 5.5, y1 + 6.5, "wheel", split=False)
+    m.cbox(ENG_TANK_X, cz, 1, 5, y1 + 5.5 + EPS, y1 + 6.5 - EPS, "wheel", split=False)
 
-ef = Model({"rim": "steel_panel", "spoke": "dark_panel", "hub": "gear_hub", "shaft": "steel", "crank": "brass"},
-           "steel_panel")
-FW_Z, FW_R = 8, 15.5
-ef.ring_x(ENG_Y, FW_Z, FW_R, 3, 22, 26.5, "rim")
-ef.spokes_x(ENG_Y, FW_Z, FW_R - 2, 2, 23.25, 25.25, "spoke")
-ef.box([21.5, ENG_Y - 3.5, FW_Z - 3.5], [27, ENG_Y + 3.5, FW_Z + 3.5], "hub", split=False)
-ef.octagon_axis("x", ENG_Y, FW_Z, 3, -3.5, 21.5, "shaft", split=False)
-for x0 in (4, 11):
-    ef.box([x0, ENG_Y - 5, FW_Z - 2], [x0 + 1, ENG_Y + 2, FW_Z + 2], "crank", split=False)
-ef.octagon_axis("x", ENG_Y - 3, FW_Z, 2.5, 5, 11, "shaft", split=False)
-save_block("steam_engine_flywheel", ef)
-empty("steam_engine", "slate_panel")
-# item: the whole engine as drawn, scaled to 0.6
-item_scaled("steam_engine", [(eb, 0, 0, -16), (er, 0, 0, 24), (ep, 0, 0, 24), (ef, 0, 0, 24)], 0.6)
+
+def engine_pipes(m, z0, z1, skip):
+    """Pipe runs along the engine's length (west low and high, east high), z0..z1 in model z."""
+    m.pipe_z(-8, 9, z0, z1, size=4, skip=skip)
+    m.pipe_z(-7, 19, z0, z1, size=3, skip=skip)
+    m.pipe_z(19, 21, z0, z1, size=3, skip=skip)
+    # the manifold over the gear plate
+    for y in (17, 22):
+        m.pipe_z(24, y, z0, z1, size=3, skip=skip)
+
+
+eng = Model(ENG_TEX, "engine_tank")
+eng.box([-14, 0, -8], [30, 4, 24], "frame", skip=("north", "south"))
+engine_tank(eng, 8)
+engine_pipes(eng, -8, 24, ("north", "south"))
+# gear mounting plate on the east side with a crank housing
+eng.box([22, 4, -8], [ENG_PLATE_X, 14, 24], "band")
+eng.box([19, 4, 4], [22, 10, 20], "dark", split=False)
+# risers from the gear plate up to the manifold, with valves
+for z in (-3, 19):
+    eng.pipe_y(24, z, 14, 23, size=2.5)
+    eng.cbox(24, z, 4, 4, 19, 20, "valve", split=False)
+save_block("steam_engine_body", eng)
+
+
+def engine_end(rear):
+    """Front end (model z = center z + 24) or its mirror, the rear end (model z = center z - 24)."""
+    m = Model(ENG_TEX, "engine_tank")
+
+    def Z(a, b):
+        return (16 - b, 16 - a) if rear else (a, b)
+
+    def box(f, t, tex, **kw):
+        z0, z1 = Z(f[2], t[2])
+        m.box([f[0], f[1], z0], [t[0], t[1], z1], tex, **kw)
+
+    inner, outer = ("north", "south") if rear else ("south", "north")
+    box([-14, 0, -4], [30, 4, 16], "frame", skip=(inner,))
+    engine_tank(m, 8)
+    z0, z1 = Z(-3, 16)
+    engine_pipes(m, z0, z1, (inner,))
+    # the fluid connection: a pipe out of the end at (x 8, y 8) with a blue port
+    z0, z1 = Z(-7, 0)
+    m.pipe_z(8, 8, z0, z1, size=6, skip=(outer,))
+    box([3, 3, -8], [13, 13, -7], {f: ("port" if f == outer else "band") for f in FACES}, fit=(outer,), split=False)
+    # end of the gear plate
+    box([22, 4, -3], [ENG_PLATE_X, 10, 16], "band", skip=(inner,))
+    return m
+
+
+eng_front, eng_rear = engine_end(False), engine_end(True)
+save_block("steam_engine_front", eng_front)
+save_block("steam_engine_rear", eng_rear)
+
+
+def engine_gear(r, x0, x1):
+    m = Model({"disc": "steel_panel", "teeth": "dark", "hub": "brass"}, "steel_panel")
+    m.gear_x(8, 8, r, x0, x1, {"disc": "disc", "teeth": "teeth", "hub": "hub"})
+    return m
+
+
+# the small gears are thinner, so meshing teeth never share a plane with the big gear's
+eng_gear = engine_gear(9, ENG_PLATE_X + 0.5, ENG_PLATE_X + 3.5)
+eng_gear_small = engine_gear(5.5, ENG_PLATE_X + 1, ENG_PLATE_X + 3)
+save_block("steam_engine_gear", eng_gear)
+save_block("steam_engine_gear_small", eng_gear_small)
+empty("steam_engine", "engine_tank")
+# item: the whole engine as drawn, scaled to 0.55
+item_scaled("steam_engine", [(eng, 0, 0, 0), (eng_front, 0, 0, -24), (eng_rear, 0, 0, 24)]
+            + [(eng_gear if s is None else eng_gear_small, 0, py - 8, pz - 8)
+               for s, py, pz in ENG_GEARS], 0.55)
 
 # =====================================================================================
-# Offshore pump (1x2 on the controller's blockstate: x 0..16, z -16..16; water beyond z -16;
-# outlet on the south face of the controller at y 8)
+# Offshore pump (1x2 on the controller's blockstate: x 0..16, z -16..16; water beyond z -16; outlet on
+# the south face of the controller at y 8). Factorio: a bronze pump body tapering toward the land, a
+# motor housing on the water side and a big pipe elbow arching over into the water.
 # =====================================================================================
-op = Model({"frame": "dark_panel", "body": "steel_panel", "accent": "tier_yellow_panel", "dark": "dark",
-            "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange", "grate": "vent"},
-           "steel_panel")
-op.box([1, 0, -16 + EPS], [15, 2, 14], "frame")   # behind the intake grate's face
-op.box([3, 2, 1], [13, 13, 13], "body")
-op.box([2.5, 9, 0.5], [13.5, 11, 13.5], "accent", split=False)
-op.box([4, 13, 3], [12, 15, 11], "dark", split=False)
-op.octagon_y(8, -8, 12, 2, 12, "body")
-op.octagon_y(8, -8, 13, 12, 14, "accent")
-op.pipe_z(8, 7, -8, 1)
-op.box([4, 1, -16], [12, 9, -14], "grate", fit=("north",), split=False)
-op.pipe_z(8, 8, 13, 16, size=8, skip=("south",))
-op.flange_z(8, 8, 15, 16)
+op = Model({"frame": "dark_panel", "body": "boiler_bronze", "dark": "dark_panel", "band": "tier_blue",
+            "port": "fluid_port", "elbow": "boiler_bronze", "vent": "vent", "pipe_h": "pipe_h", "pipe_v": "pipe_v",
+            "pipe_end": "pipe_end", "flange": "flange"}, "boiler_bronze")
+op.box([2, 0, -10], [14, 1.5, 13], "frame")
+# motor housing on the water side, with a vent and a blue light
+op.box([2.5, 1.5, -7], [13.5, 11, 3], {"north": "body", "south": "body", "east": "vent", "west": "vent", "up": "dark",
+                                     "down": "dark"}, fit=("east", "west"), split=False)
+op.box([2, 8, -7.5], [14, 9.5, 3.5], "dark", split=False)
+op.cbox(8, 3.5, 3, 1, 9.5, 11.5, "band", split=False)
+# the body tapering toward the land end, the outlet with its blue port
+for a, z0, z1, tex in ((5.5, 3, 7, "body"), (4.75, 7, 10.5, "body"), (4, 10.5, 13, "body"), (3.25, 13, 14, "dark")):
+    op.prism16_z(8, 6.5, a, z0, z1, tex)
+op.pipe_z(8, 8, 14, 15, size=6)
+op.box([3, 3, 15], [13, 13, 16], {f: ("port" if f == "south" else "dark") for f in FACES}, fit=("south",), split=False)
+# the elbow: up out of the housing, over and down into the water, with blue rings
+op.prism16_y(8, -3, 3.5, 11, 12.5, "elbow")
+op.prism16_z(8, 12.5, 3.3, -11.5, -3, "elbow")
+op.prism16_y(8, -11.5, 3.7, -6, 12.5, "elbow")
+for y0 in (-1, 6):
+    op.prism16_y(8, -11.5, 4.2, y0, y0 + 1.5, "band")
 save_block("offshore_pump", op)
 item_from("offshore_pump", op)
 
@@ -868,27 +979,39 @@ pipe_item.parent = "minecraft:block/block"
 save_item("pipe", pipe_item.json())
 
 # =====================================================================================
-# Small electric pole (wires attach at the center, y 22)
+# Small electric pole (three blocks tall: part 0 (lower) holds the block entity, parts 1 and 2 are the
+# middle and the top). Factorio: a thin wooden pole with a small crossbar and insulators. Wires attach at
+# the center insulator's top, top-part y 15 (WireRenderer.ATTACH_Y = 47 / 16 over the lower block).
 # =====================================================================================
-sp = Model({"wood": "pole_wood", "top": "pole_wood_top", "ins": "insulator", "foot": "dark_panel",
-            "copper": "copper"}, "pole_wood")
+POLE_TEX = {"wood": "pole_wood", "top": "pole_wood_top", "ins": "insulator", "foot": "dark_panel", "copper": "copper",
+            "green": "tier_green"}
+POST = {"north": "wood", "south": "wood", "east": "wood", "west": "wood", "up": "top", "down": "top"}
+sp = Model(POLE_TEX, "pole_wood")
 sp.parent = "minecraft:block/block"
-sp.box([5, 0, 5], [11, 2, 11], "foot", split=False)
-sp.box([6.5, 2, 6.5], [9.5, 21, 9.5], {"north": "wood", "south": "wood", "east": "wood", "west": "wood",
-                                      "up": "top", "down": "top"}, split=False)
-sp.box([1.5, 17, 7], [14.5, 19, 9], {f: "wood" for f in FACES}, uvrot={"north": 90, "south": 90, "up": 90, "down": 90},
-       split=False)
-for x in (2.5, 13.5):
-    sp.cbox(x, 8, 2, 2, 19, 22, "ins", split=False)
-    sp.cbox(x, 8, 1, 1, 22, 23, "copper", split=False)
-sp.cbox(8, 8, 3, 3, 21, 24, "ins", split=False)
-sp.cbox(8, 8, 1.5, 1.5, 24, 25, "copper", split=False)
+sp.box([5, 0, 5], [11, 1.5, 11], "foot", split=False)
+sp.box([6.5, 1.5, 6.5], [9.5, 16, 9.5], POST, skip=("up",), split=False)
 save_block("small_electric_pole", sp)
-item_parent("small_electric_pole", "small_electric_pole")
+spm = Model(POLE_TEX, "pole_wood")
+spm.parent = "minecraft:block/block"
+spm.box([6.5, 0, 6.5], [9.5, 16, 9.5], POST, skip=("up", "down"), split=False)
+save_block("small_electric_pole_middle", spm)
+spt = Model(POLE_TEX, "pole_wood")
+spt.parent = "minecraft:block/block"
+spt.box([6.5, 0, 6.5], [9.5, 13, 9.5], POST, skip=("down",), split=False)
+spt.box([1.5, 10, 7], [14.5, 12, 9], {f: "wood" for f in FACES}, uvrot={"north": 90, "south": 90, "up": 90, "down": 90},
+        split=False)
+for x, tex in ((2.5, "ins"), (13.5, "green")):
+    spt.cbox(x, 8, 2, 2, 12, 14.5, tex, split=False)
+    spt.cbox(x, 8, 1, 1, 14.5, 15.25, "copper", split=False)
+spt.cbox(8, 8, 2.5, 2.5, 13, 15, "ins", split=False)
+spt.cbox(8, 8, 1.5, 1.5, 15, 15.75, "copper", split=False)
+save_block("small_electric_pole_top", spt)
+# item: the whole pole, 15.75 px down so it fits -16..32
+item_from("small_electric_pole", sp, spm, spt, offsets=[(0, -15.75, 0), (0, 0.25, 0), (0, 16.25, 0)], particle="pole_wood")
 
 # =====================================================================================
-# Inserters: a round low base with a pivot (the arm - two tier-coloured segments, joints and a claw -
-# is drawn by InserterRenderer from the pivot top at y 5.5)
+# Inserters: a round low base with a pivot. The arm - Factorio's short riser and long thin arm with a
+# claw, tier coloured - is drawn by InserterRenderer from the pivot top at y 5.5.
 # =====================================================================================
 ti = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark"}, "#housing")
 ti.parent = "minecraft:block/block"
@@ -900,29 +1023,28 @@ ti.box([6.5, 1.5, 0.5], [9.5, 2.5, 2.5], "dark", split=False)  # marker on the p
 ti.textures.pop("particle")
 ti.textures["particle"] = "#housing"
 save_block("template_inserter", ti)
-INSERTER_TIERS = (("burner_inserter", "rust_panel", "rust"), ("inserter", "tier_yellow_panel", "tier_yellow"),
+INSERTER_TIERS = (("burner_inserter", "dark_panel", "steel"), ("inserter", "tier_yellow_panel", "tier_yellow"),
                   ("long_handed_inserter", "tier_red_panel", "tier_red"), ("fast_inserter", "tier_blue_panel", "tier_blue"))
 for name, housing, arm in INSERTER_TIERS:
     save_block(name, Model({"housing": housing}, None, parent="minetorio:block/template_inserter"))
-    # item: base + the arm raised over the pickup side
-    long = name.startswith("long")
-    up, fore = (11, 13) if long else (9, 10)
+    # item: base + the riser and the long arm reaching over the pickup side
+    fore = 13 if name.startswith("long") else 10
     im = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark", "housing": housing, "arm": arm,
                 "joint": "dark_panel"}, housing)
     im.elements = json.loads(json.dumps(ti.elements))
     im.cbox(8, 8, 3, 3, 5.5, 7.5, "joint", split=False)
-    im.box([7, 6, 7], [9, 6 + up, 9], "arm", split=False, rot=("x", 22.5, [8, 6, 8]))
-    ey = 6 + up * math.cos(math.radians(22.5))
-    ez = 8 + up * math.sin(math.radians(22.5))
-    im.cbox(8, ez, 3, 3, ey - 1.5, ey + 1.5, "joint", split=False)
-    im.box([7.25, ey - 0.75, ez - fore], [8.75, ey + 0.75, ez], "arm", split=False, rot=("x", -22.5, [8, ey, ez]))
+    ey, ez = 13.5, 8
+    im.box([7.1, 7.5, 7.1], [8.9, ey, 8.9], "arm", split=False)
+    im.cbox(8, ez, 2.6, 2.6, ey - 1, ey + 1.5, "joint", split=False)
+    im.box([7.4, ey - 0.6, ez - fore], [8.6, ey + 0.6, ez - 1.3], "arm", split=False, rot=("x", -22.5, [8, ey, ez]))
     hy = ey - fore * math.sin(math.radians(22.5))
     hz = ez - fore * math.cos(math.radians(22.5))
-    im.cbox(8, hz, 3, 3, hy - 2.5, hy, "joint", split=False)
-    for x0 in (6.75, 8.75):
-        im.box([x0, hy - 4.5, hz - 0.5], [x0 + 0.5, hy - 2.5, hz + 0.5], "steel", split=False)
+    im.cbox(8, hz, 2.6, 2.6, hy - 2, hy + 0.5, "joint", split=False)
+    for x0 in (6.4, 9.1):
+        im.box([x0, hy - 4, hz - 0.5], [x0 + 0.5, hy - 2, hz + 0.5], "steel", split=False)
     im.parent = "minecraft:block/block"
     save_item(name, im.json())
+
 
 # =====================================================================================
 # Belts

@@ -2,6 +2,6 @@
   "parent": "minetorio:block/template_inserter",
   "ambientocclusion": false,
   "textures": {
-    "housing": "minetorio:block/rust_panel"
+    "housing": "minetorio:block/dark_panel"
   }
 }

@@ -146,30 +146,6 @@ for y in (5, 7, 9):
     rect(im, 5, y + 1, 10, y + 1, DARK[2])
 blocks["assembler_panel"] = im
 
-# assembler housings: greyish beige (tier 1) and blue-grey slate (tier 2), plain and with a vent
-BEIGE = P("#e6dfcf", "#cdc4ae", "#b3a98f", "#978d75", "#79705a", "#56503f")
-SLATE = P("#d4dce6", "#b2bdcb", "#93a1b3", "#778598", "#5a677a", "#3f4a5a")
-for n, pal, seed in (("beige", BEIGE, 80), ("slate", SLATE, 84)):
-    blocks[n] = noisy(pal, seed)
-    blocks[n + "_panel"] = panel(pal, seed + 1)
-    im = panel(pal, seed + 2, with_rivets=False)
-    rect(im, 3, 3, 12, 12, DARK[4])
-    for y in (4, 6, 8, 10):
-        rect(im, 4, y, 11, y, BLACK)
-        rect(im, 4, y + 1, 11, y + 1, DARK[2])
-    blocks[n + "_vent"] = im
-
-# lab panel: three science lights
-im = panel(STEEL, 14)
-rect(im, 3, 9, 12, 12, DARK[4])
-for x, col in ((4, C("#e8483a")), (7, C("#5fd04a")), (10, C("#55a2f2"))):
-    rect(im, x, 10, x + 1, 11, col)
-    px(im, x, 10, (min(col[0] + 70, 255), min(col[1] + 70, 255), min(col[2] + 70, 255), 255))
-rect(im, 3, 3, 12, 6, DARK[3])
-rect(im, 4, 4, 11, 5, C("#2c4654"))
-px(im, 5, 4, C("#9fd3e6"))
-blocks["lab_panel"] = im
-
 # gear faces
 im = noisy(STEEL, 16, 2, 4)
 for i in range(16):
@@ -185,27 +161,7 @@ for y in range(16):
         px(im, x, y, STEEL[1] if k < 2 else STEEL[3] if k < 5 else DARK[2])
 blocks["drill_bit"] = im
 
-# ---------------------------------------------------------------- stone furnace
-rnd = random.Random(20)
-im = new(STONE[2])
-rows = [(0, 4), (5, 9), (10, 15)]
-for ri, (y0, y1) in enumerate(rows):
-    x = -3 if ri % 2 else 0
-    while x < 16:
-        w = rnd.choice((5, 6, 7))
-        x1 = min(x + w - 1, 15)
-        x0 = max(x, 0)
-        base = rnd.choice((1, 2, 2, 3))
-        rect(im, x0, y0, x1, y1 - 1, STONE[base])
-        rect(im, x0, y0, x1, y0, STONE[base - 1])            # lit top edge
-        rect(im, x0, y1 - 1, x1, y1 - 1, STONE[base + 1])     # shaded bottom
-        for _ in range(2):
-            px(im, rnd.randint(x0, x1), rnd.randint(y0 + 1, y1 - 2), STONE[base + 1])
-        if x1 < 15:
-            rect(im, x1 + 1 if x1 + 1 < 16 else 15, y0, x1 + 1 if x1 + 1 < 16 else 15, y1 - 1, STONE[5])
-        x += w + 1
-    rect(im, 0, y1, 15, y1, STONE[5]) if y1 < 15 else None
-blocks["furnace_stone"] = im
+# ---------------------------------------------------------------- stone furnace (bricks: furnace_stone below)
 
 # furnace mouth (unlit): dark opening with a grate
 im = new(C("#1d1714"))
@@ -241,17 +197,7 @@ for t in range(8):
 blocks["fire"] = strip
 anim["fire"] = {"animation": {"frametime": 2}}
 
-# ---------------------------------------------------------------- boiler / engine
-im = noisy(DARK, 40, 0, 2, (0.3, 0.45, 0.25))
-for y in (0, 15):
-    rect(im, 0, y, 15, y, DARK[4])
-for y in (3, 12):
-    for x in range(1, 16, 3):
-        rivet(im, x, y, DARK)
-rect(im, 0, 7, 15, 8, DARK[3])
-rect(im, 0, 7, 15, 7, DARK[1])
-blocks["boiler_shell"] = im
-
+# ---------------------------------------------------------------- engine
 # engine cylinder: copper with brass straps
 im = blocks["copper"].copy()
 for x in (0, 1, 14, 15):
@@ -313,44 +259,117 @@ for y in range(0, 16, 3):
     rect(im, 0, y + 1, 15, y + 1, INS[0])
 blocks["insulator"] = im
 
-# ---------------------------------------------------------------- lab dome
-im = new(C("#3c8fa8"))
-for y in range(16):
-    for x in range(16):
-        if (x + y) % 7 == 0:
-            px(im, x, y, C("#5fb1c9"))
-rect(im, 3, 2, 5, 4, C("#b8eef8"))
-px(im, 3, 2, C("#ffffff"))
-blocks["lab_glass"] = im
+# ---------------------------------------------------------------- Factorio reference look (polish P6)
+# Colours picked from the wiki's entity images (see art/README.md: every machine is checked side by
+# side against its reference in art/render_compare.py).
 
 
-def glow_frame(t):
-    level = 0.5 + 0.5 * math.sin(t / 8 * 2 * math.pi)
-    lo = (40, 150, 190)
-    hi = (190, 245, 255)
-    base = tuple(int(lo[i] + (hi[i] - lo[i]) * level) for i in range(3)) + (255,)
-    core = tuple(min(255, c + 50) for c in base[:3]) + (255,)
+def lattice(base, line, seed, glass_hi):
+    """Geodesic dome glass, one lattice cell per texture (each dome face shows the whole texture): bright
+    opaque struts along the edges and one diagonal, so neighbouring faces form triangles, over see-through
+    glass (base / glass_hi carry their alpha) with a few highlight pixels."""
+    rnd = random.Random(seed)
     im = new(base)
     for y in range(16):
         for x in range(16):
-            if (x + y + t) % 7 == 0:
-                px(im, x, y, core)
-    rect(im, 3, 2, 5, 4, C("#ffffff"))
+            if rnd.random() < 0.12:
+                px(im, x, y, glass_hi)
+    for y in range(16):
+        for x in range(16):
+            if x in (0, 15) or y in (0, 1, 14, 15) or x == y:
+                px(im, x, y, line)
     return im
 
 
-# lab tube: translucent pale blue glass with a bright edge and a highlight streak
-im = new((170, 220, 240, 70))
-for y in range(16):
-    px(im, 0, y, (210, 240, 255, 130)); px(im, 15, y, (120, 170, 200, 110))
-    px(im, 4, y, (235, 250, 255, 150)); px(im, 5, y, (220, 245, 255, 110))
-blocks["lab_shell"] = im
+blocks["lab_dome_glass"] = lattice(C("#22323e", 150), C("#d2caae"), 90, C("#6f98ae", 170))
+
+
+def dome_glow_frame(t):
+    level = 0.5 + 0.5 * math.sin(t / 8 * 2 * math.pi)
+    lo, hi = (70, 150, 200), (170, 235, 255)
+    glass = tuple(int(lo[i] + (hi[i] - lo[i]) * level) for i in range(3)) + (150,)
+    sparkle = tuple(min(255, c + 60) for c in glass[:3]) + (200,)
+    return lattice(glass, C("#fff4d0"), 90, sparkle)
+
 
 strip = new(h=16 * 8)
 for t in range(8):
-    strip.paste(glow_frame(t), (0, 16 * t))
-blocks["lab_glow"] = strip
-anim["lab_glow"] = {"animation": {"frametime": 3}}
+    strip.paste(dome_glow_frame(t), (0, 16 * t))
+blocks["lab_dome_glow"] = strip
+anim["lab_dome_glow"] = {"animation": {"frametime": 3}}
+
+# assembling machines: a sloped skirt of ribbed panels (grey-green tier 1, blue tier 2), a lighter
+# housing and a brown-beige deck under the machinery
+GREYGREEN = P("#b4bdb0", "#959f92", "#7b8578", "#646d62", "#4c544b", "#363c36")
+# the housing above the skirt is darker than the skirt in both tiers
+HOUSING = {"asm1": P("#7b8578", "#646d62", "#565e54", "#4c544b", "#3e453d", "#2f342e"),
+           "asm2": P("#778598", "#5a677a", "#4c586a", "#3f4a5a", "#323b48", "#252c36")}
+for n, pal, seed in (("asm1", GREYGREEN, 100), ("asm2", BLUE, 104)):
+    im = noisy(pal, seed, 2, 3, (0.6, 0.4))
+    for x in (0, 4, 8, 12):
+        rect(im, x, 0, x, 15, pal[-2])
+        rect(im, x + 1, 0, x + 1, 15, pal[1])
+    rect(im, 0, 0, 15, 0, pal[1]); rect(im, 0, 15, 15, 15, pal[-1])
+    blocks[n + "_skirt"] = im
+    blocks[n + "_body"] = panel(HOUSING[n], seed + 1)
+DECK = P("#a08868", "#86704f", "#6c583c", "#56452e", "#403322", "#2c2318")
+im = noisy(DECK, 108, 1, 3)
+rect(im, 0, 7, 15, 7, DECK[4]); rect(im, 7, 0, 7, 15, DECK[4])
+bevel(im, DECK)
+blocks["asm_deck"] = im
+
+# steam engine tanks: weathered off-white steel with rust streaks and a riveted seam
+TANK = P("#e4e1d6", "#cfcbbd", "#b7b2a2", "#9a9484", "#77705f", "#544d3e")
+rnd = random.Random(110)
+im = noisy(TANK, 111, 1, 2, (0.55, 0.45))
+for _ in range(5):
+    x, y = rnd.randint(0, 15), rnd.randint(0, 8)
+    for k in range(rnd.randint(3, 7)):
+        px(im, x, min(15, y + k), RUST[1] if k < 2 else RUST[0])
+rect(im, 0, 3, 15, 3, TANK[4])
+for x in range(1, 16, 3):
+    px(im, x, 4, TANK[0])
+blocks["engine_tank"] = im
+
+# boiler: dark bronze drum with vertical ribs
+BRONZE = P("#b8a678", "#978656", "#7a6b42", "#5e5232", "#433a24", "#2c2618")
+im = noisy(BRONZE, 120, 1, 3)
+for x in (3, 8, 13):
+    rect(im, x, 0, x, 15, BRONZE[5]); rect(im, x + 1, 0, x + 1, 15, BRONZE[0])
+rect(im, 0, 0, 15, 0, BRONZE[4]); rect(im, 0, 15, 15, 15, BRONZE[5])
+blocks["boiler_bronze"] = im
+
+# fluid connection: Factorio's blue pipe end
+im = panel(BLUE, 125, with_rivets=False)
+ImageDraw.Draw(im).ellipse([3, 3, 12, 12], fill=BLUE[3], outline=BLUE[0])
+ImageDraw.Draw(im).ellipse([6, 6, 9, 9], fill=C("#0c1a2c"))
+blocks["fluid_port"] = im
+
+# stone furnace bricks: Factorio's weathered grey-brown stone
+SAND = P("#b3a48c", "#9a8b73", "#84765f", "#6e624f", "#574d3e", "#3b342a")
+rnd = random.Random(130)
+im = new(SAND[5])
+for ri, (y0, y1) in enumerate(((0, 4), (5, 9), (10, 14))):
+    x = -3 if ri % 2 else 0
+    while x < 16:
+        w = rnd.choice((5, 6))
+        x0, x1 = max(x, 0), min(x + w - 1, 15)
+        base = rnd.choice((1, 2, 2, 3))
+        rect(im, x0, y0, x1, y1 - 1, SAND[base])
+        rect(im, x0, y0, x1, y0, SAND[base - 1])
+        for _ in range(2):
+            px(im, rnd.randint(x0, x1), rnd.randint(y0 + 1, max(y0 + 1, y1 - 2)), SAND[base + 1])
+        x += w + 1
+blocks["furnace_stone"] = im
+# the ledges of the stepped pyramid: the same bricks in sunlight
+# output chute with Factorio's yellow drop arrow (pointing to the top of the texture = the machine's front)
+im = panel(DARK, 135, with_rivets=False)
+for i in range(6):
+    rect(im, 7 - i, 3 + i, 8 + i, 3 + i, YELLOW[1])
+rect(im, 6, 9, 9, 12, YELLOW[1])
+rect(im, 7, 4, 8, 11, YELLOW[0])
+blocks["chute_arrow"] = im
+blocks["furnace_ledge"] = Image.eval(blocks["furnace_stone"].convert("RGB"), lambda v: min(255, int(v * 1.12) + 12)).convert("RGBA")
 
 # ---------------------------------------------------------------- belts
 # Travel is toward the top of the image (model north). Chevrons point up; the pattern period is

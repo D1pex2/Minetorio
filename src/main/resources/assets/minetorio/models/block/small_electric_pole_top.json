@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "textures": {
+    "wood": "minetorio:block/pole_wood",
+    "top": "minetorio:block/pole_wood_top",
+    "ins": "minetorio:block/insulator",
+    "foot": "minetorio:block/dark_panel",
+    "copper": "minetorio:block/copper",
+    "green": "minetorio:block/tier_green",
+    "particle": "minetorio:block/pole_wood"
+  },
+  "elements": [
+    {"from": [6.5, 0, 6.5], "to": [9.5, 13, 9.5], "faces": {"north": {"uv": [6.5, 1.5, 9.5, 14.5], "texture": "#wood"}, "south": {"uv": [6.5, 1.5, 9.5, 14.5], "texture": "#wood"}, "east": {"uv": [6.5, 1.5, 9.5, 14.5], "texture": "#wood"}, "west": {"uv": [6.5, 1.5, 9.5, 14.5], "texture": "#wood"}, "up": {"uv": [6.5, 6.5, 9.5, 9.5], "texture": "#top"}}},
+    {"from": [1.5, 10, 7], "to": [14.5, 12, 9], "faces": {"north": {"uv": [1.5, 7, 14.5, 9], "texture": "#wood", "rotation": 90}, "south": {"uv": [1.5, 7, 14.5, 9], "texture": "#wood", "rotation": 90}, "east": {"uv": [7, 7, 9, 9], "texture": "#wood"}, "west": {"uv": [7, 7, 9, 9], "texture": "#wood"}, "up": {"uv": [1.5, 7, 14.5, 9], "texture": "#wood", "rotation": 90}, "down": {"uv": [1.5, 7, 14.5, 9], "texture": "#wood", "rotation": 90}}},
+    {"from": [1.5, 12, 7], "to": [3.5, 14.5, 9], "faces": {"north": {"uv": [7, 6.75, 9, 9.25], "texture": "#ins"}, "south": {"uv": [7, 6.75, 9, 9.25], "texture": "#ins"}, "east": {"uv": [7, 6.75, 9, 9.25], "texture": "#ins"}, "west": {"uv": [7, 6.75, 9, 9.25], "texture": "#ins"}, "up": {"uv": [7, 7, 9, 9], "texture": "#ins"}, "down": {"uv": [7, 7, 9, 9], "texture": "#ins"}}},
+    {"from": [2, 14.5, 7.5], "to": [3, 15.25, 8.5], "faces": {"north": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "south": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "east": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "west": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "up": {"uv": [7.5, 7.5, 8.5, 8.5], "texture": "#copper"}, "down": {"uv": [7.5, 7.5, 8.5, 8.5], "texture": "#copper"}}},
+    {"from": [12.5, 12, 7], "to": [14.5, 14.5, 9], "faces": {"north": {"uv": [7, 6.75, 9, 9.25], "texture": "#green"}, "south": {"uv": [7, 6.75, 9, 9.25], "texture": "#green"}, "east": {"uv": [7, 6.75, 9, 9.25], "texture": "#green"}, "west": {"uv": [7, 6.75, 9, 9.25], "texture": "#green"}, "up": {"uv": [7, 7, 9, 9], "texture": "#green"}, "down": {"uv": [7, 7, 9, 9], "texture": "#green"}}},
+    {"from": [13, 14.5, 7.5], "to": [14, 15.25, 8.5], "faces": {"north": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "south": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "east": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "west": {"uv": [7.5, 7.625, 8.5, 8.375], "texture": "#copper"}, "up": {"uv": [7.5, 7.5, 8.5, 8.5], "texture": "#copper"}, "down": {"uv": [7.5, 7.5, 8.5, 8.5], "texture": "#copper"}}},
+    {"from": [6.75, 13, 6.75], "to": [9.25, 15, 9.25], "faces": {"north": {"uv": [6.75, 7, 9.25, 9], "texture": "#ins"}, "south": {"uv": [6.75, 7, 9.25, 9], "texture": "#ins"}, "east": {"uv": [6.75, 7, 9.25, 9], "texture": "#ins"}, "west": {"uv": [6.75, 7, 9.25, 9], "texture": "#ins"}, "up": {"uv": [6.75, 6.75, 9.25, 9.25], "texture": "#ins"}, "down": {"uv": [6.75, 6.75, 9.25, 9.25], "texture": "#ins"}}},
+    {"from": [7.25, 15, 7.25], "to": [8.75, 15.75, 8.75], "faces": {"north": {"uv": [7.25, 7.625, 8.75, 8.375], "texture": "#copper"}, "south": {"uv": [7.25, 7.625, 8.75, 8.375], "texture": "#copper"}, "east": {"uv": [7.25, 7.625, 8.75, 8.375], "texture": "#copper"}, "west": {"uv": [7.25, 7.625, 8.75, 8.375], "texture": "#copper"}, "up": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#copper"}, "down": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#copper"}}}
+  ]
+}
