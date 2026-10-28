@@ -344,15 +344,14 @@ def roboport():
     for sx, sz in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
         cx, cz = 24.5 * sx, 24.5 * sz
         m.cbox(cx, cz, 9, 9, 4, 7, "mach")
-        m.box([cx - 2.5, 6, cz - 2.5], [cx + 2.5, 30, cz + 2.5], "pylon", rot=("z", -11.25 * sx, [cx, 6, cz]))
-        m.box([cx - 2.4 + EPS, 6 + EPS, cz - 2.4], [cx + 2.4 - EPS, 30 - EPS, cz + 2.4], "pylon",
-              rot=("x", 11.25 * sz, [cx, 6, cz]))
+        # Minecraft only allows 0/±22.5/±45° element rotations, so the post leans out along x only
+        m.box([cx - 2.5, 6, cz - 2.5], [cx + 2.5, 30, cz + 2.5], "pylon", rot=("z", -22.5 * sx, [cx, 6, cz]))
         # bracket head pointing outward diagonally, white-lit pylon steel
         hx, hz = cx + 3.5 * sx, cz + 3.5 * sz
         m.box([hx - 4, 28, hz - 4], [hx + 4, 32, hz + 4], "pylon", rot=("y", 45, [hx, 28, hz]))
         # red cable down the inner face
         m.box([cx - 3.2 * sx - 0.6, 7, cz - 0.6 - 3.2 * sz], [cx - 3.2 * sx + 0.6, 26, cz + 0.6 - 3.2 * sz], "cable",
-              rot=("z", -11.25 * sx, [cx, 6, cz]))
+              rot=("z", -22.5 * sx, [cx, 6, cz]))
     # antenna mast with a small dish at the back-left corner of the roof
     ax, az = -14, 15
     m.cbox(ax, az, 2.5, 2.5, 22, 34, "pylon")
