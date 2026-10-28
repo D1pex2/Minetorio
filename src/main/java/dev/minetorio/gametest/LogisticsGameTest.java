@@ -269,4 +269,52 @@ public class LogisticsGameTest {
             LogisticsManager.removeExtraPlayer(p);
         });
     }
+
+    // --- robots and chunks that do not tick ---------------------------------------------------
+
+    /**
+     * A requester chest in the network but in a loaded chunk that does not entity-tick gets nothing:
+     * a robot flying there would freeze holding its promise. The requester inside the test area is
+     * served and every robot comes home with no promise left.
+     */
+    @GameTest(template = "empty16", batch = "logistics_non_ticking", timeoutTicks = 800)
+    public static void requesterInANonTickingChunkIsNotServed(GameTestHelper h) {
+        RoboportBlockEntity port = roboport(h, PORT, 2);
+        LogisticChestBlockEntity provider = chest(h, new BlockPos(8, 1, 7), LogisticMode.PASSIVE_PROVIDER, plates(10));
+        LogisticChestBlockEntity inside = chest(h, new BlockPos(12, 1, 12), LogisticMode.REQUESTER);
+        inside.requests().set(0, new LogisticRequest(PLATE, 3, LogisticStats.UNLIMITED));
+        BlockPos chestAbs = h.absolutePos(new BlockPos(8, 1, 7));
+        BlockPos away = null;
+        var network = LogisticsManager.logisticArea(port);
+        h.assertTrue(network.contains(chestAbs.getX() + 0.5, chestAbs.getY() + 0.5, chestAbs.getZ() + 0.5), "provider outside the logistic area");
+        for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+            int cx = (chestAbs.getX() >> 4) + d[0], cz = (chestAbs.getZ() >> 4) + d[1];
+            BlockPos mid = new BlockPos((cx << 4) + 8, chestAbs.getY(), (cz << 4) + 8);
+            if (h.getLevel().hasChunk(cx, cz) && !h.getLevel().isPositionEntityTicking(mid) && network.contains(mid.getX() + 0.5, mid.getY() + 0.5, mid.getZ() + 0.5)) {
+                away = mid;
+                break;
+            }
+        }
+        h.assertTrue(away != null, "no loaded, non-ticking chunk in the network next to the test area");
+        BlockPos awayPos = away;
+        h.getLevel().setBlock(awayPos, LogisticsRegistry.CHESTS.get(LogisticMode.REQUESTER).get().defaultBlockState(),
+                net.minecraft.world.level.block.Block.UPDATE_ALL);
+        LogisticChestBlockEntity outside = (LogisticChestBlockEntity) h.getLevel().getBlockEntity(awayPos);
+        outside.requests().set(0, new LogisticRequest(PLATE, 5, LogisticStats.UNLIMITED));
+        String outsideId = LogisticsManager.chestId(awayPos);
+        boolean[] promised = {false};
+        h.onEachTick(() -> {
+            if (LogisticsManager.get(h.getLevel()).ledger().incoming(outsideId, PLATE) > 0) promised[0] = true;
+        });
+        h.runAfterDelay(200, () -> h.succeedWhen(() -> {
+            h.assertTrue(count(inside, PLATE) == 3, "inside requester has " + count(inside, PLATE));
+            h.assertFalse(promised[0], "a robot was sent to the non-ticking chunk");
+            h.assertTrue(count(outside, PLATE) == 0, "outside requester has " + count(outside, PLATE));
+            h.assertTrue(count(provider, PLATE) == 7, "provider has " + count(provider, PLATE));
+            robotsHome(h, port, 2);
+            outside.requests().clear();
+            h.getLevel().removeBlock(awayPos, false);
+            cleanUp(h, port);
+        }));
+    }
 }

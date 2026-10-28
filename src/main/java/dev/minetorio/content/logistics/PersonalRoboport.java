@@ -60,7 +60,8 @@ public final class PersonalRoboport {
         for (ConstructionQueue.Job job : m.queue().pending(ConstructionQueue.Kind.BUILD, area::contains)) {
             if (free <= 0) break;
             BlockPos pos = ConstructionManager.pos(job.cell());
-            if (!level.isLoaded(pos) || !Ghosts.canBuild(level, pos)) continue;
+            // only where robots keep ticking (RobotReach): one flying into another chunk would freeze holding the claim
+            if (!level.isPositionEntityTicking(pos) || !Ghosts.canBuild(level, pos)) continue;
             ResourceLocation rl = ResourceLocation.tryParse(job.item());
             if (rl == null) continue;
             Item item = BuiltInRegistries.ITEM.get(rl);

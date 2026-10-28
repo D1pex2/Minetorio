@@ -52,6 +52,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class LogisticsManager {
     private static final Map<ServerLevel, LogisticsManager> MANAGERS = new WeakHashMap<>();
     private static final int STATS_INTERVAL = 20;
+    private static final int SWEEP_INTERVAL = 10;
 
     private final Set<BlockPos> chests = new HashSet<>();
     private final DeliveryLedger ledger = new DeliveryLedger();
@@ -205,9 +206,20 @@ public final class LogisticsManager {
     // --- nodes --------------------------------------------------------------------------------------
 
     private List<LogisticChestBlockEntity> chestsIn(ServerLevel level, Network n) {
+        return chestsIn(level, n, false);
+    }
+
+    /**
+     * The loaded chests of {@code n}; with {@code reachable} only those robots can fly to: in
+     * entity-ticking chunks ({@link dev.minetorio.core.robot.RobotReach}).
+     */
+    private List<LogisticChestBlockEntity> chestsIn(ServerLevel level, Network n, boolean reachable) {
         List<LogisticChestBlockEntity> out = new ArrayList<>();
         for (BlockPos p : chests) {
-            if (n.contains(p) && level.isLoaded(p) && level.getBlockEntity(p) instanceof LogisticChestBlockEntity be) out.add(be);
+            if (n.contains(p) && level.isLoaded(p) && (!reachable || level.isPositionEntityTicking(p))
+                    && level.getBlockEntity(p) instanceof LogisticChestBlockEntity be) {
+                out.add(be);
+            }
         }
         out.sort((a, b) -> Long.compare(a.getBlockPos().asLong(), b.getBlockPos().asLong()));
         return out;
@@ -246,7 +258,7 @@ public final class LogisticsManager {
         String item = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
         Map<String, LogisticChestBlockEntity> byId = new HashMap<>();
         List<LogisticPlanner.Node> nodes = new ArrayList<>();
-        for (LogisticChestBlockEntity be : chestsIn(level, n)) {
+        for (LogisticChestBlockEntity be : chestsIn(level, n, true)) {
             if (be.mode() != LogisticMode.STORAGE) continue;
             LogisticPlanner.Node node = node(be);
             nodes.add(node);
@@ -261,6 +273,7 @@ public final class LogisticsManager {
 
     private void tick(ServerLevel level) {
         timer++;
+        if (timer % SWEEP_INTERVAL == 0) sweep(level);
         if (timer % LogisticStats.DISPATCH_INTERVAL == 0) {
             for (Network n : networks(level)) dispatch(level, n);
         }
@@ -274,13 +287,14 @@ public final class LogisticsManager {
         List<LogisticPlanner.Node> nodes = new ArrayList<>();
         Map<String, LogisticChestBlockEntity> chestById = new HashMap<>();
         Map<String, Endpoint> endpoints = new HashMap<>();
-        for (LogisticChestBlockEntity be : chestsIn(level, n)) {
+        for (LogisticChestBlockEntity be : chestsIn(level, n, true)) {
             LogisticPlanner.Node node = node(be);
             nodes.add(node);
             chestById.put(node.id(), be);
             endpoints.put(node.id(), Endpoint.chest(be.getBlockPos()));
         }
         for (Player p : players(level, n)) {
+            if (!level.isPositionEntityTicking(p.blockPosition())) continue;
             LogisticPlanner.Node node = node(p, PersonalLogistics.of(p));
             nodes.add(node);
             endpoints.put(node.id(), Endpoint.player(p.getUUID()));
@@ -305,7 +319,7 @@ public final class LogisticsManager {
         double best = Double.MAX_VALUE;
         Vec3 at = new Vec3(from.x() + 0.5, from.y() + 0.5, from.z() + 0.5);
         for (RoboportBlockEntity p : n.ports) {
-            if (p.buffer() <= 0 || p.availableLogisticRobots() <= 0) continue;
+            if (p.buffer() <= 0 || p.availableLogisticRobots() <= 0 || !level.isPositionEntityTicking(BlockPos.containing(p.dock()))) continue;
             double dist = p.center().distanceToSqr(at);
             if (dist < best) {
                 best = dist;
@@ -324,6 +338,18 @@ public final class LogisticsManager {
         }
         track(robot);
         return true;
+    }
+
+    /**
+     * Robots holding a trip whose own chunk stopped entity-ticking (the player walked away) do not
+     * tick and cannot let go themselves: their promises and ghost claims are released here, and they
+     * head home once their chunk ticks again (as {@code ConstructionManager#sweep} does for
+     * construction robots).
+     */
+    private void sweep(ServerLevel level) {
+        for (LogisticRobotEntity r : new ArrayList<>(robots)) {
+            if (!r.isRemoved() && r.holdsTrip() && !level.isPositionEntityTicking(r.blockPosition())) r.dropTrip(level, this);
+        }
     }
 
     // --- network figures for the roboport GUI --------------------------------------------------------

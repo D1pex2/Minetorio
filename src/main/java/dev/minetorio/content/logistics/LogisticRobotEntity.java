@@ -183,7 +183,7 @@ public class LogisticRobotEntity extends Entity {
 
     private void toSource(ServerLevel level, LogisticsManager m) {
         Vec3 at = position(level, source);
-        if (at == null) {
+        if (at == null || !reachable(level, at)) {
             abortTrip(m);
             return;
         }
@@ -202,6 +202,10 @@ public class LogisticRobotEntity extends Entity {
             // the player left the network (or the chest is gone): put the items away
             releaseIncoming(m);
             phase = kind() == Kind.LOGISTIC ? storePhase(level, m) : Phase.RETURNING;
+            return;
+        }
+        if (!reachable(level, at)) {
+            dropTrip(level, m);
             return;
         }
         if (!arrive(at, target)) return;
@@ -244,7 +248,8 @@ public class LogisticRobotEntity extends Entity {
     }
 
     private void toStore(ServerLevel level) {
-        if (store == null) {
+        if (store == null || !reachable(level, hover(store))) {
+            store = null;
             phase = Phase.RETURNING;
             return;
         }
@@ -304,6 +309,49 @@ public class LogisticRobotEntity extends Entity {
         if (port.storeRobot(new ItemStack(robotItem()))) {
             port.robotReturned();
             discard();
+        }
+    }
+
+    /**
+     * Whether a leg toward {@code at} can go on ({@link dev.minetorio.core.robot.RobotReach}): the
+     * target and this tick's next step lie in entity-ticking chunks. A robot flying into any other
+     * chunk would freeze there holding its promises (or ghost claim) for good.
+     */
+    private boolean reachable(ServerLevel level, Vec3 at) {
+        Flight.Vec next = Flight.step(new Flight.Vec(getX(), getY(), getZ()), new Flight.Vec(at.x, at.y, at.z), speed());
+        return level.isPositionEntityTicking(BlockPos.containing(at))
+                && level.isPositionEntityTicking(BlockPos.containing(next.x(), next.y(), next.z()));
+    }
+
+    /** Whether the robot holds promises or a ghost claim (on its way to a pickup, a delivery or a store). */
+    boolean holdsTrip() {
+        return phase == Phase.TO_SOURCE || phase == Phase.TO_TARGET || phase == Phase.TO_STORE;
+    }
+
+    /**
+     * Gives up the trip: its ledger promises (or the ghost claim of a personal construction robot)
+     * are released and the robot heads home with what it carries (a logistic robot stores it after
+     * charging). Called by the robot when its way leads into a chunk that is not entity-ticking, and
+     * by {@link LogisticsManager} for a robot whose own chunk stopped ticking (it resumes from here
+     * once it ticks again).
+     */
+    void dropTrip(ServerLevel level, LogisticsManager m) {
+        switch (phase) {
+            case TO_SOURCE -> abortTrip(m);
+            case TO_TARGET -> {
+                if (target != null && target.type() == Endpoint.Type.GHOST) {
+                    ConstructionManager.get(level).queue().release(ConstructionManager.cell(target.pos()), robotId());
+                } else {
+                    releaseIncoming(m);
+                }
+                target = null;
+                phase = Phase.RETURNING;
+            }
+            case TO_STORE -> {
+                store = null;
+                phase = Phase.RETURNING;
+            }
+            default -> { }
         }
     }
 
