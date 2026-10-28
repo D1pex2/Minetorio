@@ -72,6 +72,18 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        // Builds demo/Minetorio-Demo.zip headless (dev.minetorio.gametest.DemoWorldBuild): a GameTest
+        // server in its own directory that runs only the demo-world builder. Use ./gradlew buildDemoWorld.
+        demoWorld {
+            type = "gameTestServer"
+            gameDirectory = project.file('run-demo')
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'minetorio_demoworld'
+            systemProperty 'minetorio.demoWorld.out', project.file('demo/Minetorio-Demo.zip').absolutePath
+            // the starting ore fields are stamped around the first spawn: just north of the showcase at 0,0
+            // (inside the regions the zip keeps); the zip's spawn is then moved to the showcase's entrance
+            programArguments.addAll '--spawnPos', '0,-60,-130'
+        }
+
         data {
             data()
             // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
@@ -202,4 +214,15 @@ tasks.named('test') {
     useJUnitPlatform()
     // MDG runs unit tests in its own game directory; tests that read sources resolve them from here.
     systemProperty 'minetorio.projectDir', projectDir.absolutePath
+}
+
+// A fresh world for every demo build; then the builder writes demo/Minetorio-Demo.zip.
+def demoWorldDir = layout.projectDirectory.dir('run-demo/world').asFile
+tasks.matching { it.name == 'runDemoWorld' }.configureEach {
+    doFirst { demoWorldDir.deleteDir() }
+}
+tasks.register('buildDemoWorld') {
+    group = 'minetorio'
+    description = 'Builds the demo showcase on a headless GameTest server and packs demo/Minetorio-Demo.zip.'
+    dependsOn 'runDemoWorld'
 }
