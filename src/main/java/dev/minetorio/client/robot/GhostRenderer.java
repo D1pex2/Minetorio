@@ -97,7 +97,7 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
         Block block = target.getBlock();
         if (block instanceof ElectricDrillBlock) DrillRenderer.assemble(DrillRenderer.ELECTRIC, facing, shape, 0, pose, sink);
         else if (block instanceof BurnerDrillBlock) DrillRenderer.assemble(DrillRenderer.BURNER, facing, shape, 0, pose, sink);
-        else if (block instanceof AssemblerBlock) AssemblerRenderer.assemble(target, facing, shape, 0, pose, sink);
+        else if (block instanceof AssemblerBlock) AssemblerRenderer.assemble(target, facing, shape, 0, false, pose, sink);
         else if (block instanceof LabBlock) LabRenderer.assemble(facing, shape, 0, false, pose, sink);
         else if (block instanceof RadarBlock) RadarRenderer.assemble(facing, shape, 0, pose, sink);
         else if (block instanceof RoboportBlock) RoboportRenderer.assemble(facing, shape, pose, sink);

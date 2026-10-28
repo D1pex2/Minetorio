@@ -49,6 +49,7 @@ class ModelZFightTest {
     private static final V ZERO = new V(0, 0, 0);
     private static final V X = new V(1, 0, 0);
     private static final V Y = new V(0, 1, 0);
+    private static final V Z = new V(0, 0, 1);
 
     /** A translation (axis 't', offset v) or a right-handed rotation about axis x/y/z through origin v. */
     record Tr(char axis, double deg, V v) {
@@ -294,7 +295,14 @@ class ModelZFightTest {
             pose.addAll(List.of(after));
             poses.add(pose);
         }
-        return new Part(label, model, poses, axis == 'x' ? X : Y, null);
+        return new Part(label, model, poses, axis == 'x' ? X : axis == 'z' ? Z : Y, null);
+    }
+
+    /** A part moved by each of the given translations (the first one is its rest pose). */
+    private static Part sliding(String label, String model, Tr... moves) {
+        List<List<Tr>> poses = new ArrayList<>();
+        for (Tr m : moves) poses.add(m.v().equals(ZERO) ? List.of() : List.of(m));
+        return new Part(label, model, poses, null, null);
     }
 
     /** Joint, arm and hand boxes of InserterRenderer.render (lines 97-111, claw fingers left out), in pixels, facing north. */
@@ -339,10 +347,38 @@ class ModelZFightTest {
     static List<Composite> composites() {
         V center = new V(8, 0, 8);
         List<Composite> c = new ArrayList<>();
-        // AssemblerRenderer.java:35-43: the tier's body and gear at the center, the gear turning about the vertical axis.
+        // AssemblerRenderer.assemble: every part in model px. Cogs and gears turn about z through their axes, gear A
+        // is drawn again 15 px east, the push rod slides -1.5..1.5 px in z, the carriage -7..7 px in x, arm and head
+        // turn about the turret axis and the head drops up to 2 px, the fan turns; the lit lamp lens is fixed.
         for (int t = 1; t <= 2; t++) {
-            c.add(new Composite("assembling_machine_" + t, List.of(Part.fixed("body", "assembling_machine_" + t + "_body"),
-                    spinning("gear", "assembling_machine_" + t + "_gear", 'y', center))));
+            List<Part> asm = new ArrayList<>(List.of(Part.fixed("body", "assembling_machine_" + t + "_body"),
+                    spinning("cog", "assembling_machine_cog", 'z', new V(0, 25, 0)),
+                    spinning("cog_b", "assembling_machine_cog_b", 'z', new V(10.5, 25, 0)),
+                    Part.fixed("lamp", "assembling_machine_lamp")));
+            if (t == 1) {
+                asm.add(spinning("gear", "assembling_machine_gear", 'z', new V(9, 24.5, 0)));
+                asm.add(spinning("gear_b", "assembling_machine_gear_b", 'z', new V(16.5, 24.5, 0)));
+                asm.add(spinning("gear@+15", "assembling_machine_gear", 'z', new V(9, 24.5, 0), Tr.t(15, 0, 0)));
+                asm.add(sliding("rod", "assembling_machine_rod", Tr.t(0, 0, 0), Tr.t(0, 0, -1.5), Tr.t(0, 0, -0.75),
+                        Tr.t(0, 0, 0.75), Tr.t(0, 0, 1.5)));
+                asm.add(sliding("slider", "assembling_machine_slider", Tr.t(0, 0, 0), Tr.t(-7, 0, 0), Tr.t(-3.5, 0, 0),
+                        Tr.t(3.5, 0, 0), Tr.t(7, 0, 0)));
+            } else {
+                V turret = new V(10, 0, 10);
+                asm.add(spinning("arm", "assembling_machine_arm", 'y', turret));
+                List<List<Tr>> head = new ArrayList<>();
+                for (double a : SPIN) {
+                    for (int dy = 0; dy <= 2; dy++) {
+                        List<Tr> pose = new ArrayList<>();
+                        if (a != 0) pose.add(Tr.r('y', a, turret));
+                        if (dy != 0) pose.add(Tr.t(0, -dy, 0));
+                        head.add(pose);
+                    }
+                }
+                asm.add(new Part("head", "assembling_machine_head", head, Y, null));
+                asm.add(spinning("fan", "assembling_machine_fan", 'y', new V(20, 0, 20)));
+            }
+            c.add(new Composite("assembling_machine_" + t, asm));
         }
         // DrillRenderer: electric body and turning head at the center, the carriage riding 0..4 px up, the tower one
         // block up.

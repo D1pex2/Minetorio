@@ -1,0 +1,31 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "dark": "minetorio:block/dark",
+    "frame": "minetorio:block/dark_panel",
+    "steel": "minetorio:block/steel",
+    "steelp": "minetorio:block/steel_panel",
+    "copper": "minetorio:block/copper",
+    "brass": "minetorio:block/brass",
+    "rust": "minetorio:block/rust_panel",
+    "rusty": "minetorio:block/rust",
+    "vent": "minetorio:block/vent",
+    "hub": "minetorio:block/gear_hub",
+    "deck": "minetorio:block/asm_deck",
+    "plate": "minetorio:block/asm_plate",
+    "gauge": "minetorio:block/asm_gauge",
+    "rail": "minetorio:block/asm_rail",
+    "table": "minetorio:block/asm_table",
+    "ctrl": "minetorio:block/asm_ctrl",
+    "arm": "minetorio:block/asm_arm",
+    "lens": "minetorio:block/asm_lamp",
+    "pipe_h": "minetorio:block/pipe_h",
+    "pipe_v": "minetorio:block/pipe_v",
+    "pipe_end": "minetorio:block/pipe_end",
+    "particle": "minetorio:block/steel"
+  },
+  "elements": [
+    {"from": [-0.75, 20.25, -6], "to": [0.75, 21.75, 7], "faces": {"north": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#steel"}, "south": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#steel"}, "east": {"uv": [1.5, 7.25, 14.5, 8.75], "texture": "#steel"}, "west": {"uv": [1.5, 7.25, 14.5, 8.75], "texture": "#steel"}, "up": {"uv": [7.25, 1.5, 8.75, 14.5], "texture": "#steel"}, "down": {"uv": [7.25, 1.5, 8.75, 14.5], "texture": "#steel"}}},
+    {"from": [-2, 19.5, 6], "to": [2, 22.5, 9], "faces": {"north": {"uv": [6, 6.5, 10, 9.5], "texture": "#frame"}, "south": {"uv": [6, 6.5, 10, 9.5], "texture": "#frame"}, "east": {"uv": [6.5, 6.5, 9.5, 9.5], "texture": "#frame"}, "west": {"uv": [6.5, 6.5, 9.5, 9.5], "texture": "#frame"}, "up": {"uv": [6, 6.5, 10, 9.5], "texture": "#brass"}, "down": {"uv": [6, 6.5, 10, 9.5], "texture": "#frame"}}}
+  ]
+}

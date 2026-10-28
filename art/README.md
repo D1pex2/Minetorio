@@ -27,9 +27,12 @@ Order: `python art/gen_blocks.py && python art/gen_models.py && python art/gen_b
 - **Animated textures:**
   - `fire` (8 frames, frametime 2): furnace mouth and boiler door.
   - `lab_glow` (8 frames, pulsing): shown only while researching. Idle, the lab uses `lab_glass`.
+  - `asm_lamp_glow` (8 frames, pulsing): the assemblers' status lamp, drawn at full brightness only while crafting (tier 1 blinks it twice per work loop). Idle, the lens is the dull `asm_lamp`.
   - Belts: straights and curves scroll at Factorio speed at 20 tps: 1.5, 3 and 4.5 px per tick for yellow, red and blue. The chevron period is 16 px, so tiles join seamlessly and the fast tiers don't alias.
   - Curves map the same pattern onto a quarter circle around the inner corner, matching `BeltGeometry`.
 - **Model geometry:**
   - Boxes bigger than a block are split into equal parts of 16 px or less, so textures keep roughly vanilla texel density and show plate seams.
   - Round parts are octagons: a box plus a copy turned 45°.
   - Cogwheels are discs with 8 tooth bars at 22.5° steps.
+  - Upright cogs (assemblers) are octagons with 4 tooth bars (8 teeth). A cog meshing with another is authored half a tooth (22.5°) turned and 0.1 px further along its axis (`ASM_MESH_DZ`), so neighbours never share a face plane while they turn.
+  - Assembler moving parts (cogs, gears, push rod, carriage, arm, press head, fan, lamp) are separate models authored in their rest pose; `AssemblerRenderer.assemble` moves them through one work loop (Factorio's timing: 32 frames at 3 × crafting speed per tick), so phase 0 is what ghosts and the item show.

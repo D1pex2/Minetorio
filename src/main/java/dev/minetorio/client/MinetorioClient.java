@@ -85,10 +85,7 @@ public final class MinetorioClient {
         event.register(SteamMachineRenderer.ENGINE_REAR);
         event.register(SteamMachineRenderer.ENGINE_GEAR);
         event.register(SteamMachineRenderer.ENGINE_GEAR_SMALL);
-        event.register(AssemblerRenderer.BODY_1);
-        event.register(AssemblerRenderer.BODY_2);
-        event.register(AssemblerRenderer.GEAR_1);
-        event.register(AssemblerRenderer.GEAR_2);
+        for (var m : AssemblerRenderer.MODELS) event.register(m);
         event.register(LabRenderer.BODY);
         event.register(LabRenderer.DOME);
         event.register(LabRenderer.DOME_IDLE);

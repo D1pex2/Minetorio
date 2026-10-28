@@ -56,6 +56,24 @@ def inserter(name, reach, tier_tex, hand_half=HAND_HALF):
     return els
 
 
+def assembler(tier, working=False):
+    """AssemblerRenderer.assemble: the body and the moving parts, at rest or in a mid-stroke working pose
+    (rod and carriage pushed, press head down, lamp lit); turns (cogs, gears, arm, fan) are left at rest."""
+    els = placed(B + f"assembling_machine_{tier}_body") + placed(B + "assembling_machine_cog")
+    els += placed(B + "assembling_machine_cog", dx=10.5)
+    if tier == 1:
+        for dx in (0, 7.5, 15):
+            els += placed(B + "assembling_machine_gear", dx=dx)
+        els += placed(B + "assembling_machine_rod", dz=2.5 if working else 0)
+        els += placed(B + "assembling_machine_slider", dx=-7 if working else 0)
+    else:
+        els += placed(B + "assembling_machine_arm") + placed(B + "assembling_machine_head", dy=-2 if working else 0)
+        els += placed(B + "assembling_machine_fan")
+    if working:
+        els += placed(B + "assembling_machine_lamp")
+    return els
+
+
 def engine():
     els = (placed(B + "steam_engine_body") + placed(B + "steam_engine_front", dz=-24)
            + placed(B + "steam_engine_rear", dz=24))
@@ -69,10 +87,10 @@ def engine():
 #  270 = from the east)
 MACHINES = [
     ("lab.png", "lab", lambda: placed(B + "lab_body") + placed(B + "lab_dome_idle"), 180),
-    ("assembling_machine_1.png", "assembling machine 1",
-     lambda: placed(B + "assembling_machine_1_body") + placed(B + "assembling_machine_1_gear"), 180),
-    ("assembling_machine_2.png", "assembling machine 2",
-     lambda: placed(B + "assembling_machine_2_body") + placed(B + "assembling_machine_2_gear"), 180),
+    ("assembling_machine_1.png", "assembling machine 1 (rest)", lambda: assembler(1), 180),
+    ("assembling_machine_1.png", "assembling machine 1 (working pose)", lambda: assembler(1, True), 180),
+    ("assembling_machine_2.png", "assembling machine 2 (rest)", lambda: assembler(2), 180),
+    ("assembling_machine_2.png", "assembling machine 2 (working pose)", lambda: assembler(2, True), 180),
     ("steam_engine.png", "steam engine (gears east)", engine, 270),
     ("electric_mining_drill.png", "electric mining drill (front)",
      lambda: placed(B + "electric_mining_drill_body") + placed(B + "electric_mining_drill_head")

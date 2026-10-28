@@ -237,7 +237,7 @@ ENTRIES = [
     ("minetorio:item/electric_mining_drill", "electric_mining_drill"),
     ("minetorio:item/assembling_machine_1", "assembling_machine_1"),
     ("minetorio:item/assembling_machine_2", "assembling_machine_2"),
-    ("minetorio:block/assembling_machine_1_gear", "assembling machine gear (spins)"),
+    ("minetorio:block/assembling_machine_arm", "assembling machine 2 arm (swings)"),
     ("minetorio:item/lab", "lab (idle)"),
     ("minetorio:block/lab_dome", "lab dome (researching)"),
     ("minetorio:item/boiler", "boiler"),
