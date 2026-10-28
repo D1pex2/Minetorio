@@ -423,6 +423,9 @@ class ModelZFightTest {
             roboport.add(Part.fixed("lamp" + n++, "roboport_lamp_green", Tr.t(l[0] - 8, l[1], l[2] - 8)));
         }
         c.add(new Composite("roboport", roboport));
+        // ConstructionRobotRenderer: the body and its fan rotor turning about the vertical axis x = z = 8.
+        c.add(new Composite("construction_robot", List.of(Part.fixed("body", "construction_robot"),
+                spinning("rotor", "construction_robot_rotor", 'y', center))));
         // SteamMachineRenderer.Boiler: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
         // SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x through

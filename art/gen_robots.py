@@ -10,9 +10,10 @@ References (wiki.factorio.com, Factorio 1.1 entity art; kept outside the reposit
   with a bracket arm leaning out, white highlights and red cables running down its inside. Across the
   front (south in the reference image, the side facing the camera) a machinery bay: dark drums and a
   yellow-trimmed housing. A small antenna mast with a dish stands at one back corner.
-  Construction robot: a small flying drone. A cream/beige shell wraps the top and the sides of a big
-  dark turbine intake (round, radial blades) that faces forward; a side pod on each side (cream, the
-  left one with a red lamp); dark gunmetal underside with two grey claw arms hanging below.
+  Construction robot: a small flying drone hanging under a ducted fan. The round turbine ring (dark
+  gunmetal, radial blades inside) is on TOP with its opening facing up - what Factorio's camera sees;
+  a cream/beige hood wraps the back and the sides of the ring and runs down into a bulky left pod with
+  a red lamp; dark gunmetal underside with two grey claw arms dangling below.
 
 Outputs (in src/main/resources/assets/minetorio/):
   textures/block/roboport_*.png, construction_robot_*.png
@@ -24,7 +25,8 @@ Outputs (in src/main/resources/assets/minetorio/):
   models/block/roboport_blade.json, roboport_antenna.json, roboport_charge_glow.json, roboport_lamp_{green,red}.json
                                        the moving and lit parts RoboportRenderer draws over the pieces (see the
                                        Roboport section: iris blades, antenna head, lit charging points and lamps)
-  models/block/construction_robot.json the robot, ~8 px, centered on x = z = 8, y 0..10, north = front
+  models/block/construction_robot.json the robot, ~11 px wide, centered on x = z = 8, y 0..10, north = front
+  models/block/construction_robot_rotor.json  its fan rotor, same frame, spun about x = z = 8 by the renderer
   models/block/ghost.json              particle only (GhostRenderer draws the target)
   models/item/roboport.json            the whole roboport scaled into one block
   models/item/construction_robot.json  the robot model with item transforms
@@ -351,21 +353,33 @@ def textures():
         im.putpixel((x, y), CREAM[5])
     t["construction_robot_shell"] = im
     t["construction_robot_dark"] = noisy(DARK, 212, 2, 4)
-    # turbine intake: dark disc with 12 radial blades and a hub
-    im = Image.new("RGBA", (16, 16), DARK[5])
+    # stator on the duct floor (seen between the spinning rotor blades): 12 dark radial vanes on a black floor
+    im = Image.new("RGBA", (16, 16), WELL[2])
     for y in range(16):
         for x in range(16):
             dx, dy = x - 7.5, y - 7.5
             r = math.hypot(dx, dy)
             a = math.degrees(math.atan2(dy, dx)) % 30
             if r < 2.2:
-                c = DARK[1]
-            elif r < 7.2:
-                c = STEEL[2] if a < 12 else DARK[4]
-            else:
                 c = DARK[3]
+            elif r < 7.6:
+                c = DARK[3] if a < 9 else WELL[1] if a < 20 else WELL[3]
+            else:
+                c = WELL[0]
             im.putpixel((x, y), c)
     t["construction_robot_fan"] = im
+    # duct ring: gunmetal with a bright worn top lip (rows 0-1) and grime toward the bottom
+    im = noisy(DARK, 214, 1, 3)
+    for x in range(16):
+        im.putpixel((x, 0), STEEL[1]); im.putpixel((x, 1), DARK[0]); im.putpixel((x, 15), DARK[5])
+    wear(im, DARK, 215, 12)
+    t["construction_robot_rim"] = im
+    t["construction_robot_duct"] = noisy(WELL, 216, 1, 3)
+    # rotor blades: light steel, a lit leading edge
+    im = noisy(STEEL, 217, 0, 2)
+    for x in range(16):
+        im.putpixel((x, 0), STEEL[0]); im.putpixel((x, 15), STEEL[3])
+    t["construction_robot_rotor"] = im
     im = Image.new("RGBA", (16, 16), RED[1])
     for y in range(16):
         for x in range(16):
@@ -837,41 +851,78 @@ def roboport_elements(door=0.0, charging=0, lamps=()):
 
 
 # =====================================================================================
-# Construction robot (block px, centered on x = z = 8, north = front)
+# Construction robot (block px, centered on x = z = 8, north = front; ConstructionRobotRenderer)
+# After the reference sprite: the ducted fan faces UP - a dark gunmetal ring on top of the robot with the rotor
+# inside it (seen from Factorio's camera as the round intake) - and the body hangs under it: a cream hood wraps
+# the back and the right of the ring, a bulky cream pod the left with the red lamp at its front bottom corner,
+# the gunmetal belly below, and two grey claw arms dangling from it. The rotor (hub and 8 blades) is its own
+# model, construction_robot_rotor, authored in the same frame and turned by the renderer about the vertical
+# axis x = z = 8; only the stator below it (radial vanes on the duct floor) is part of the body.
 # =====================================================================================
+RING_IN, RING_OUT, RING_Y = 2.9, 3.9, (6.2, 9.2)   # duct ring (16-gon apothems, heights)
+FLOOR_TOP = 6.6                                    # top of the stator disc inside the ring
+ROTOR_Y, ROTOR_STEP, ROTOR_T = 7.0, 0.05, 0.35     # lowest blade bar, stagger, thickness
+ROTOR_R, ROTOR_W = 2.75, 0.7                       # blade tip radius and blade width
+
+
 def robot():
     m = Model({"shell": "construction_robot_shell", "dark": "construction_robot_dark", "fan": "construction_robot_fan",
-               "light": "construction_robot_light", "arm": "construction_robot_arm"}, "construction_robot_shell")
-    # turbine: dark octagonal drum along z, its big intake (fan face) at the front
-    m.octagon_z(8, 5.5, 7, 3.5, 11, {"north": "fan", "south": "dark", "east": "dark", "west": "dark",
-                                    "up": "dark", "down": "dark"}, fit=("north",))
-    # cream hood over the rear two thirds, wrapping down both sides; the intake stays open in front
-    m.box([4.2, 8.3, 6.5], [11.8, 10, 12.4], "shell")
-    m.box([3.9, 3.4, 6.8], [5.2, 8.6, 12], "shell")
-    m.box([10.8, 3.4, 6.8], [12.1, 8.6, 12], "shell")
-    m.box([5.4, 2.8, 10], [10.6, 8.4, 12.6], "shell")  # rear cowl
-    # side pods (thrusters)
-    m.box([2.4, 4, 7.4], [3.9, 7.4, 10.8], "shell")
-    m.box([12.1, 4, 7.4], [13.6, 7.4, 10.8], "shell")
-    m.box([2.1, 4.6, 7.9], [2.4, 5.8, 9.1], "light", only=("west",), fit=("west",))  # red lamp on the left pod
-    # gunmetal belly and two claw arms hanging below, reaching forward
-    m.box([6, 1.4, 5.5], [10, 2.4, 10.6], "dark")
-    for x in (6.3, 9.7):
-        m.box([x - 0.5, 0, 6.5], [x + 0.5, 2.4, 7.5], "arm", rot=("x", -22.5, [x, 2.4, 7]))
-        m.box([x - 0.6, 0, 5.2], [x + 0.6, 0.8, 7], "arm")
+               "light": "construction_robot_light", "arm": "construction_robot_arm", "rim": "construction_robot_rim",
+               "duct": "construction_robot_duct"}, "construction_robot_shell")
+    # the duct: a 16-gon ring on top, opening up, gunmetal outside, black inside
+    ring_y(m, 8, 8, RING_IN, RING_OUT, RING_Y[0], RING_Y[1], "rim", "duct")
+    # the stator on the duct floor: radial vanes (whole texture) under the spinning rotor
+    m.box([5.2, 5.6, 5.2], [10.8, FLOOR_TOP, 10.8], {f: ("fan" if f == "up" else "duct") for f in FACES}, fit=("up",))
+    # the body hanging under the ring: gunmetal octagonal housing and a smaller belly
+    m.octagon_y(8, 8, 6.6, 2.6, 6.2, "dark")
+    m.octagon_y(8, 8, 4.4, 1.6, 2.6, "dark")
+    # the cream hood: up over the back edge of the ring (a lip above it) and a narrow cowl down the left side
+    m.box([4.6, 3.6, 11.2], [11.4, 9.8, 12.5], "shell")
+    m.box([3.5, 4.0, 7.0], [4.8, 8.6, 11.2], "shell")
+    # the bulky pod wrapping the right of the ring (the reference's left, seen from the front), with the red lamp
+    # at its front bottom corner
+    m.box([11.2, 3.0, 5.6], [13.6, 9.4, 12.0], "shell")
+    m.box([13.6, 3.4, 5.8], [13.9, 4.6, 7.0], "light", fit=("east",))
+    m.box([12.2, 3.4, 5.3], [13.4, 4.6, 5.6], "light", fit=("north",))
+    # two claw arms dangling below the belly, reaching forward
+    for x in (6.4, 9.6):
+        m.box([x - 0.45, 0.4, 6.6], [x + 0.45, 2.8, 7.4], "arm", rot=("x", -22.5, [x, 2.8, 7]))
+        m.box([x - 0.6, 0, 4.8], [x + 0.6, 0.7, 6.6], "arm")
+    return m
+
+
+def rotor():
+    """The fan rotor in the robot's frame, turning about x = z = 8: a hub and four bars through it (8 blades),
+    each bar ROTOR_STEP higher than the last so the crossing faces never share a plane."""
+    m = Model({"blade": "construction_robot_rotor", "hub": "construction_robot_rim"}, "construction_robot_rotor")
+    for i, ang in enumerate((0, 45, 90, -45)):
+        y0 = ROTOR_Y + i * ROTOR_STEP
+        if ang == 90:
+            m.box([8 - ROTOR_W / 2, y0, 8 - ROTOR_R], [8 + ROTOR_W / 2, y0 + ROTOR_T, 8 + ROTOR_R], "blade")
+        else:
+            m.box([8 - ROTOR_R, y0, 8 - ROTOR_W / 2], [8 + ROTOR_R, y0 + ROTOR_T, 8 + ROTOR_W / 2], "blade",
+                  rot=("y", ang, [8, y0, 8]) if ang else None)
+    m.octagon_y(8, 8, 1.6, FLOOR_TOP, 8.0, "hub")
     return m
 
 
 def write_robot(m):
     dump(m.json(), os.path.join(MB, "construction_robot.json"))
-    dump({"parent": "minetorio:block/construction_robot", "display": {
-        "gui": {"rotation": [25, 210, 0], "translation": [0, 1, 0], "scale": [1.6, 1.6, 1.6]},
+    dump(rotor().json(), os.path.join(MB, "construction_robot_rotor.json"))
+    # the item: body and rotor in one model (the rotor at rest), seen from above so the fan ring shows
+    item = Model(dict(m.textures, blade="construction_robot_rotor"), "construction_robot_shell")
+    item.boxes = m.boxes + rotor().boxes
+    for box in item.boxes:
+        if box.tex == "hub":
+            box.tex = "rim"
+    dump(dict(item.json(), display={
+        "gui": {"rotation": [35, 210, 0], "translation": [0, 1.5, 0], "scale": [1.6, 1.6, 1.6]},
         "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [1.0, 1.0, 1.0]},
         "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, 0], "scale": [1.6, 1.6, 1.6]},
         "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.9, 0.9, 0.9]},
         "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 3, 0], "scale": [1.1, 1.1, 1.1]},
         "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 3, 0], "scale": [1.1, 1.1, 1.1]},
-    }}, os.path.join(MI, "construction_robot.json"))
+    }), os.path.join(MI, "construction_robot.json"))
 
 
 def write_blockstates():
@@ -894,7 +945,7 @@ def main():
         sheet.paste(render(els, {}, yaw=180, pitch=-45, size=256, extent=bounds(els)), (0, 0))
         busy = roboport_elements(door=1, charging=4, lamps=range(len(LAMPS)))
         sheet.paste(render(busy, {}, yaw=0, pitch=-45, size=256, extent=bounds(busy)), (256, 0))
-        r = placed("minetorio:block/construction_robot")
+        r = placed("minetorio:block/construction_robot") + placed("minetorio:block/construction_robot_rotor")
         sheet.paste(render(r, {}, yaw=25, pitch=-35, size=256, extent=bounds(r)), (512, 0))
         sheet.save(os.path.join(HERE, "robots-preview.png"))
     except ImportError as e:

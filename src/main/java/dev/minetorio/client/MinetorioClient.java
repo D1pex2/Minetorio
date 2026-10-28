@@ -96,5 +96,6 @@ public final class MinetorioClient {
         RoboportRenderer.PIECES.forEach(event::register);
         RoboportRenderer.ANIMATED.forEach(event::register);
         event.register(ConstructionRobotRenderer.MODEL);
+        event.register(ConstructionRobotRenderer.ROTOR);
     }
 }
