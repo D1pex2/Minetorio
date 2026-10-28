@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.minetorio.Minetorio;
 import dev.minetorio.client.ModKeys;
+import dev.minetorio.core.camera.LayerCut;
 import dev.minetorio.core.camera.RemoteArea;
 import dev.minetorio.core.camera.TopDownCamera;
 import javax.annotation.Nullable;
@@ -52,7 +53,10 @@ import org.lwjgl.glfw.GLFW;
 /**
  * The top-down build camera (Factorio's view): V toggles it. The camera hangs above the player
  * looking down at {@link TopDownCamera#PITCH}, Q/E turn it in 90 degree steps, the mouse wheel
- * changes its height. The mouse cursor is free; the ray from the camera through it replaces the
+ * changes its height. A middle-mouse drag orbits it freely around the screen-centre pivot (any yaw,
+ * pitch {@link TopDownCamera#MIN_PITCH}..{@link TopDownCamera#MAX_PITCH}, see {@link CameraOrbit});
+ * PgUp/PgDn set a layer cut that hides everything above a height ({@link LayerCutClient}), and the
+ * cursor ray ignores what the cut hides. The mouse cursor is free; the ray from the camera through it replaces the
  * crosshair ray, so vanilla clicks (break, place, use, attack) act on the block or entity under
  * the cursor with the usual packets, and the server's reach rules stay the same.
  *
@@ -107,6 +111,8 @@ public final class BuildCamera {
     private static boolean exitRequested;
     private static double targetYaw, yaw;
     private static double targetHeight = TopDownCamera.DEFAULT_HEIGHT, height;
+    /** Orbit pitch (middle-mouse drag, {@link CameraOrbit}); kept between uses like the zoom. */
+    private static double targetPitch = TopDownCamera.PITCH, pitch = TopDownCamera.PITCH;
     private static long lastFrameNanos;
     /** Field of view of the last rendered frame (degrees, vertical). */
     private static double fov = 70;
@@ -168,9 +174,37 @@ public final class BuildCamera {
         return yaw;
     }
 
-    /** Camera yaw the camera turns to (a multiple of 90); WASD move relative to it. */
+    /** Camera yaw the camera turns to (a multiple of 90 unless orbited freely); WASD move relative to it. */
     public static double targetYaw() {
         return targetYaw;
+    }
+
+    /** Current (animated) camera pitch in degrees ({@link TopDownCamera#MIN_PITCH}..{@link TopDownCamera#MAX_PITCH}). */
+    public static double pitch() {
+        return pitch;
+    }
+
+    /** Height of the orbit pivot's feet (the player's, or the remote focus's ground). */
+    public static double pivotY() {
+        if (remote) return focusY;
+        LocalPlayer player = Minecraft.getInstance().player;
+        return player == null ? focusY : player.getY();
+    }
+
+    /** Free orbit ({@link CameraOrbit}): turns and tilts the camera at once by a drag of {@code (dx, dy)} pixels. */
+    public static void orbitBy(double dx, double dy) {
+        if (!active) return;
+        double[] now = TopDownCamera.drag(yaw, pitch, dx, dy);
+        double dYaw = now[0] - yaw;
+        yaw = now[0];
+        targetYaw = TopDownCamera.wrap(targetYaw + dYaw);
+        pitch = targetPitch = now[1];
+    }
+
+    /** Back to the default angle: the default pitch and the nearest quarter-turn yaw (animated). */
+    public static void resetAngle() {
+        targetPitch = TopDownCamera.PITCH;
+        targetYaw = TopDownCamera.snapYaw(targetYaw);
     }
 
     // --- switching ------------------------------------------------------------------------------
@@ -190,6 +224,7 @@ public final class BuildCamera {
         targetYaw = TopDownCamera.snapYaw(player.getYRot());
         yaw = player.getYRot();
         height = START_HEIGHT;
+        pitch = targetPitch;
         lastFrameNanos = Util.getNanos();
         cursorHit = null;
         mc.mouseHandler.releaseMouse();
@@ -216,6 +251,7 @@ public final class BuildCamera {
             targetYaw = TopDownCamera.snapYaw(player.getYRot());
             yaw = targetYaw;
             height = targetHeight;
+            pitch = targetPitch;
         }
         active = true;
         remote = true;
@@ -268,8 +304,8 @@ public final class BuildCamera {
         if (player == null || mc.level == null) return;
         // Q/E default to vanilla's drop and inventory keys: in this view they turn the camera
         // instead, so swallow the clicks of whatever else shares their key before vanilla sees them.
-        rotate(mc, ROTATE_LEFT, -90);
-        rotate(mc, ROTATE_RIGHT, 90);
+        rotate(mc, ROTATE_LEFT, -1);
+        rotate(mc, ROTATE_RIGHT, 1);
         if (remote) faceScreenUp(player);
         else if (mc.screen == null) aimPlayer(player);
     }
@@ -291,10 +327,10 @@ public final class BuildCamera {
         }
     }
 
-    private static void rotate(Minecraft mc, KeyMapping key, double by) {
+    private static void rotate(Minecraft mc, KeyMapping key, int dir) {
         boolean clicked = false;
         while (key.consumeClick()) {
-            targetYaw = TopDownCamera.wrap(targetYaw + by);
+            targetYaw = TopDownCamera.snapStep(targetYaw, dir); // a freely orbited yaw snaps to the next quarter
             clicked = true;
         }
         if (!clicked) return;
@@ -383,6 +419,7 @@ public final class BuildCamera {
         yaw = TopDownCamera.approachAngle(yaw, targetYaw, YAW_RATE, dt, 0.01);
         if (Math.abs(TopDownCamera.wrap(yaw - targetYaw)) < 0.01) yaw = targetYaw;
         height = TopDownCamera.approach(height, targetHeight, HEIGHT_RATE, dt, 0.01);
+        pitch = TopDownCamera.approach(pitch, targetPitch, YAW_RATE, dt, 0.01);
         if (remote) fly(Minecraft.getInstance(), dt);
     }
 
@@ -454,13 +491,13 @@ public final class BuildCamera {
     /** The camera position for the player at {@code partialTick}. */
     public static Vec3 cameraPosition(Entity entity, float partialTick) {
         if (remote) {
-            double[] p = TopDownCamera.orbit(focusX, focusY + CENTER_Y, focusZ, yaw, TopDownCamera.PITCH, height);
+            double[] p = TopDownCamera.orbitAt(focusX, focusY + CENTER_Y, focusZ, yaw, pitch, TopDownCamera.orbitDistance(height));
             return new Vec3(p[0], p[1], p[2]);
         }
         double cx = Mth.lerp(partialTick, entity.xo, entity.getX());
         double cy = Mth.lerp(partialTick, entity.yo, entity.getY()) + CENTER_Y;
         double cz = Mth.lerp(partialTick, entity.zo, entity.getZ());
-        double[] p = TopDownCamera.orbit(cx, cy, cz, yaw, TopDownCamera.PITCH, height);
+        double[] p = TopDownCamera.orbitAt(cx, cy, cz, yaw, pitch, TopDownCamera.orbitDistance(height));
         return new Vec3(p[0], p[1], p[2]);
     }
 
@@ -469,7 +506,7 @@ public final class BuildCamera {
     }
 
     public static float cameraPitch() {
-        return (float) TopDownCamera.PITCH;
+        return (float) pitch;
     }
 
     /**
@@ -484,11 +521,21 @@ public final class BuildCamera {
         if (window.getScreenWidth() <= 0 || window.getScreenHeight() <= 0 || window.getHeight() <= 0) return;
         double[] ndc = TopDownCamera.ndc(mc.mouseHandler.xpos(), mc.mouseHandler.ypos(), window.getScreenWidth(), window.getScreenHeight());
         double aspect = (double) window.getWidth() / window.getHeight();
-        double[] d = TopDownCamera.cursorRay(yaw, TopDownCamera.PITCH, fov, aspect, ndc[0], ndc[1]);
+        double[] d = TopDownCamera.cursorRay(yaw, pitch, fov, aspect, ndc[0], ndc[1]);
         Vec3 dir = new Vec3(d[0], d[1], d[2]);
         Vec3 from = cameraPosition(player, partialTick);
         Vec3 to = from.add(dir.scale(RAY_LENGTH));
-        BlockHitResult block = mc.level.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        // layer cut: only the part of the ray under the cut plane can hit anything (hidden blocks are skipped)
+        int cut = LayerCutClient.cut();
+        double[] seg = LayerCut.clip(new double[] {from.x, from.y, from.z}, new double[] {to.x, to.y, to.z}, cut);
+        BlockHitResult block;
+        if (seg == null) {
+            block = BlockHitResult.miss(to, Direction.getNearest(dir.x, dir.y, dir.z).getOpposite(), BlockPos.containing(to));
+        } else {
+            from = new Vec3(seg[0], seg[1], seg[2]);
+            to = new Vec3(seg[3], seg[4], seg[5]);
+            block = mc.level.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        }
         if (remote) { // blocks only; acting is limited to the remote area
             cursorHit = block;
             cursorInReach = block.getType() == HitResult.Type.BLOCK && RemoteViewClient.inArea(block.getBlockPos());
@@ -497,10 +544,10 @@ public final class BuildCamera {
             mc.crosshairPickEntity = null;
             return;
         }
-        double blockDist = block.getType() == HitResult.Type.MISS ? RAY_LENGTH : block.getLocation().distanceTo(from);
+        double blockDist = block.getType() == HitResult.Type.MISS ? to.distanceTo(from) : block.getLocation().distanceTo(from);
         Vec3 end = from.add(dir.scale(blockDist));
-        EntityHitResult entity = ProjectileUtil.getEntityHitResult(player, from, end, new AABB(from, end).inflate(1.0),
-                e -> !e.isSpectator() && e.isPickable(), blockDist * blockDist);
+        EntityHitResult entity = seg == null ? null : ProjectileUtil.getEntityHitResult(player, from, end, new AABB(from, end).inflate(1.0),
+                e -> !e.isSpectator() && e.isPickable() && !LayerCut.entityHidden(e.getY(), cut), blockDist * blockDist);
         HitResult hit = entity != null ? entity : block;
         cursorHit = hit;
 
