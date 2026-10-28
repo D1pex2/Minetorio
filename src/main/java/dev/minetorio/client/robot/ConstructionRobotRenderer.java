@@ -5,6 +5,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import dev.minetorio.client.machine.MachineRender;
 import dev.minetorio.content.robot.ConstructionRobotEntity;
+import dev.minetorio.core.robot.RobotFlightPose;
+import dev.minetorio.core.robot.RobotStats;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -26,20 +28,29 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.model.data.ModelData;
+import java.util.Map;
+import java.util.WeakHashMap;
 import org.joml.Matrix4f;
 
 /**
  * Draws a construction robot: its element model (art/gen_robots.py, north = front, ~half a block)
  * turned to its heading (all interpolated with the partial tick: the client flies the robot itself,
- * see ConstructionRobotEntity), banking into turns and bobbing gently, the carried item hanging below it, and a soft shadow on
- * the ground under it (vanilla entity shadows fade out a block or two above the ground).
+ * see ConstructionRobotEntity), banking into turns, pitching nose-down with its speed like a drone
+ * ({@link RobotFlightPose}) and bobbing gently, its fan rotor (a separate model in the same frame) spinning
+ * on top, the carried item hanging below it, and a soft shadow on the ground under it (vanilla entity
+ * shadows fade out a block or two above the ground).
  */
 public class ConstructionRobotRenderer extends EntityRenderer<ConstructionRobotEntity> {
     public static final ModelResourceLocation MODEL = MachineRender.model("block/construction_robot");
+    public static final ModelResourceLocation ROTOR = MachineRender.model("block/construction_robot_rotor");
+    /** Height (blocks) of the point the robot pitches about: the middle of the duct ring. */
+    private static final float PITCH_PIVOT_Y = 7.5f / 16f;
     private static final RenderType SHADOW = RenderType.entityShadow(ResourceLocation.withDefaultNamespace("textures/misc/shadow.png"));
     private static final int SHADOW_DEPTH = 10;
 
     private final ItemRenderer items;
+    /** Per robot, render-side only: {pitch last tick, pitch now, tick it was last stepped at}. */
+    private final Map<ConstructionRobotEntity, float[]> pitches = new WeakHashMap<>();
 
     public ConstructionRobotRenderer(EntityRendererProvider.Context ctx) {
         super(ctx);
@@ -59,12 +70,18 @@ public class ConstructionRobotRenderer extends EntityRenderer<ConstructionRobotE
         pose.mulPose(Axis.YP.rotationDegrees(180 - Mth.rotLerp(partialTick, robot.yRotO, robot.getYRot())));
         pose.mulPose(Axis.ZP.rotationDegrees(-robot.bank(partialTick))); // bank into turns (+ = right side down)
         pose.mulPose(Axis.XP.rotationDegrees(Mth.sin(t * 0.11f) * 3f)); // slight sway
+        pose.translate(0, PITCH_PIVOT_Y, 0);
+        pose.mulPose(Axis.XP.rotationDegrees(-pitch(robot, partialTick))); // nose (north, -z) down into the flight
+        pose.translate(0, -PITCH_PIVOT_Y, 0);
+        VertexConsumer vc = buffers.getBuffer(Sheets.cutoutBlockSheet());
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5);
-        BakedModel model = Minecraft.getInstance().getModelManager().getModel(MODEL);
-        VertexConsumer vc = buffers.getBuffer(Sheets.cutoutBlockSheet());
-        Minecraft.getInstance().getBlockRenderer().getModelRenderer().renderModel(pose.last(), vc, null, model, 1f, 1f, 1f,
-                light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+        draw(MODEL, pose, vc, light);
+        pose.popPose();
+        pose.pushPose();
+        pose.mulPose(Axis.YP.rotationDegrees(RobotFlightPose.rotorAngle(t, robot.getId())));
+        pose.translate(-0.5, 0, -0.5);
+        draw(ROTOR, pose, vc, light);
         pose.popPose();
 
         ItemStack carried = robot.carried();
@@ -74,6 +91,28 @@ public class ConstructionRobotRenderer extends EntityRenderer<ConstructionRobotE
             items.renderStatic(carried, ItemDisplayContext.GROUND, light, OverlayTexture.NO_OVERLAY, pose, buffers, robot.level(), robot.getId());
         }
         pose.popPose();
+    }
+
+    private static void draw(ModelResourceLocation id, PoseStack pose, VertexConsumer vc, int light) {
+        BakedModel model = Minecraft.getInstance().getModelManager().getModel(id);
+        Minecraft.getInstance().getBlockRenderer().getModelRenderer().renderModel(pose.last(), vc, null, model, 1f, 1f, 1f,
+                light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+    }
+
+    /**
+     * Nose-down pitch (degrees) for this frame: stepped once per robot tick toward the pitch for its current
+     * horizontal speed (from its last tick's position change, so climbing out of or sinking into a roboport
+     * does not tilt it), then interpolated with the partial tick.
+     */
+    private float pitch(ConstructionRobotEntity robot, float partialTick) {
+        float[] s = pitches.computeIfAbsent(robot, r -> new float[] {0, 0, r.tickCount});
+        if (s[2] != robot.tickCount) {
+            double speed = Math.hypot(robot.getX() - robot.xo, robot.getZ() - robot.zo);
+            s[0] = s[1];
+            s[1] = RobotFlightPose.stepPitch(s[1], RobotFlightPose.targetPitch(speed, RobotStats.SPEED_BLOCKS_PER_TICK));
+            s[2] = robot.tickCount;
+        }
+        return Mth.lerp(partialTick, s[0], s[1]);
     }
 
     /** A dark disc on the first solid surface under the robot, fainter the higher it flies. */

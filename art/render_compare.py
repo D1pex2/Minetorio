@@ -116,7 +116,7 @@ MACHINES = [
     ("roboport.png", "roboport (machinery front)", lambda: roboport_elements(), 0),
     ("roboport_open.png", "roboport (iris open, charging)",
      lambda: roboport_elements(door=1, charging=4, lamps=range(8)), 0),
-    ("construction_robot_crop.png", "construction robot", lambda: placed(B + "construction_robot"), 20),
+    ("construction_robot_crop.png", "construction robot", lambda: placed(B + "construction_robot") + placed(B + "construction_robot_rotor"), 20),
 ]
 
 if __name__ == "__main__":
