@@ -61,6 +61,10 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> STEAM_ENGINE = multiblock(ModBlocks.STEAM_ENGINE);
     public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE);
 
+    // Construction robots
+    public static final DeferredItem<BlockItem> ROBOPORT = multiblock(ModBlocks.ROBOPORT);
+    public static final DeferredItem<Item> CONSTRUCTION_ROBOT = ITEMS.registerSimpleItem("construction_robot");
+
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
     public static final List<String> IDS = List.of(
             "iron_ore", "copper_ore", "iron_plate", "copper_plate", "stone_brick", "iron_gear_wheel", "copper_cable",
@@ -71,7 +75,8 @@ public final class ModItems {
             "underground_belt", "fast_underground_belt", "express_underground_belt",
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter",
-            "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole");
+            "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
+            "roboport", "construction_robot");
 
     private ModItems() {}
 

@@ -1,0 +1,363 @@
+package dev.minetorio.content.robot;
+
+import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
+import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.content.power.ElectricConsumerHelper;
+import dev.minetorio.content.registry.ModBlockEntities;
+import dev.minetorio.content.registry.ModEntities;
+import dev.minetorio.content.registry.ModItems;
+import dev.minetorio.core.robot.Cell;
+import dev.minetorio.core.robot.ConstructionArea;
+import dev.minetorio.core.robot.ConstructionQueue;
+import dev.minetorio.core.robot.Dispatcher;
+import dev.minetorio.core.robot.RobotBattery;
+import dev.minetorio.core.robot.RobotStats;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Containers;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.items.IItemHandler;
+
+/**
+ * Roboport: an electric consumer with a {@value RobotStats#ROBOPORT_BUFFER_J}-joule buffer (input
+ * up to 5 MW, 50 kW drain), {@value RobotStats#ROBOT_SLOTS} robot slots and a construction area of
+ * {@link RobotStats#CONSTRUCTION_RADIUS} blocks around its center ({@link #area()}).
+ *
+ * <p><b>Dispatch</b> (every {@value #DISPATCH_INTERVAL} ticks, while its buffer holds energy): free
+ * build jobs in the area are handed out in queue order ({@link Dispatcher}); each needs one item in
+ * a provider in the area — any chest-like container ({@link #isProvider}) — and one stored robot,
+ * which is launched with a full battery. Robots charge here from the buffer when they come back
+ * (up to {@value RobotStats#CHARGING_STATIONS} at once, 1 MW each) and are then stored again.
+ *
+ * <p>{@link #setCreativePower} (debug command) keeps the buffer full without a grid.
+ */
+public class RoboportBlockEntity extends MultiblockControllerBlockEntity implements MenuProvider {
+    static final int DISPATCH_INTERVAL = 10;
+    public static final int DATA_AVAILABLE = 0;
+    public static final int DATA_OUT = 1;
+    /** Buffer in tenths of a MJ. */
+    public static final int DATA_ENERGY = 2;
+    public static final int DATA_COUNT = 3;
+
+    private static final String KEY_BUFFER = "buffer";
+    private static final String KEY_OUT = "out";
+    private static final String KEY_CREATIVE = "creative_power";
+    private static final String KEY_ROBOTS = "robots";
+
+    private final SimpleContainer robots = new SimpleContainer(RobotStats.ROBOT_SLOTS) {
+        @Override
+        public boolean canPlaceItem(int slot, ItemStack stack) { return stack.is(ModItems.CONSTRUCTION_ROBOT.get()); }
+
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            RoboportBlockEntity.this.setChanged();
+        }
+    };
+    private final ElectricConsumerHelper power = new ElectricConsumerHelper(this, this::demand,
+            () -> ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())));
+    private long buffer;
+    private long lastDemand;
+    private int out;
+    private boolean creativePower;
+    private int chargingThisTick;
+    private int timer;
+
+    private final ContainerData data = new ContainerData() {
+        @Override
+        public int get(int i) {
+            return switch (i) {
+                case DATA_AVAILABLE -> availableRobots();
+                case DATA_OUT -> out;
+                case DATA_ENERGY -> (int) (buffer / 100_000L);
+                default -> 0;
+            };
+        }
+
+        @Override
+        public void set(int i, int v) {}
+
+        @Override
+        public int getCount() { return DATA_COUNT; }
+    };
+
+    public RoboportBlockEntity(BlockPos pos, BlockState state) {
+        super(ModBlockEntities.ROBOPORT.get(), pos, state);
+    }
+
+    public Direction facing() { return getBlockState().getValue(MultiblockControllerBlock.FACING); }
+
+    public MultiblockShape shape() { return RoboportBlock.SHAPE; }
+
+    public SimpleContainer robots() { return robots; }
+
+    public long buffer() { return buffer; }
+
+    public int robotsOut() { return out; }
+
+    public void setCreativePower(boolean on) {
+        creativePower = on;
+        if (on) buffer = RobotStats.ROBOPORT_BUFFER_J;
+        setChanged();
+    }
+
+    /** Robot items in the slots. */
+    public int availableRobots() {
+        int n = 0;
+        for (int i = 0; i < robots.getContainerSize(); i++) {
+            ItemStack s = robots.getItem(i);
+            if (s.is(ModItems.CONSTRUCTION_ROBOT.get())) n += s.getCount();
+        }
+        return n;
+    }
+
+    /** Footprint center, on the ground. */
+    public Vec3 center() {
+        return ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())).getBottomCenter();
+    }
+
+    public ConstructionArea area() {
+        Vec3 c = center();
+        return new ConstructionArea(c.x, worldPosition.getY() + 0.5, c.z, RobotStats.CONSTRUCTION_RADIUS);
+    }
+
+    /** Where robots leave and enter: just above the roof hatch. */
+    public Vec3 dock() {
+        return center().add(0, shape().height() + 0.25, 0);
+    }
+
+    // --- power -----------------------------------------------------------------------------------
+
+    private long demand() {
+        lastDemand = creativePower ? 0
+                : RobotStats.ROBOPORT_DRAIN_PER_TICK_J + Math.min(RobotStats.ROBOPORT_INPUT_PER_TICK_J, RobotStats.ROBOPORT_BUFFER_J - buffer);
+        return lastDemand;
+    }
+
+    /** Charges {@code battery} for one tick from the buffer if a charging station is free; returns the joules given. */
+    long charge(RobotBattery battery) {
+        if (chargingThisTick >= RobotStats.CHARGING_STATIONS || buffer <= 0 || battery.isFull()) return 0;
+        chargingThisTick++;
+        long given = battery.charge(Math.min(RobotStats.CHARGE_PER_TICK_J, buffer));
+        buffer -= given;
+        setChanged();
+        return given;
+    }
+
+    /** Takes a docked robot back into the slots; false when they are full. */
+    boolean store() {
+        ItemStack rest = robots.addItem(new ItemStack(ModItems.CONSTRUCTION_ROBOT.get()));
+        return rest.isEmpty();
+    }
+
+    /** A robot launched here is back home, or lost. */
+    void robotReturned() {
+        if (out > 0) out--;
+        setChanged();
+    }
+
+    // --- ticking ---------------------------------------------------------------------------------
+
+    void tickServer() {
+        chargingThisTick = 0;
+        if (creativePower) {
+            buffer = RobotStats.ROBOPORT_BUFFER_J;
+        } else {
+            long in = Math.round(power.satisfaction() * lastDemand);
+            long kept = in - Math.min(in, RobotStats.ROBOPORT_DRAIN_PER_TICK_J);
+            if (kept > 0) {
+                buffer = Math.min(RobotStats.ROBOPORT_BUFFER_J, buffer + kept);
+                setChanged();
+            }
+        }
+        if (++timer % DISPATCH_INTERVAL == 0 && level instanceof ServerLevel server) dispatch(server);
+    }
+
+    private void dispatch(ServerLevel level) {
+        int free = availableRobots();
+        if (free <= 0 || buffer <= 0) return;
+        ConstructionManager m = ConstructionManager.get(level);
+        ConstructionArea area = area();
+        List<ConstructionQueue.Job> pending = new ArrayList<>();
+        for (ConstructionQueue.Job j : m.queue().pending(ConstructionQueue.Kind.BUILD, area::contains)) {
+            BlockPos p = ConstructionManager.pos(j.cell());
+            if (level.isLoaded(p) && Ghosts.canBuild(level, p)) pending.add(j);
+        }
+        if (pending.isEmpty()) return;
+        Map<Cell, Map<String, Integer>> stock = scanProviders(level, area);
+        if (stock.isEmpty()) return;
+        List<Dispatcher.Assignment> plan = Dispatcher.plan(pending, free, new ArrayList<>(stock.keySet()),
+                (c, item) -> stock.getOrDefault(c, Map.of()).getOrDefault(item, 0), m.ledger());
+        for (Dispatcher.Assignment a : plan) launch(level, m, a);
+    }
+
+    private void launch(ServerLevel level, ConstructionManager m, Dispatcher.Assignment a) {
+        ConstructionRobotEntity robot = new ConstructionRobotEntity(ModEntities.CONSTRUCTION_ROBOT.get(), level);
+        Vec3 d = dock();
+        robot.moveTo(d.x, d.y, d.z, facing().toYRot(), 0);
+        if (!m.queue().claim(a.job().cell(), robot.robotId())) {
+            m.ledger().release(a.provider(), a.job().item());
+            return;
+        }
+        robot.startJob(worldPosition, ConstructionManager.pos(a.job().cell()), ConstructionManager.pos(a.provider()), a.job().item());
+        if (!level.addFreshEntity(robot)) {
+            m.queue().release(a.job().cell(), robot.robotId());
+            m.ledger().release(a.provider(), a.job().item());
+            return;
+        }
+        robots.removeItemType(ModItems.CONSTRUCTION_ROBOT.get(), 1);
+        out++;
+        setChanged();
+    }
+
+    /** Item counts of every provider in the area, by item id. */
+    static Map<Cell, Map<String, Integer>> scanProviders(ServerLevel level, ConstructionArea area) {
+        Map<Cell, Map<String, Integer>> out = new HashMap<>();
+        for (BlockPos p : providers(level, area)) {
+            IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, p, null);
+            if (h == null) continue;
+            Map<String, Integer> counts = new HashMap<>();
+            for (int i = 0; i < h.getSlots(); i++) {
+                ItemStack s = h.getStackInSlot(i);
+                if (!s.isEmpty()) counts.merge(BuiltInRegistries.ITEM.getKey(s.getItem()).toString(), s.getCount(), Integer::sum);
+            }
+            out.put(ConstructionManager.cell(p), counts);
+        }
+        return out;
+    }
+
+    /** Provider positions in the area, in loaded chunks. */
+    static List<BlockPos> providers(ServerLevel level, ConstructionArea area) {
+        List<BlockPos> out = new ArrayList<>();
+        for (int cx = area.minX() >> 4; cx <= area.maxX() >> 4; cx++) {
+            for (int cz = area.minZ() >> 4; cz <= area.maxZ() >> 4; cz++) {
+                if (!level.hasChunk(cx, cz)) continue;
+                LevelChunk chunk = level.getChunk(cx, cz);
+                for (BlockPos p : chunk.getBlockEntities().keySet()) {
+                    if (area.contains(ConstructionManager.cell(p)) && isProvider(level, p)) out.add(p.immutable());
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Whether robots may take items from (and return items to) the block entity at {@code p}: a
+     * chest-like vanilla container (chests, barrels, shulker boxes, hoppers, dispensers) or another
+     * mod's block with an item handler. Minetorio machines and vanilla furnaces never are (logistic
+     * chests come later).
+     */
+    static boolean isProvider(Level level, BlockPos p) {
+        BlockEntity be = level.getBlockEntity(p);
+        if (be == null) return false;
+        String ns = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()).getNamespace();
+        boolean kind = be instanceof RandomizableContainerBlockEntity || (!ns.equals("minecraft") && !ns.equals("minetorio"));
+        return kind && level.getCapability(Capabilities.ItemHandler.BLOCK, p, null) != null;
+    }
+
+    // --- lifecycle, persistence, GUI ------------------------------------------------------------
+
+    /** Roboports loaded on the client (for the construction area outline). */
+    public static final java.util.Set<BlockPos> CLIENT_LOADED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        power.onLoad();
+        if (level instanceof ServerLevel server) ConstructionManager.get(server).addRoboport(worldPosition);
+        else if (level != null) CLIENT_LOADED.add(worldPosition.immutable());
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        power.onRemoved();
+        unregister();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        power.onRemoved();
+        unregister();
+    }
+
+    private void unregister() {
+        if (level != null && level.isClientSide()) CLIENT_LOADED.remove(worldPosition);
+        if (level instanceof ServerLevel server) {
+            ConstructionManager m = ConstructionManager.getIfPresent(server);
+            if (m != null) m.removeRoboport(worldPosition);
+        }
+    }
+
+    @Override
+    protected void dropContents(Level level, BlockPos pos) {
+        Containers.dropContents(level, pos, robots);
+    }
+
+    @Override
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        tag.putLong(KEY_BUFFER, buffer);
+        tag.putInt(KEY_OUT, out);
+        tag.putBoolean(KEY_CREATIVE, creativePower);
+        CompoundTag inv = new CompoundTag();
+        ContainerHelper.saveAllItems(inv, robots.getItems(), registries);
+        tag.put(KEY_ROBOTS, inv);
+    }
+
+    @Override
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+        buffer = tag.getLong(KEY_BUFFER);
+        out = tag.getInt(KEY_OUT);
+        creativePower = tag.getBoolean(KEY_CREATIVE);
+        NonNullList<ItemStack> items = NonNullList.withSize(RobotStats.ROBOT_SLOTS, ItemStack.EMPTY);
+        ContainerHelper.loadAllItems(tag.getCompound(KEY_ROBOTS), items, registries);
+        for (int i = 0; i < items.size(); i++) robots.setItem(i, items.get(i));
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("block.minetorio.roboport");
+    }
+
+    @Nullable
+    @Override
+    public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
+        return new RoboportMenu(id, inventory, robots, data, p -> !isRemoved()
+                && p.distanceToSqr(Vec3.atCenterOf(worldPosition)) <= 100);
+    }
+
+    /** Render bounds helper for the client. */
+    public AABB renderBox() {
+        return ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())).expandTowards(0, 1, 0);
+    }
+}

@@ -13,8 +13,14 @@ import dev.minetorio.client.map.OreFieldHover;
 import dev.minetorio.client.map.RadarRenderer;
 import dev.minetorio.client.power.SteamMachineRenderer;
 import dev.minetorio.client.research.LabRenderer;
+import dev.minetorio.client.robot.ConstructionAreaOverlay;
+import dev.minetorio.client.robot.ConstructionRobotRenderer;
+import dev.minetorio.client.robot.GhostRenderer;
+import dev.minetorio.client.robot.RoboportRenderer;
+import dev.minetorio.client.robot.RoboportScreen;
 import dev.minetorio.client.power.WireRenderer;
 import dev.minetorio.content.registry.ModBlockEntities;
+import dev.minetorio.content.registry.ModEntities;
 import dev.minetorio.content.registry.ModMenus;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -46,17 +52,22 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.LAB.get(), LabRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.RADAR.get(), RadarRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.ROBOPORT.get(), RoboportRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.GHOST.get(), GhostRenderer::new);
+        event.registerEntityRenderer(ModEntities.CONSTRUCTION_ROBOT.get(), ConstructionRobotRenderer::new);
     }
 
     @SubscribeEvent
     public static void setup(FMLClientSetupEvent event) {
         OreFieldHover.register();
+        ConstructionAreaOverlay.register();
     }
 
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.STONE_FURNACE.get(), StoneFurnaceScreen::new);
         event.register(ModMenus.ASSEMBLING_MACHINE.get(), AssemblerScreen::new);
+        event.register(ModMenus.ROBOPORT.get(), RoboportScreen::new);
     }
 
     /** Models drawn by block entity renderers rather than through a blockstate. */
@@ -83,5 +94,7 @@ public final class MinetorioClient {
         event.register(LabRenderer.DOME_IDLE);
         event.register(RadarRenderer.BASE);
         event.register(RadarRenderer.DISH);
+        RoboportRenderer.PIECES.forEach(event::register);
+        event.register(ConstructionRobotRenderer.MODEL);
     }
 }

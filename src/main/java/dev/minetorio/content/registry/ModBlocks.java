@@ -19,6 +19,8 @@ import dev.minetorio.content.power.OffshorePumpBlock;
 import dev.minetorio.content.power.PipeBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
+import dev.minetorio.content.robot.GhostBlock;
+import dev.minetorio.content.robot.RoboportBlock;
 import dev.minetorio.core.belt.BeltTier;
 import dev.minetorio.core.inserter.InserterType;
 import dev.minetorio.core.orefield.OreType;
@@ -104,6 +106,18 @@ public final class ModBlocks {
     public static final DeferredBlock<ElectricPoleBlock> SMALL_ELECTRIC_POLE = BLOCKS.registerBlock("small_electric_pole",
             ElectricPoleBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f)
                     .sound(SoundType.WOOD).noOcclusion().pushReaction(PushReaction.BLOCK));
+
+    // Construction robots
+    public static final DeferredBlock<RoboportBlock> ROBOPORT = BLOCKS.registerBlock("roboport",
+            RoboportBlock::new, machine(MapColor.METAL));
+    /**
+     * Entity ghost (no item): a translucent placeholder that robots or players build. No collision,
+     * no drops, broken in one hit, replaced by any block placed into it.
+     */
+    public static final DeferredBlock<GhostBlock> GHOST = BLOCKS.registerBlock("ghost", GhostBlock::new,
+            BlockBehaviour.Properties.of().mapColor(MapColor.NONE).noCollission().instabreak().noLootTable()
+                    .noOcclusion().replaceable().dynamicShape().sound(SoundType.WOOL).pushReaction(PushReaction.DESTROY)
+                    .isRedstoneConductor((s, l, p) -> false).isSuffocating((s, l, p) -> false).isViewBlocking((s, l, p) -> false));
 
     // Ore fields (no items: placed by world generation and commands only)
     public static final DeferredBlock<OreFieldBlock> IRON_ORE_FIELD = oreField("iron_ore_field", OreType.IRON, MapColor.COLOR_CYAN);

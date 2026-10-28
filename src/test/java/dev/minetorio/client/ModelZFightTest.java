@@ -362,6 +362,13 @@ class ModelZFightTest {
         // RadarRenderer: base at the center, the dish one block up turning about the vertical center axis.
         c.add(new Composite("radar", List.of(Part.fixed("base", "radar_base"),
                 spinning("dish", "radar_dish", 'y', center, Tr.t(0, 16, 0)))));
+        // RoboportRenderer: the eight pieces, each translated by its offset (piece px = machine px - offset).
+        List<Part> roboport = new ArrayList<>();
+        for (int i = 0; i < 2; i++)
+            for (int j = 0; j < 2; j++)
+                for (int k = 0; k < 2; k++)
+                    roboport.add(Part.fixed("p" + i + j + k, "roboport_" + i + j + k, Tr.t(-16 + 16 * i, k == 0 ? 0 : 24, -16 + 16 * j)));
+        c.add(new Composite("roboport", roboport));
         // SteamMachineRenderer.Boiler: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
         // SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x through

@@ -341,6 +341,9 @@ COMPOSITES = [
     ("radar", [("base", M("radar_base"), [[]]),
                ("dish", M("radar_dish"), [[("y", a, (8, 0, 8)), ("t", (0, 16, 0), None)] if a else [("t", (0, 16, 0), None)]
                                           for a in SPIN], Y)]),
+    # RoboportRenderer.java: the eight pieces, each translated by its offset (piece px = machine px - offset).
+    ("roboport", [(f"p{i}{j}{k}", M(f"roboport_{i}{j}{k}"), [[("t", (-16 + 16 * i, 0 if k == 0 else 24, -16 + 16 * j), None)]])
+                  for i in range(2) for j in range(2) for k in range(2)]),
     # SteamMachineRenderer.java: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
     # SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x

@@ -17,6 +17,8 @@ import dev.minetorio.content.power.OffshorePumpBlockEntity;
 import dev.minetorio.content.power.PipeBlockEntity;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
 import dev.minetorio.content.research.LabBlockEntity;
+import dev.minetorio.content.robot.GhostBlockEntity;
+import dev.minetorio.content.robot.RoboportBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
@@ -96,6 +98,13 @@ public final class ModBlockEntities {
                     .of(ElectricPoleBlockEntity::new, ModBlocks.SMALL_ELECTRIC_POLE.get()).build(null));
 
     private ModBlockEntities() {}
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RoboportBlockEntity>> ROBOPORT =
+            BLOCK_ENTITIES.register("roboport", () -> BlockEntityType.Builder
+                    .of(RoboportBlockEntity::new, ModBlocks.ROBOPORT.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GhostBlockEntity>> GHOST =
+            BLOCK_ENTITIES.register("ghost", () -> BlockEntityType.Builder
+                    .of(GhostBlockEntity::new, ModBlocks.GHOST.get()).build(null));
 
     public static void register(IEventBus modBus) {
         BLOCK_ENTITIES.register(modBus);

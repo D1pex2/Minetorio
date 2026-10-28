@@ -54,6 +54,17 @@ class Phase1DataTest {
         assertTrue(Phase1Data.startRecipes().contains("radar"));
     }
 
+    /** Construction robotics (temporary red + green) unlocks the roboport and the robot; both locked at start. */
+    @Test
+    void constructionRoboticsUnlocksRobots() {
+        var tech = Phase1Data.techTree().get("construction_robotics").orElseThrow();
+        assertEquals(java.util.List.of("roboport", "construction_robot"), tech.unlocksRecipes());
+        assertEquals(java.util.Set.of("minetorio:automation_science_pack", "minetorio:logistic_science_pack"), tech.packsPerUnit().keySet());
+        assertFalse(Phase1Data.startRecipes().contains("roboport"));
+        assertFalse(Phase1Data.startRecipes().contains("construction_robot"));
+        assertEquals(new dev.minetorio.core.recipe.Ingredient("minetorio:roboport", 1), book.get("roboport").orElseThrow().outputs().get(0));
+    }
+
     @Test void assemblerLockedAtStart() { assertFalse(Phase1Data.startRecipes().contains("assembling_machine_1")); }
 
     @Test
