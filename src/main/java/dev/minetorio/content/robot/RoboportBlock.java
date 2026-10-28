@@ -68,7 +68,8 @@ public class RoboportBlock extends MultiblockControllerBlock {
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        return level.isClientSide() ? null
+        return level.isClientSide()
+                ? createTickerHelper(type, ModBlockEntities.ROBOPORT.get(), (l, p, s, be) -> be.tickClient())
                 : createTickerHelper(type, ModBlockEntities.ROBOPORT.get(), (l, p, s, be) -> be.tickServer());
     }
 

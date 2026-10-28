@@ -368,6 +368,24 @@ class ModelZFightTest {
             for (int j = 0; j < 2; j++)
                 for (int k = 0; k < 2; k++)
                     roboport.add(Part.fixed("p" + i + j + k, "roboport_" + i + j + k, Tr.t(-16 + 16 * i, 40 * k, -16 + 16 * j)));
+        // ...and its moving and lit parts (RoboportRenderer.assemble), each about a pivot at model (8, 0, 8): the 8 iris
+        // blades (door 0 / 0.5 / 1), the antenna head turning on its mast, the lit charging points and status lamps.
+        for (int k = 0; k < 8; k++) {
+            List<List<Tr>> poses = new ArrayList<>();
+            for (double d : new double[] {0, 0.5, 1}) {
+                poses.add(List.of(Tr.t(8.3 * d, 0, 0), Tr.r('y', 45 * k + 60 * d, center), Tr.t(-8, 52.2 + 0.1 * k, -7)));
+            }
+            roboport.add(new Part("blade" + k, "roboport_blade", poses, Y, null));
+        }
+        roboport.add(spinning("antenna", "roboport_antenna", 'y', center, Tr.t(6, 58, 13)));
+        int n = 0;
+        for (int[] s : new int[][] {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}}) {
+            roboport.add(Part.fixed("charge" + n, "roboport_charge_glow", Tr.t(27.5 * s[0] - 8, 60, 27.5 * s[1] - 8)));
+            roboport.add(Part.fixed("lampfoot" + n++, "roboport_lamp_green", Tr.t(31.25 * s[0] - 8, 7, 31.25 * s[1] - 8)));
+        }
+        for (double[] l : new double[][] {{-16, 17, -28.5}, {-6, 17, -28.5}, {24.5, 17, -9}, {-24.5, 17, 9}}) {
+            roboport.add(Part.fixed("lamp" + n++, "roboport_lamp_green", Tr.t(l[0] - 8, l[1], l[2] - 8)));
+        }
         c.add(new Composite("roboport", roboport));
         // SteamMachineRenderer.Boiler: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));

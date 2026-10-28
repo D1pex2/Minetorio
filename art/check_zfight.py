@@ -342,8 +342,22 @@ COMPOSITES = [
                ("dish", M("radar_dish"), [[("y", a, (8, 0, 8)), ("t", (0, 16, 0), None)] if a else [("t", (0, 16, 0), None)]
                                           for a in SPIN], Y)]),
     # RoboportRenderer.java: the eight pieces, each translated by its offset (piece px = machine px - offset).
+    # The moving and lit parts (RoboportRenderer.assemble, art/gen_robots.py ANIMATED), each authored about a pivot
+    # at model (8, 0, 8): the 8 iris blades (blade k at y 52.2 + 0.1 k, turned 45 k + 60 door degrees about the hatch
+    # axis (0, 1) and slid 8.3 door px out, door 0 / 0.5 / 1), the antenna head turning on its mast (14, 58, 21),
+    # the 4 lit charging points over the idle ones and the 8 lit status lamps over their lenses (green and red
+    # are the same box).
     ("roboport", [(f"p{i}{j}{k}", M(f"roboport_{i}{j}{k}"), [[("t", (-16 + 16 * i, 40 * k, -16 + 16 * j), None)]])
-                  for i in range(2) for j in range(2) for k in range(2)]),
+                  for i in range(2) for j in range(2) for k in range(2)]
+     + [(f"blade{k}", M("roboport_blade"),
+         [[("t", (8.3 * d, 0, 0), None), ("y", 45 * k + 60 * d, (8, 0, 8)), ("t", (-8, 52.2 + 0.1 * k, -7), None)]
+          for d in (0, 0.5, 1)], Y) for k in range(8)]
+     + [("antenna", M("roboport_antenna"), [spin_y(a) + [("t", (6, 58, 13), None)] for a in SPIN], Y)]
+     + [(f"charge{n}", M("roboport_charge_glow"), [[("t", (27.5 * sx - 8, 60, 27.5 * sz - 8), None)]])
+        for n, (sx, sz) in enumerate(((-1, -1), (1, -1), (-1, 1), (1, 1)))]
+     + [(f"lamp{n}", M("roboport_lamp_green"), [[("t", (x - 8, y, z - 8), None)]])
+        for n, (x, y, z) in enumerate([(-16, 17, -28.5), (-6, 17, -28.5), (24.5, 17, -9), (-24.5, 17, 9)]
+                                      + [(31.25 * sx, 7, 31.25 * sz) for sx, sz in ((-1, -1), (1, -1), (-1, 1), (1, 1))])]),
     # SteamMachineRenderer.java: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
     # SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x

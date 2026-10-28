@@ -2,7 +2,8 @@
 
     python art/render_compare.py REF_DIR OUT.png
 
-REF_DIR holds the reference crops from the Factorio wiki (lab.png, steam_engine.png, ...). They are
+REF_DIR holds the reference crops from the Factorio wiki (lab.png, steam_engine.png, ...; roboport_open.png is
+the open-door frame of the wiki's roboport animation). They are
 Factorio's art, so neither they nor the sheet belong in this repository: keep both in a scratch folder.
 Each machine is drawn as its block entity renderer assembles it (render_models.placed), seen from above
 at about Factorio's angle, from the side that the reference shows facing the camera.
@@ -13,6 +14,7 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
+from gen_robots import roboport_elements
 from render_models import bounds, placed, render
 
 B = "minetorio:block/"
@@ -91,9 +93,11 @@ MACHINES = [
     ("small_electric_pole.png", "small electric pole (3 high)",
      lambda: placed(B + "small_electric_pole") + placed(B + "small_electric_pole_middle", dy=16)
      + placed(B + "small_electric_pole_top", dy=32), 180),
-    ("roboport.png", "roboport (machinery front)",
-     lambda: [e for i in (0, 1) for j in (0, 1) for k in (0, 1)
-              for e in placed(B + f"roboport_{i}{j}{k}", -8 + 16 * i, 40 * k, -8 + 16 * j)], 0),
+    # the pieces plus RoboportRenderer's moving parts at rest (gen_robots.roboport_elements); the second panel
+    # is the hatch open with the charging points and lamps lit, against the wiki animation's open-door frame
+    ("roboport.png", "roboport (machinery front)", lambda: roboport_elements(), 0),
+    ("roboport_open.png", "roboport (iris open, charging)",
+     lambda: roboport_elements(door=1, charging=4, lamps=range(8)), 0),
     ("construction_robot_crop.png", "construction robot", lambda: placed(B + "construction_robot"), 20),
 ]
 
