@@ -43,6 +43,61 @@ public final class TopDownCamera {
         return new double[] {cx - f[0] * dist, cy - f[1] * dist, cz - f[2] * dist};
     }
 
+    // --- free orbit (multi-floor view) ----------------------------------------------------------
+
+    /** Steepest orbit pitch: almost straight down (90 would make the screen's up vector degenerate). */
+    public static final double MAX_PITCH = 89.0;
+    /** Flattest orbit pitch: almost a side view. */
+    public static final double MIN_PITCH = 15.0;
+    /** Degrees of yaw / pitch per screen pixel of a middle-mouse drag. */
+    public static final double ORBIT_SENSITIVITY = 0.3;
+
+    /**
+     * Camera position {@code distance} blocks from {@code center} back along the view direction of
+     * {@code yaw}/{@code pitch}: the camera orbits the center, which stays at the screen's centre.
+     */
+    public static double[] orbitAt(double cx, double cy, double cz, double yaw, double pitch, double distance) {
+        double[] f = forward(yaw, pitch);
+        return new double[] {cx - f[0] * distance, cy - f[1] * distance, cz - f[2] * distance};
+    }
+
+    /**
+     * Orbit distance for a zoom {@code height}: the distance at which the default {@link #PITCH}
+     * puts the camera {@code height} above the center. Zoom is kept as this distance at every pitch,
+     * so tilting the camera swings it on a sphere instead of flying away at low pitches.
+     */
+    public static double orbitDistance(double height) {
+        return height / Math.sin(Math.toRadians(PITCH));
+    }
+
+    /** Pitch clamped to {@link #MIN_PITCH}..{@link #MAX_PITCH}. */
+    public static double clampPitch(double pitch) {
+        return Math.max(MIN_PITCH, Math.min(MAX_PITCH, pitch));
+    }
+
+    /**
+     * {yaw, pitch} after a middle-mouse drag of {@code (dx, dy)} screen pixels (y down), like
+     * mouse-look: dragging right turns the view right (yaw grows), dragging down tilts it toward
+     * straight down. The yaw is continuous (not wrapped), the pitch clamped.
+     */
+    public static double[] drag(double yaw, double pitch, double dx, double dy) {
+        return new double[] {yaw + dx * ORBIT_SENSITIVITY, clampPitch(pitch + dy * ORBIT_SENSITIVITY)};
+    }
+
+    /**
+     * The next multiple of 90 degrees from {@code yaw} in direction {@code dir} (-1 left, +1 right),
+     * wrapped: a yaw already on a multiple moves a full quarter turn, a free (orbited) yaw snaps to
+     * the next quarter in that direction.
+     */
+    public static double snapStep(double yaw, int dir) {
+        double q = yaw / 90.0;
+        double r = Math.rint(q);
+        double next;
+        if (Math.abs(q - r) < 1e-6) next = r + Math.signum(dir);
+        else next = dir > 0 ? Math.ceil(q) : Math.floor(q);
+        return wrap(next * 90.0);
+    }
+
     /** Height clamped to {@link #MIN_HEIGHT}..{@link #MAX_HEIGHT}. */
     public static double clampHeight(double h) {
         return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h));

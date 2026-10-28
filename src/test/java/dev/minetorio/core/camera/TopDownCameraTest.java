@@ -178,4 +178,91 @@ class TopDownCameraTest {
         double a = TopDownCamera.approachAngle(170, -170, 12, 1 / 60.0, 1e-3);
         assertTrue(a > 170, "moved toward 190, got " + a);
     }
+
+    // --- free orbit ---------------------------------------------------------------------------
+
+    @Test
+    void orbitAtKeepsTheCenterOnTheViewAxisAtAnyAngle() {
+        double[] c = {12.5, 70, -3.25};
+        for (double yaw = -180; yaw < 180; yaw += 37) {
+            for (double pitch = TopDownCamera.MIN_PITCH; pitch <= TopDownCamera.MAX_PITCH; pitch += 9.5) {
+                double[] cam = TopDownCamera.orbitAt(c[0], c[1], c[2], yaw, pitch, 25);
+                double[] off = {c[0] - cam[0], c[1] - cam[1], c[2] - cam[2]};
+                assertEquals(25, Math.sqrt(dot(off, off)), 1e-9, "distance");
+                double[] f = TopDownCamera.forward(yaw, pitch);
+                assertVec(new double[] {f[0] * 25, f[1] * 25, f[2] * 25}, off, 1e-9);
+                assertEquals(25 * Math.sin(Math.toRadians(pitch)), cam[1] - c[1], 1e-9, "height above the pivot");
+            }
+        }
+    }
+
+    @Test
+    void orbitDistanceMatchesTheOldHeightOrbitAtTheDefaultPitch() {
+        for (double h = TopDownCamera.MIN_HEIGHT; h <= TopDownCamera.MAX_HEIGHT; h += 4) {
+            assertVec(TopDownCamera.orbit(1, 2, 3, 45, TopDownCamera.PITCH, h),
+                    TopDownCamera.orbitAt(1, 2, 3, 45, TopDownCamera.PITCH, TopDownCamera.orbitDistance(h)), 1e-9);
+        }
+        // flatter pitches keep the distance: the camera swings lower, not farther
+        double d = TopDownCamera.orbitDistance(16);
+        double[] low = TopDownCamera.orbitAt(0, 0, 0, 0, 15, d);
+        assertTrue(low[1] < 16 && low[1] > 0);
+        assertEquals(d, Math.sqrt(dot(low, low)), 1e-9);
+    }
+
+    @Test
+    void straightDownOrbitStaysAboveThePivot() {
+        double[] cam = TopDownCamera.orbitAt(5, 64, 5, 30, TopDownCamera.MAX_PITCH, 20);
+        assertEquals(5, cam[0], 0.4);
+        assertEquals(5, cam[2], 0.4);
+        assertEquals(84, cam[1], 0.01);
+    }
+
+    @Test
+    void pitchClampsAndDragTurnsLikeMouseLook() {
+        assertEquals(TopDownCamera.MIN_PITCH, TopDownCamera.clampPitch(-30), EPS);
+        assertEquals(TopDownCamera.MAX_PITCH, TopDownCamera.clampPitch(90), EPS);
+        assertEquals(40, TopDownCamera.clampPitch(40), EPS);
+        double[] r = TopDownCamera.drag(170, 50, 100, 0);
+        assertEquals(170 + 100 * TopDownCamera.ORBIT_SENSITIVITY, r[0], EPS, "yaw is continuous, not wrapped");
+        assertEquals(50, r[1], EPS);
+        assertTrue(TopDownCamera.drag(0, 50, 0, 10)[1] > 50, "dragging down looks more straight down");
+        assertEquals(TopDownCamera.MAX_PITCH, TopDownCamera.drag(0, 80, 0, 1000)[1], EPS);
+        assertEquals(TopDownCamera.MIN_PITCH, TopDownCamera.drag(0, 30, 0, -1000)[1], EPS);
+    }
+
+    @Test
+    void snapStepTurnsQuartersAndSnapsFreeYaws() {
+        assertEquals(90, TopDownCamera.snapStep(0, 1), EPS);
+        assertEquals(-90, TopDownCamera.snapStep(0, -1), EPS);
+        assertEquals(-180, TopDownCamera.snapStep(90, 1), EPS);
+        assertEquals(90, TopDownCamera.snapStep(30, 1), EPS);
+        assertEquals(0, TopDownCamera.snapStep(30, -1), EPS);
+        assertEquals(-90, TopDownCamera.snapStep(-30, -1), EPS);
+        assertEquals(0, TopDownCamera.snapStep(-30, 1), EPS);
+        assertEquals(-180, TopDownCamera.snapStep(170, 1), EPS);
+    }
+
+    @Test
+    void cursorRayAtAnyPitchHitsTheGroundUnderTheCursor() {
+        // the centre ray hits the pivot; an off-centre ray lands where that screen point projects
+        // (checked by projecting the ground hit back into the camera basis)
+        double fov = 70, aspect = 16 / 9.0, t = Math.tan(Math.toRadians(fov) / 2);
+        for (double pitch : new double[] {TopDownCamera.MIN_PITCH, 30, 50, 75, TopDownCamera.MAX_PITCH}) {
+            for (double yaw : new double[] {0, 33, -120, 179}) {
+                double[] cam = TopDownCamera.orbitAt(0, 0, 0, yaw, pitch, 30);
+                double[] center = TopDownCamera.cursorRay(yaw, pitch, fov, aspect, 0, 0);
+                double s = -cam[1] / center[1];
+                assertVec(new double[] {0, 0, 0}, new double[] {cam[0] + center[0] * s, 0, cam[2] + center[2] * s}, 1e-9);
+                double nx = 0.4, ny = -0.3; // below the centre: still hits the ground
+                double[] d = TopDownCamera.cursorRay(yaw, pitch, fov, aspect, nx, ny);
+                assertTrue(d[1] < 0, "points down");
+                double k = -cam[1] / d[1];
+                double[] rel = {d[0] * k, d[1] * k, d[2] * k};
+                double[] f = TopDownCamera.forward(yaw, pitch), l = TopDownCamera.left(yaw), u = TopDownCamera.up(yaw, pitch);
+                double depth = dot(rel, f);
+                assertEquals(nx, -dot(rel, l) / depth / (t * aspect), 1e-9, "screen x");
+                assertEquals(ny, dot(rel, u) / depth / t, 1e-9, "screen y");
+            }
+        }
+    }
 }
