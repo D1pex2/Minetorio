@@ -8,12 +8,14 @@ import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.registry.ModDataComponents;
 import dev.minetorio.content.robot.GhostBlock;
 import dev.minetorio.content.robot.GhostBlockEntity;
+import dev.minetorio.core.blueprint.BlueprintBooks;
 import dev.minetorio.core.blueprint.BlueprintPart;
 import dev.minetorio.core.blueprint.Blueprints;
 import dev.minetorio.core.drag.DragDir;
 import dev.minetorio.core.robot.RateBudget;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +29,15 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -71,7 +76,10 @@ public final class BlueprintCapture {
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent e) -> BUDGETS.clear());
         // an empty blueprint is free: dropped, it vanishes
         NeoForge.EVENT_BUS.addListener((EntityJoinLevelEvent e) -> {
-            if (e.getEntity() instanceof ItemEntity item && BlueprintItem.isEmptyBlueprint(item.getItem())) e.setCanceled(true);
+            if (e.getEntity() instanceof ItemEntity item
+                    && (BlueprintItem.isEmptyBlueprint(item.getItem()) || BlueprintBookItem.isEmptyBook(item.getItem()))) {
+                e.setCanceled(true);
+            }
         });
     }
 
@@ -116,8 +124,22 @@ public final class BlueprintCapture {
             return Result.TOO_BIG;
         }
         hand.set(ModDataComponents.BLUEPRINT.get(), data);
+        BlueprintMeta meta = BlueprintStacks.meta(hand);
+        if (meta.icons().isEmpty()) BlueprintStacks.setMeta(hand, meta.withIcons(defaultIcons(data)));
         player.displayClientMessage(Component.translatable("minetorio.blueprint.captured", data.entries().size()), true);
         return Result.OK;
+    }
+
+    /** Factorio's default icons: the items of the most frequent parts (up to four). */
+    public static List<ResourceLocation> defaultIcons(BlueprintData data) {
+        Map<String, Integer> items = new LinkedHashMap<>();
+        data.counts().forEach((block, n) -> {
+            Item item = BlueprintData.block(block).asItem();
+            if (item != Items.AIR) items.merge(BuiltInRegistries.ITEM.getKey(item).toString(), n, Integer::sum);
+        });
+        List<ResourceLocation> out = new ArrayList<>();
+        for (String id : BlueprintBooks.defaultIcons(items)) out.add(ResourceLocation.parse(id));
+        return out;
     }
 
     private static Result nothing(ServerPlayer player) {
@@ -235,17 +257,21 @@ public final class BlueprintCapture {
     public enum GiveResult { OK, NOT_ALLOWED, NO_ROOM, TOO_SOON }
 
     /**
-     * The blueprint shortcut: an empty blueprint into the main hand (Factorio's shortcut bar). An
+     * The blueprint shortcut: an empty blueprint (or book) into the main hand (Factorio's shortcut bar). An
      * empty hand takes it; else a free hotbar slot is selected; else the held item moves to a free
      * inventory slot. Refused when the inventory is full.
      */
     public static GiveResult give(ServerPlayer player) {
+        return give(player, BlueprintItem.empty());
+    }
+
+    /** {@link #give(ServerPlayer)} with {@code fresh} (an empty blueprint or book) instead. */
+    public static GiveResult give(ServerPlayer player, ItemStack fresh) {
         if (player.isSpectator() || !player.isAlive()) return GiveResult.NOT_ALLOWED;
         if (!BUDGETS.computeIfAbsent(player.getUUID(), u -> new RateBudget(BURST, REFILL_PER_TICK)).take(player.server.getTickCount(), 1)) {
             return GiveResult.TOO_SOON;
         }
         Inventory inv = player.getInventory();
-        ItemStack fresh = BlueprintItem.empty();
         if (!inv.getSelected().isEmpty()) {
             int free = -1;
             for (int i = 0; i < Inventory.getSelectionSize(); i++) {

@@ -2,6 +2,7 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltItem;
+import dev.minetorio.content.blueprint.BlueprintBookItem;
 import dev.minetorio.content.blueprint.BlueprintItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
@@ -72,6 +73,8 @@ public final class ModItems {
     public static final DeferredItem<Item> GHOST_ITEM = ITEMS.registerItem("ghost_item", p -> new GhostItem(p.stacksTo(1)));
     /** Factorio's blueprint (see {@link BlueprintItem}); free from the blueprint key. */
     public static final DeferredItem<Item> BLUEPRINT = ITEMS.registerItem("blueprint", p -> new BlueprintItem(p.stacksTo(1)));
+    /** Factorio's blueprint book (see {@link BlueprintBookItem}); free from the book key. */
+    public static final DeferredItem<Item> BLUEPRINT_BOOK = ITEMS.registerItem("blueprint_book", p -> new BlueprintBookItem(p.stacksTo(1)));
 
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
     public static final List<String> IDS = List.of(
@@ -84,7 +87,7 @@ public final class ModItems {
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
-            "roboport", "construction_robot", "ghost_item", "blueprint");
+            "roboport", "construction_robot", "ghost_item", "blueprint", "blueprint_book");
 
     private ModItems() {}
 

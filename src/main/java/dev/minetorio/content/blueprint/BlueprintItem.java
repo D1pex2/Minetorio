@@ -48,6 +48,8 @@ public class BlueprintItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
+        BlueprintMeta m = BlueprintStacks.meta(stack);
+        if (m.hasLabel()) return Component.literal(m.label());
         return data(stack) == null ? Component.translatable("item.minetorio.blueprint.empty") : super.getName(stack);
     }
 
@@ -59,6 +61,9 @@ public class BlueprintItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext ctx, List<Component> lines, TooltipFlag flag) {
         BlueprintData d = data(stack);
+        if (BlueprintStacks.meta(stack).hasLabel()) {
+            lines.add(Component.translatable(d == null ? "item.minetorio.blueprint.empty" : "item.minetorio.blueprint").withStyle(ChatFormatting.DARK_GRAY));
+        }
         if (d == null) {
             lines.add(Component.translatable("minetorio.blueprint.tooltip.empty").withStyle(ChatFormatting.GRAY));
             return;
@@ -76,6 +81,7 @@ public class BlueprintItem extends Item {
             lines.add(Component.literal(e.getValue() + " × ").append(item.getDescription()).withStyle(ChatFormatting.DARK_GRAY));
         }
         lines.add(Component.translatable("minetorio.blueprint.tooltip.paste").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("minetorio.blueprint.tooltip.edit").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     @Override
