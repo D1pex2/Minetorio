@@ -83,7 +83,11 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
     public static final int DATA_WORKING = 3;
     public static final int DATA_COUNT = 4;
     private static final int IDLE_GRACE = 10;
-    private static final float GEAR_DEGREES_PER_TICK = 9f;
+    /**
+     * Work animation: Factorio plays the assembler's 32 frames at 60 per second times the crafting speed,
+     * i.e. 3 × speed frames per Minecraft tick; one loop is one animation cycle (phase 0..1).
+     */
+    private static final float ANIM_FRAMES = 32f;
     private static final String KEY_MACHINE = "machine";
     private static final String KEY_WORKING = "working";
 
@@ -114,14 +118,16 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
     private AltInfo clientAlt = AltInfo.NONE;
     private boolean working;
     private int idleTicks;
-    // client animation
-    private float gearAngle;
-    private float prevGearAngle;
+    // client animation: phase of the work loop (0..1), frozen while idle
+    private final float phasePerTick;
+    private float animPhase;
+    private float prevAnimPhase;
 
     public AssemblerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.ASSEMBLING_MACHINE.get(), pos, state);
         AssemblerBlock block = (AssemblerBlock) state.getBlock();
         this.machine = new CraftingMachine(block.speed(), block.power());
+        this.phasePerTick = (float) (3 * block.speed() / ANIM_FRAMES);
     }
 
     public CraftingMachine machine() { return machine; }
@@ -213,14 +219,19 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
     public AltInfo altInfo() { return clientAlt; }
 
     void tickClient() {
-        prevGearAngle = gearAngle;
-        if (working) gearAngle = (gearAngle + GEAR_DEGREES_PER_TICK) % 360f;
-        if (gearAngle < prevGearAngle) prevGearAngle -= 360f; // keep interpolation monotonic across the wrap
+        prevAnimPhase = animPhase;
+        if (working) {
+            animPhase += phasePerTick;
+            if (animPhase >= 1f) { // wrap, keeping the interpolation monotonic
+                animPhase -= 1f;
+                prevAnimPhase -= 1f;
+            }
+        }
     }
 
-    /** Client: gear rotation in degrees, interpolated between the last two ticks. */
-    public float renderGearAngle(float partialTick) {
-        return prevGearAngle + (gearAngle - prevGearAngle) * partialTick;
+    /** Client: phase (0..1) of the work animation loop, interpolated between the last two ticks; just below 0 at a wrap. */
+    public float renderAnimPhase(float partialTick) {
+        return prevAnimPhase + (animPhase - prevAnimPhase) * partialTick;
     }
 
     // --- slots -------------------------------------------------------------------------------------

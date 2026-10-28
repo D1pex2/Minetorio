@@ -1,0 +1,10 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "glow": "minetorio:block/asm_lamp_glow",
+    "particle": "minetorio:block/asm_lamp_glow"
+  },
+  "elements": [
+    {"from": [-7.02, 25, 21.98], "to": [-3.98, 26.52, 25.02], "faces": {"north": {"uv": [0, 0, 16, 16], "texture": "#glow"}, "south": {"uv": [0, 0, 16, 16], "texture": "#glow"}, "east": {"uv": [0, 0, 16, 16], "texture": "#glow"}, "west": {"uv": [0, 0, 16, 16], "texture": "#glow"}, "up": {"uv": [0, 0, 16, 16], "texture": "#glow"}}}
+  ]
+}

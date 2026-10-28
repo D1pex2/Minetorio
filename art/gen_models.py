@@ -114,7 +114,7 @@ class Model:
             el["neoforge_data"] = {"block_light": light, "sky_light": light}
         fs = {}
         for fc in faces:
-            var = tex[fc] if isinstance(tex, dict) else tex
+            var = tex.get(fc) if isinstance(tex, dict) else tex   # a face missing from the dict is left out
             if var is None:
                 continue
             if uv and fc in uv:
@@ -526,81 +526,270 @@ TIER_COLOR = {"": "tier_yellow", "fast_": "tier_red", "express_": "tier_blue"}
 # =====================================================================================
 
 # =====================================================================================
-# Assembling machines (3x3, 2 high; footprint center at 8, 8). Factorio: a chunky box on a sloped,
-# ribbed skirt (grey-green tier 1, blue tier 2), its top deck crowded with machinery. The body holds
-# the static machinery (vertical gears, pipes, a motor, a crane arm); the gear part - a big flat gear
-# with a cross arm in the middle of the deck - spins while crafting.
+# Assembling machines (3x3, 2 high; footprint center at 8, 8), after the Factorio 1.1 sprites: a sloped,
+# riveted skirt (grey-green tier 1, blue tier 2) under a housing whose recessed copper-brown deck is
+# crowded with machinery. The static body is one model; the parts that move while crafting are their
+# own models, authored where they rest, and AssemblerRenderer moves them:
+#   tier 1 (crank train): a pair of brass cogs over the back gearbox, a push rod driven by the first
+#     cog, a train of three upright steel gears, a carriage running along the work table's rails;
+#   tier 2 (robot arm): the same cogs, an arm on a turret swinging over the work table, its press head
+#     plunging at each end of the swing, a fan turning in a ring;
+#   both: the status lamp (its lit lens is drawn only while working).
 # =====================================================================================
-ASM_DECK = 18          # top of the housing
-ASM_GEAR_Y = 24        # the spinning gear's underside (its pedestal's top)
-ASM_GEAR_R = 8         # flat gear (outer radius of the rim); teeth reach 10.5
+ASM_DECK = 18          # top of the housing (the deck)
+ASM_COG_Y, ASM_COG_X, ASM_COG_R = 25, (0, 10.5), 4.5          # back cogs, axis along z
+ASM_COG_Z = (-7.5, -6)
+ASM_GEAR_Y, ASM_GEAR_X, ASM_GEAR_R = 24.5, (9, 16.5, 24), 3   # tier-1 gear train, axis along z
+ASM_GEAR_Z = (2, 3.5)
+ASM_ARM_PIVOT = (10, 10)                                       # tier-2 turret axis (x, z)
+ASM_FAN = (20, 20)                                             # tier-2 fan axis (x, z)
+ASM_LAMP = (-7, 22, -4, 25, 25, 26.5)                          # lamp lens box x0 z0 x1 z1 y0 y1
+
+
+ASM_MESH_DZ = 0.1      # a meshing neighbour sits this much further south, so no two cogs share a face plane
+
+
+def cog_z(m, cx, cy, r, z0, z1, disc, teeth, hub, half_pitch=False):
+    """Upright cog about an axis along z: an octagonal disc, 8 teeth (4 bars, each EPS thinner), a hub.
+    half_pitch: turned 22.5 degrees (half a tooth), the pose of a cog meshing with an unturned one."""
+    s = r * 0.83
+    if half_pitch:   # the octagon as two squares at +-22.5
+        m.box([cx - r, cy - r, z0], [cx + r, cy + r, z1], disc, split=False, rot=("z", 22.5, [cx, cy, z0]))
+        m.box([cx - s, cy - s, z0 + EPS], [cx + s, cy + s, z1 - EPS], disc, split=False,
+              rot=("z", -22.5, [cx, cy, z0]))
+        bars = ((0, 22.5), (0, -22.5), (1, 22.5), (1, -22.5))
+    else:
+        m.octagon_axis("z", cy, cx, 2 * r, z0, z1, disc, split=False)
+        bars = ((0, 0), (1, 0), (0, 45), (0, -45))
+    L = r + 1.5
+    for i, (along_y, ang) in enumerate(bars):
+        e = 0.25 + EPS * i
+        kw = {"rot": ("z", ang, [cx, cy, z0])} if ang else {}
+        if along_y:
+            m.box([cx - 1, cy - L, z0 + e], [cx + 1, cy + L, z1 - e], teeth, split=False, **kw)
+        else:
+            m.box([cx - L, cy - 1, z0 + e], [cx + L, cy + 1, z1 - e], teeth, split=False, **kw)
+    m.octagon_axis("z", cy, cx, max(2.0, r * 0.7), z0 - 0.5, z1 + 0.5, hub, split=False)
+    return m
+
+
+ASM_TEX = {"dark": "dark", "frame": "dark_panel", "steel": "steel", "steelp": "steel_panel", "copper": "copper",
+           "brass": "brass", "rust": "rust_panel", "rusty": "rust", "vent": "vent", "hub": "gear_hub",
+           "deck": "asm_deck", "plate": "asm_plate", "gauge": "asm_gauge", "rail": "asm_rail", "table": "asm_table",
+           "ctrl": "asm_ctrl", "arm": "asm_arm", "lens": "asm_lamp", "pipe_h": "pipe_h", "pipe_v": "pipe_v",
+           "pipe_end": "pipe_end"}
+
+
+def assembler_shell(tier):
+    """Skirt, housing, the deck's raised rim and what both tiers share: back gearbox with the cogs' axle
+    blocks, the light chevron plate, the corner post with its cable, a copper pipe column."""
+    m = Model({**ASM_TEX, "skirt": f"asm{tier}_skirt", "body": f"asm{tier}_body"}, f"asm{tier}_skirt")
+    side = {"north": "skirt", "south": "skirt", "east": "skirt", "west": "skirt", "up": "skirt", "down": "frame"}
+    for i, (y0, y1) in enumerate(((0, 3), (3, 6), (6, 9))):          # sloped skirt: three steps
+        d = 1.5 * i
+        m.chamfer(-16 + d, -16 + d, 32 - d, 32 - d, y0, y1, side, c=5)
+    m.chamfer(-12.5, -12.5, 28.5, 28.5, 9, ASM_DECK,
+              {"north": "body", "south": "body", "east": "body", "west": "body", "up": "deck", "down": "frame"}, c=4)
+    # raised rim round the deck (the dark frame of the recess); the corner bevels get short turned bars
+    top = ASM_DECK + 1.5
+    m.box([-8.5, ASM_DECK, -12.5], [24.5, top, -10.5], "frame", skip=("down",))
+    m.box([-8.5, ASM_DECK, 26.5], [24.5, top, 28.5], "frame", skip=("down",))
+    m.box([-12.5, ASM_DECK, -8.5], [-10.5, top, 24.5], "frame", skip=("down",))
+    m.box([26.5, ASM_DECK, -8.5], [28.5, top, 24.5], "frame", skip=("down",))
+    for (x, z, a) in ((-10.5, -10.5, 45), (26.5, -10.5, -45), (-10.5, 26.5, -45), (26.5, 26.5, 45)):
+        m.cbox(x, z, 5.6, 2, ASM_DECK + EPS, top - EPS, "frame", split=False, skip=("down",),
+               rot=("y", a, [x, ASM_DECK, z]))
+    # back gearbox (rusty) under the cogs, the cogs' axle blocks on it
+    m.box([-9, ASM_DECK, -10], [16, ASM_DECK + 5, -4], {"north": "rust", "south": "rust", "east": "rust",
+                                                       "west": "rust", "up": "rusty"}, skip=("down",))
+    for cx in ASM_COG_X:
+        m.cbox(cx, -8.75, 3, 1.5, ASM_DECK + 5, ASM_COG_Y + 1, "frame", split=False, skip=("down",))
+    # light chevron plate in the back right corner
+    m.box([17, ASM_DECK, -10], [26, ASM_DECK + 2, 2], {"north": "frame", "south": "frame", "east": "frame",
+                                                      "west": "frame", "up": "plate"}, fit=("up",), skip=("down",))
+    # corner post with a brace and a cable hanging to the gearbox
+    m.box([-10.5, ASM_DECK, -10.5], [-8.5, ASM_DECK + 12, -8.5], "frame", split=False, skip=("down",))
+    m.box([-10.25, ASM_DECK + 6, -10], [-9, ASM_DECK + 7, -2], "dark", split=False,
+          rot=("x", -45, [-9.6, ASM_DECK + 6.5, -10]))
+    m.box([-8.5, ASM_DECK + 10, -9.75], [-5, ASM_DECK + 10.75, -9], "dark", split=False)
+    m.box([-5.75, ASM_DECK + 5, -9.75 - EPS], [-5, ASM_DECK + 10, -9 + EPS], "dark", split=False)
+    # copper pipe column on the east side, going down into the housing
+    pz, ps = (13.5, 3) if tier == 1 else (13, 4)
+    m.pipe_y(24, pz, ASM_DECK, ASM_DECK + 9, size=ps)
+    m.cbox(24, pz, 5, 5, ASM_DECK + 9, ASM_DECK + 10, "brass", split=False)
+    return m
+
+
+def lamp_housing(m, base_y):
+    x0, z0, x1, z1, y0, y1 = ASM_LAMP
+    if base_y < y0:
+        m.box([x0 - 1, base_y, z0 - 1], [x1 + 1, y0, z1 + 1], "frame", split=False, skip=("down",))
+    m.box([x0, y0, z0], [x1, y1, z1], {"north": "frame", "south": "frame", "east": "frame", "west": "frame",
+                                       "up": "lens"}, fit=("up",), split=False, skip=("down",))
 
 
 def assembler_body(tier):
-    m = Model({"skirt": f"asm{tier}_skirt", "body": f"asm{tier}_body", "deck": "asm_deck", "frame": "dark_panel",
-               "dark": "dark", "steel": "steel", "copper": "copper", "brass": "brass", "rust": "rust_panel",
-               "rusty": "rust", "vent": "vent", "disc": "steel_panel", "teeth": "dark", "hub": "gear_hub",
-               "window": "window", "pipe_h": "pipe_h", "pipe_v": "pipe_v", "pipe_end": "pipe_end", "flange": "flange"},
-              f"asm{tier}_skirt")
-    # sloped skirt: three steps, each 1.5 px further in
-    for i, (y0, y1) in enumerate(((0, 3), (3, 6), (6, 9))):
-        d = 1.5 * i
-        m.chamfer(-16 + d, -16 + d, 32 - d, 32 - d, y0, y1,
-                  {"north": "skirt", "south": "skirt", "east": "skirt", "west": "skirt", "up": "skirt",
-                   "down": "frame"}, c=5)
-    # housing, its top is the deck
-    m.chamfer(-12.5, -12.5, 28.5, 28.5, 9, ASM_DECK,
-              {"north": "body", "south": "body", "east": "body", "west": "body", "up": "deck", "down": "frame"}, c=4)
-    # the pile of machinery under the spinning gear (which turns at y ASM_GEAR_Y over the middle)
-    # back: a rusty gearbox with a copper pipe run and a valve
-    m.box([-10, ASM_DECK, -11], [20, ASM_DECK + 5, -1], {"north": "rust", "south": "rust", "east": "rust",
-                                                         "west": "rust", "up": "rusty", "down": "rust"})
-    m.pipe_x(ASM_DECK + 6.5, -8, -9, 24, size=3)
-    m.box([20.5, ASM_DECK, -11.5], [26.5, ASM_DECK + 9, -5.5], "copper", split=False)
-    m.cbox(23.5, -8.5, 3, 3, ASM_DECK + 9, ASM_DECK + 11, "brass", split=False)
-    # west: two upright gears on a bearing block
-    m.box([-11, ASM_DECK, 1], [-7, ASM_DECK + 1.5, 25], "dark", split=False)
-    for cz in (4.5, 19.5):
-        m.gear_x(ASM_DECK + 6.5, cz, 5, -10, -8, {"disc": "disc", "teeth": "teeth", "hub": "hub"})
-    # east: a motor with a vent and a pipe column
-    m.box([19, ASM_DECK, 2], [27, ASM_DECK + 6, 14], {"north": "rust", "south": "rust", "east": "vent", "west": "rust",
-                                                     "up": "rusty", "down": "rust"}, fit=("east",), split=False)
-    m.pipe_y(24, 20, ASM_DECK, ASM_DECK + 10, size=4)
-    # front: a copper tank lying across, a control box with a window, a brass crate
-    m.prism16_x(ASM_DECK + 3, 15, 3, -5, 17, "copper")
-    m.box([-6, ASM_DECK, 21], [6, ASM_DECK + 5, 27], {"north": "dark", "south": "window", "east": "dark",
-                                                     "west": "dark", "up": "dark", "down": "dark"},
-          fit=("south",), split=False)
-    m.box([12, ASM_DECK, 21], [22, ASM_DECK + 3.5, 27], "brass", split=False)
-    # the gear's pedestal
-    m.octagon_y(8, 8, 5, ASM_DECK, ASM_GEAR_Y, "frame")
+    m = assembler_shell(tier)
+    D = ASM_DECK
+    if tier == 1:
+        # west: pressure gauge, a copper cylinder lying along x, the motor box with the lamp
+        m.octagon_y(-5.5, -0.5, 6, D, D + 4, {"north": "frame", "south": "frame", "east": "frame", "west": "frame",
+                                             "up": "gauge"})
+        m.prism16_x(D + 2.5, 13, 2.5, -10, 0, "copper")
+        m.box([0, D + 0.25, 10.75], [1, D + 4.75, 15.25], "frame", split=False, skip=("down",))
+        m.box([-10, D, 17], [-1, D + 7, 26], {"north": "rust", "south": "vent", "east": "vent", "west": "rust",
+                                             "up": "frame"}, fit=("south", "east"), split=False, skip=("down",))
+        lamp_housing(m, D + 7)
+        # push-rod guide: a block the rod slides through
+        m.box([-2.5, D, 0], [2.5, D + 5, 3], "frame", split=False, skip=("down",))
+        # gear train's bearing wall behind the three gears
+        m.box([5, D, -1], [26.5, D + 7, 1.5], {"north": "rust", "south": "rust", "east": "rust", "west": "rust",
+                                               "up": "frame"}, skip=("down",))
+        # front: the work table's two guide rails
+        for z in (15, 21):
+            m.box([1, D, z], [26, D + 2, z + 2], {"north": "rail", "south": "rail", "east": "frame", "west": "frame",
+                                                  "up": "steel"}, skip=("down",))
+        # east: stepped rust plates
+        m.box([18, D, 4], [26, D + 1.5, 12], "rust", skip=("down",))
+        m.box([20, D + 1.5, 6], [25, D + 3, 11], "rusty", split=False, skip=("down",))
+    else:
+        # the robot arm's turret base and the work table it serves
+        m.octagon_y(*ASM_ARM_PIVOT, 9, D, D + 3, {"north": "frame", "south": "frame", "east": "frame",
+                                                 "west": "frame", "up": "hub"})
+        m.box([-10.5, D, -2], [-2, D + 1, 20], {"north": "frame", "south": "frame", "east": "frame", "west": "frame",
+                                                "up": "table"}, skip=("down",))
+        # west: the control box with the lamp
+        m.box([-10, D, 21], [-1, D + 7, 26], {"north": "ctrl", "south": "ctrl", "east": "ctrl", "west": "ctrl",
+                                             "up": "frame"}, fit=("north", "south", "east", "west"), split=False,
+              skip=("down",))
+        lamp_housing(m, D + 7)
+        # south-east: the fan's ring housing
+        m.ring_y(*ASM_FAN, 5.5, 1.5, D, D + 3, "frame")
+        m.octagon_y(*ASM_FAN, 2.5, D, D + 1, "dark")
+        # east: copper pipe run and a gauge
+        m.pipe_z(24, D + 2.5, 15, 26.5, size=4)
+        m.octagon_y(21, 6, 5, D, D + 3.5, {"north": "frame", "south": "frame", "east": "frame", "west": "frame",
+                                           "up": "gauge"})
     return m
 
 
-def assembler_gear(tier):
-    hub = "brass" if tier == 1 else "tier_blue"
-    m = Model({"rim": "steel_panel", "teeth": "dark", "spoke": "steel", "hub": "gear_hub", "boss": hub,
-               "arm": "dark_panel", "weight": hub}, "steel")
-    y = ASM_GEAR_Y + 0.25
-    m.ring_y(8, 8, ASM_GEAR_R, 2.5, y, y + 2, "rim")
-    m.teeth_y(8, 8, ASM_GEAR_R - 0.5, ASM_GEAR_R + 2.5, 2.5, y + 0.25, y + 1.75, "teeth")
-    m.spokes_y(8, 8, ASM_GEAR_R - 1, 2.5, y + 0.25, y + 1.75, "spoke")
-    m.octagon_y(8, 8, 6, y, y + 4.5, {"north": "boss", "south": "boss", "east": "boss", "west": "boss",
-                                      "up": "hub", "down": "boss"})
-    # a crane arm across the gear with weights at its ends
-    m.box([-1, y + 4.5, 6.5], [17, y + 6, 9.5], "arm", split=False)
-    for x in (-2, 18):
-        m.cbox(x, 8, 3, 4, y + 3, y + 6.5, "weight", split=False)
+# --- moving parts (AssemblerRenderer moves them; each is authored in its rest pose) -----------------------
+
+def assembler_cog(b=False):
+    """Back cog: the first (b False, drives the push rod) or its meshing neighbour (half a tooth turned,
+    ASM_MESH_DZ further south)."""
+    m = Model(ASM_TEX, "brass")
+    dz = ASM_MESH_DZ if b else 0
+    cog_z(m, ASM_COG_X[1 if b else 0], ASM_COG_Y, ASM_COG_R, ASM_COG_Z[0] + dz, ASM_COG_Z[1] + dz,
+          "brass", "brass", "hub", half_pitch=b)
     return m
 
 
+def assembler_gear(b=False):
+    """Tier-1 gear train: gear A (drawn at the first and third place) or the middle gear B meshing with both."""
+    m = Model(ASM_TEX, "steel")
+    dz = ASM_MESH_DZ if b else 0
+    cog_z(m, ASM_GEAR_X[1 if b else 0], ASM_GEAR_Y, ASM_GEAR_R, ASM_GEAR_Z[0] + dz, ASM_GEAR_Z[1] + dz,
+          "steelp", "steel", "hub", half_pitch=b)
+    return m
+
+
+def assembler_rod():
+    """Push rod along z from the first cog's crank to the crosshead (slides +-2.5 px in z)."""
+    m = Model(ASM_TEX, "steel")
+    m.box([-0.75, ASM_DECK + 2.25, -6], [0.75, ASM_DECK + 3.75, 7], "steel", split=False)
+    m.box([-2, ASM_DECK + 1.5, 6], [2, ASM_DECK + 4.5, 9], {"north": "frame", "south": "frame", "east": "frame",
+                                                           "west": "frame", "up": "brass", "down": "frame"}, split=False)
+    return m
+
+
+def assembler_slider():
+    """Carriage on the work table's rails (runs +-7 px along x) with a tool post."""
+    m = Model(ASM_TEX, "brass")
+    m.box([10, ASM_DECK + 2, 14], [15, ASM_DECK + 4, 24], {"north": "frame", "south": "frame", "east": "frame",
+                                                          "west": "frame", "up": "brass", "down": "frame"}, split=False)
+    m.box([11.5, ASM_DECK + 4, 17], [13.5, ASM_DECK + 7, 21], "frame", split=False, skip=("down",))
+    m.box([12, ASM_DECK + 7, 18.5], [13, ASM_DECK + 9, 19.5], "steel", split=False, skip=("down",))
+    return m
+
+
+def assembler_arm():
+    """Robot arm on the turret (turns about the turret axis): shoulder, twin beams reaching west, a hydraulic
+    cylinder under them, the wrist."""
+    m = Model(ASM_TEX, "asm_arm")
+    px_, pz = ASM_ARM_PIVOT
+    D = ASM_DECK
+    m.cbox(px_, pz, 7, 7, D + 3, D + 11, {"north": "arm", "south": "arm", "east": "arm", "west": "arm", "up": "hub",
+                                           "down": "frame"}, split=False)
+    for z0 in (pz - 3.25, pz + 0.75):
+        m.box([-9, D + 8, z0], [px_ - 3.5, D + 11 - EPS, z0 + 2.5], "arm", split=False)
+    # hydraulic cylinder from the shoulder's foot up to the beams (steel sleeve, copper piston)
+    m.box([-1, D + 4.5, pz - 0.75], [px_ - 3.5, D + 6, pz + 0.75], "steel", split=False,
+          rot=("z", -22.5, [px_ - 3.5, D + 4.5, pz]))
+    m.box([-5, D + 4.75, pz - 0.5], [-1, D + 5.75, pz + 0.5], "copper", split=False,
+          rot=("z", -22.5, [px_ - 3.5, D + 4.5, pz]))
+    m.box([-14, D + 6.5, pz - 3], [-9, D + 11.5, pz + 3], {"north": "arm", "south": "arm", "east": "arm", "west": "arm",
+                                                          "up": "hub", "down": "frame"}, split=False)
+    return m
+
+
+def assembler_head():
+    """The arm's press head under the wrist (turns with the arm, plunges 2 px at each end of the swing)."""
+    m = Model(ASM_TEX, "steel")
+    D = ASM_DECK
+    m.cbox(-11.5, ASM_ARM_PIVOT[1], 1.5, 1.5, D + 4, D + 6.5, "steel", split=False, skip=("up",))
+    m.cbox(-11.5, ASM_ARM_PIVOT[1], 5, 5, D + 3, D + 4, {"north": "frame", "south": "frame", "east": "frame",
+                                                       "west": "frame", "up": "frame", "down": "steelp"}, split=False)
+    return m
+
+
+def assembler_fan():
+    m = Model(ASM_TEX, "steel")
+    fx, fz = ASM_FAN
+    D = ASM_DECK
+    m.box([fx - 3.75, D + 1.5, fz - 1], [fx + 3.75, D + 2, fz + 1], "steelp", split=False)
+    m.box([fx - 1, D + 1.5 + EPS, fz - 3.75], [fx + 1, D + 2 - EPS, fz + 3.75], "steelp", split=False)
+    m.box([fx - 3.5, D + 1.5 + 2 * EPS, fz - 0.9], [fx + 3.5, D + 2 - 2 * EPS, fz + 0.9], "steel", split=False,
+          rot=("y", 45, [fx, D, fz]))
+    m.box([fx - 3.5, D + 1.5 + 3 * EPS, fz - 0.9], [fx + 3.5, D + 2 - 3 * EPS, fz + 0.9], "steel", split=False,
+          rot=("y", -45, [fx, D, fz]))
+    m.octagon_y(fx, fz, 2.6, D + 1.25, D + 2.5, {"north": "dark", "south": "dark", "east": "dark", "west": "dark",
+                                               "up": "hub", "down": "dark"})
+    return m
+
+
+def assembler_lamp():
+    """Lit lens, a hair larger than the dull one it covers; drawn at full brightness while working."""
+    m = Model({"glow": "asm_lamp_glow"}, "asm_lamp_glow")
+    x0, z0, x1, z1, y0, y1 = ASM_LAMP
+    m.box([x0 - EPS, y0, z0 - EPS], [x1 + EPS, y1 + EPS, z1 + EPS], "glow", fit=FACES, split=False, skip=("down",))
+    return m
+
+
+def asm_copy(m, dx):
+    c = Model(m.textures)
+    c.elements = m.shifted(dx, 0, 0)
+    return c
+
+
+asm_moving = {"cog": assembler_cog(), "cog_b": assembler_cog(True), "gear": assembler_gear(),
+              "gear_b": assembler_gear(True), "rod": assembler_rod(),
+              "slider": assembler_slider(), "arm": assembler_arm(), "head": assembler_head(),
+              "fan": assembler_fan(), "lamp": assembler_lamp()}
+for part, model in asm_moving.items():
+    save_block(f"assembling_machine_{part}", model)
 for tier in (1, 2):
     body = assembler_body(tier)
-    gear = assembler_gear(tier)
     save_block(f"assembling_machine_{tier}_body", body)
-    save_block(f"assembling_machine_{tier}_gear", gear)
     empty(f"assembling_machine_{tier}", f"asm{tier}_skirt")
-    item_from(f"assembling_machine_{tier}", body, gear)
+    # the item shows the machine at rest (as a ghost does): body plus every moving part in its rest pose
+    extra = [asm_moving["cog"], asm_moving["cog_b"]]
+    if tier == 1:
+        extra += [asm_moving["gear"], asm_moving["gear_b"], asm_copy(asm_moving["gear"], ASM_GEAR_X[2] - ASM_GEAR_X[0])]
+        extra += [asm_moving["rod"], asm_moving["slider"]]
+    else:
+        extra += [asm_moving["arm"], asm_moving["head"], asm_moving["fan"]]
+    item_from(f"assembling_machine_{tier}", body, *extra)
 
 # =====================================================================================
 # Electric mining drill (3x3, 3 high). Factorio: a dark base, two tall upright rails on the left and

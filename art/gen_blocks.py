@@ -302,25 +302,144 @@ for t in range(8):
 blocks["lab_dome_glow"] = strip
 anim["lab_dome_glow"] = {"animation": {"frametime": 3}}
 
-# assembling machines: a sloped skirt of ribbed panels (grey-green tier 1, blue tier 2), a lighter
-# housing and a brown-beige deck under the machinery
+# assembling machines (after the Factorio 1.1 sprites): a sloped skirt of riveted, ribbed panels with
+# grime at the foot (grey-green tier 1, blue tier 2), a darker housing with plate seams and a recessed
+# copper-brown deck crowded with machinery (rails, a gauge, a control box, a lamp, a light chevron plate).
 GREYGREEN = P("#b4bdb0", "#959f92", "#7b8578", "#646d62", "#4c544b", "#363c36")
 # the housing above the skirt is darker than the skirt in both tiers
 HOUSING = {"asm1": P("#7b8578", "#646d62", "#565e54", "#4c544b", "#3e453d", "#2f342e"),
            "asm2": P("#778598", "#5a677a", "#4c586a", "#3f4a5a", "#323b48", "#252c36")}
 for n, pal, seed in (("asm1", GREYGREEN, 100), ("asm2", BLUE, 104)):
+    rnd = random.Random(seed)
     im = noisy(pal, seed, 2, 3, (0.6, 0.4))
-    for x in (0, 4, 8, 12):
-        rect(im, x, 0, x, 15, pal[-2])
-        rect(im, x + 1, 0, x + 1, 15, pal[1])
-    rect(im, 0, 0, 15, 0, pal[1]); rect(im, 0, 15, 15, 15, pal[-1])
+    # two ribbed panels per face, each with a raised frame and a darker sunken middle
+    for x0 in (0, 8):
+        rect(im, x0 + 2, 3, x0 + 5, 12, pal[3])
+        rect(im, x0 + 2, 3, x0 + 5, 3, pal[4]); rect(im, x0 + 2, 3, x0 + 2, 12, pal[4])
+        rect(im, x0 + 3, 12, x0 + 5, 12, pal[1]); rect(im, x0 + 5, 4, x0 + 5, 12, pal[2])
+        for y in (5, 8, 11):                      # pressed ribs
+            px(im, x0 + 3, y, pal[2]); px(im, x0 + 4, y, pal[2])
+        rect(im, x0, 0, x0, 15, pal[-1]); rect(im, x0 + 1, 0, x0 + 1, 15, pal[1])   # seam
+        rect(im, x0 + 7, 0, x0 + 7, 15, pal[-2])
+        for y in (1, 13):                         # rivets top and bottom
+            px(im, x0 + 3, y, pal[0]); px(im, x0 + 4, y, pal[-2])
+    rect(im, 0, 0, 15, 0, pal[0]); rect(im, 0, 15, 15, 15, pal[-1])
+    for x in range(16):                           # grime and rust at the foot
+        if rnd.random() < 0.55:
+            px(im, x, 14, RUST[3] if rnd.random() < 0.4 else pal[-2])
+        if rnd.random() < 0.25:
+            px(im, x, 13, RUST[2])
+    for _ in range(4):                            # scratches
+        px(im, rnd.randint(2, 13), rnd.randint(2, 12), pal[0])
     blocks[n + "_skirt"] = im
-    blocks[n + "_body"] = panel(HOUSING[n], seed + 1)
+    h = HOUSING[n]
+    im = panel(h, seed + 1)
+    rect(im, 1, 7, 14, 7, h[5]); rect(im, 1, 8, 14, 8, h[1])          # plate seam
+    for x in (4, 11):
+        px(im, x, 6, h[0]); px(im, x, 9, h[0])                         # seam rivets
+    for _ in range(5):
+        px(im, rnd.randint(2, 13), rnd.randint(2, 13), h[0])
+    for k in range(rnd.randint(3, 5)):                                 # a rust streak under a rivet
+        px(im, 12, 4 + k, RUST[3 if k else 2])
+    blocks[n + "_body"] = im
+
 DECK = P("#a08868", "#86704f", "#6c583c", "#56452e", "#403322", "#2c2318")
+rnd = random.Random(108)
 im = noisy(DECK, 108, 1, 3)
-rect(im, 0, 7, 15, 7, DECK[4]); rect(im, 7, 0, 7, 15, DECK[4])
-bevel(im, DECK)
+for (x0, y0, x1, y1) in ((0, 0, 7, 7), (8, 0, 15, 7), (0, 8, 7, 15), (8, 8, 15, 15)):   # four floor plates
+    rect(im, x0, y0, x1, y0, DECK[0]); rect(im, x0, y0, x0, y1, DECK[1])
+    rect(im, x0, y1, x1, y1, DECK[5]); rect(im, x1, y0, x1, y1, DECK[4])
+    px(im, x0 + 2, y0 + 2, DECK[0]); px(im, x1 - 2, y1 - 2, DECK[4])
+for _ in range(10):                                                   # oil stains and scuffs
+    x, y = rnd.randint(1, 14), rnd.randint(1, 14)
+    px(im, x, y, DECK[4] if rnd.random() < 0.6 else RUST[1])
 blocks["asm_deck"] = im
+
+# the light chevron plate in the back corner of the deck
+PLATE = P("#efe6d6", "#d9cfbc", "#bfb39c", "#9f937c", "#776c58", "#4f4637")
+im = panel(PLATE, 140, with_rivets=False)
+for i in range(5):
+    for (x, y) in ((3 + i, 3 + i), (3 + i, 12 - i)):
+        px(im, x + 3, y, PLATE[5]); px(im, x + 4, y, PLATE[4])
+rivets(im, PLATE, 1)
+blocks["asm_plate"] = im
+
+# pressure gauge: a white dial with a red needle in a dark bezel
+im = panel(DARK, 141, with_rivets=False)
+ImageDraw.Draw(im).ellipse([2, 2, 13, 13], fill=DARK[5], outline=DARK[0])
+ImageDraw.Draw(im).ellipse([3, 3, 12, 12], fill=C("#e8e4d8"))
+for (x, y) in ((7, 4), (4, 7), (11, 7), (5, 5), (10, 5)):
+    px(im, x, y, DARK[3])
+for k in range(4):
+    px(im, 7 + k, 8 - k, C("#c23426"))
+px(im, 7, 8, DARK[5]); px(im, 8, 8, DARK[5])
+blocks["asm_gauge"] = im
+
+# guide rail of the work table: a polished top, a dark groove, a lit lower lip
+im = new(DARK[3])
+for x in range(16):
+    px(im, x, 0, DARK[5]); px(im, x, 1, STEEL[1]); px(im, x, 2, STEEL[2]); px(im, x, 3, STEEL[3])
+    for y in (4, 5, 6, 7, 8, 9, 10):
+        px(im, x, y, BLACK if y in (6, 7, 8) else DARK[4])
+    px(im, x, 11, STEEL[2]); px(im, x, 12, STEEL[3])
+    for y in (13, 14):
+        px(im, x, y, DARK[2])
+    px(im, x, 15, DARK[5])
+for x in (2, 9):
+    rivet(im, x, 13, STEEL)
+blocks["asm_rail"] = im
+
+# work table under the arm: dark plate with hazard edges and a worn middle
+im = panel(DARK, 142, with_rivets=False)
+for y in range(16):
+    for x in (0, 1, 14, 15):
+        px(im, x, y, YELLOW[1] if ((x + y) // 2) % 2 == 0 else DARK[5])
+rnd = random.Random(143)
+for _ in range(8):
+    px(im, rnd.randint(4, 11), rnd.randint(2, 13), DARK[0])
+blocks["asm_table"] = im
+
+# control box: off-white casing, a vent and a row of status lights
+im = panel(STEEL, 144)
+rect(im, 3, 3, 12, 6, DARK[4])
+for x, c in ((4, C("#5fd04a")), (6, C("#f2c12e")), (8, C("#e8513f")), (10, C("#55a2f2"))):
+    px(im, x, 4, c); px(im, x, 5, DARK[5])
+for y in (9, 11):
+    rect(im, 3, y, 12, y, DARK[3]); rect(im, 3, y + 1, 12, y + 1, STEEL[1])
+blocks["asm_ctrl"] = im
+
+# the robot arm of tier 2: dark steel with a lit edge and bolts
+im = noisy(DARK, 145, 2, 4)
+rect(im, 0, 0, 15, 0, DARK[0]); rect(im, 0, 1, 15, 1, DARK[1]); rect(im, 0, 15, 15, 15, DARK[5])
+for x in (2, 7, 12):
+    rivet(im, x, 6, STEEL)
+rect(im, 0, 10, 15, 10, DARK[5]); rect(im, 0, 11, 15, 11, DARK[2])
+blocks["asm_arm"] = im
+
+# status lamp: a dull lens (idle) and a pulsing lit one (working)
+LAMP = P("#fff1b0", "#ffd75a", "#f2a91e", "#b8730e", "#6e4408")
+
+
+def lamp(level):
+    im = new(DARK[5])
+    ImageDraw.Draw(im).ellipse([1, 1, 14, 14], fill=DARK[3])
+    ramp = [LAMP[4], LAMP[3], LAMP[2], LAMP[1], LAMP[0]]
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(x - 7.5, y - 7.5)
+            if r < 5.8:
+                k = max(0, min(4, round(level * 4 - r / 3)))
+                px(im, x, y, ramp[k])
+    px(im, 5, 5, LAMP[0] if level > 0.3 else LAMP[2])
+    return im
+
+
+blocks["asm_lamp"] = lamp(0.2)
+strip = new(h=16 * 8)
+for t in range(8):
+    strip.paste(lamp(0.65 + 0.35 * math.cos(2 * math.pi * t / 8)), (0, 16 * t))
+blocks["asm_lamp_glow"] = strip
+anim["asm_lamp_glow"] = {"animation": {"frametime": 2}}
 
 # steam engine tanks: weathered off-white steel with rust streaks and a riveted seam
 TANK = P("#e4e1d6", "#cfcbbd", "#b7b2a2", "#9a9484", "#77705f", "#544d3e")

@@ -314,13 +314,41 @@ def M(name):
 # A part that turns is checked whole in its authored pose (the first); in the other sampled poses only its
 # faces whose normal is parallel to the spin axis count, since only those stay coplanar while it turns
 # (others line up for a single frame at most).
-Y, X = (0, 1, 0), (1, 0, 0)
+Y, X, Z = (0, 1, 0), (1, 0, 0), (0, 0, 1)
+
+
+def turning(axis, origin, after=()):
+    """Sampled poses of a part turning about axis through origin, then moved by the transforms after."""
+    return [([(axis, a, origin)] if a else []) + list(after) for a in SPIN]
+
+
+def t(dx, dy, dz):
+    return ("t", (dx, dy, dz), None)
+
+
+# AssemblerRenderer.assemble: every part at translate(-0.5, 0, -0.5) of the footprint center, so model px are
+# composite px. Cogs and gears turn about z through their axes, gear A is drawn again 15 px east, the push rod
+# slides -1.5..1.5 px in z, the carriage -7..7 px in x, arm and head turn about the turret axis and the head
+# drops up to 2 px, the fan turns about its axis; the lit lamp lens sits on the dull one.
+ASM_COMMON = [
+              ("cog", M("assembling_machine_cog"), turning("z", (0, 25, 0)), Z),
+              ("cog_b", M("assembling_machine_cog_b"), turning("z", (10.5, 25, 0)), Z),
+              ("lamp", M("assembling_machine_lamp"), [[]])]
+ASM_PARTS = {
+    1: [("gear", M("assembling_machine_gear"), turning("z", (9, 24.5, 0)), Z),
+        ("gear_b", M("assembling_machine_gear_b"), turning("z", (16.5, 24.5, 0)), Z),
+        ("gear@+15", M("assembling_machine_gear"), turning("z", (9, 24.5, 0), [t(15, 0, 0)]), Z),
+        ("rod", M("assembling_machine_rod"), [[t(0, 0, dz)] if dz else [] for dz in (0, -1.5, -0.75, 0.75, 1.5)]),
+        ("slider", M("assembling_machine_slider"), [[t(dx, 0, 0)] if dx else [] for dx in (0, -7, -3.5, 3.5, 7)])],
+    2: [("arm", M("assembling_machine_arm"), turning("y", (10, 0, 10)), Y),
+        ("head", M("assembling_machine_head"),
+         [([("y", a, (10, 0, 10))] if a else []) + ([t(0, -dy, 0)] if dy else []) for a in SPIN for dy in (0, 1, 2)], Y),
+        ("fan", M("assembling_machine_fan"), turning("y", (20, 0, 20)), Y)],
+}
 COMPOSITES = [
-    # AssemblerRenderer.java:35-43: the tier's body and gear both at translate(-0.5, 0, -0.5) of the footprint
-    # center; the gear turns about the vertical center axis (line 42).
-    *[(f"assembling_machine_{t}", [("body", M(f"assembling_machine_{t}_body"), [[]]),
-                                   ("gear", M(f"assembling_machine_{t}_gear"), [spin_y(a) for a in SPIN], Y)])
-      for t in (1, 2)],
+    # AssemblerRenderer.assemble (table ASM_PARTS above).
+    *[(f"assembling_machine_{t_}", [("body", M(f"assembling_machine_{t_}_body"), [[]])] + ASM_COMMON + ASM_PARTS[t_])
+      for t_ in (1, 2)],
     # DrillRenderer.java: electric body at the center, head turning about the vertical axis, the carriage
     # riding 0..CARRIAGE_TRAVEL_PX (4 px) up, the tower one block up (draw(top, 1, ...)).
     ("electric_mining_drill", [("body", M("electric_mining_drill_body"), [[]]),
