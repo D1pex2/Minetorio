@@ -4,8 +4,8 @@ particle-only model. Self-contained (does not import the other generators).
     python art/gen_robots.py
 
 References (wiki.factorio.com, Factorio 1.1 entity art; kept outside the repository):
-  Roboport: a 4x4 building. A square concrete plinth with chamfered corners; on it a lower stone-grey
-  body with panel seams, and in the middle of its roof a large round hatch: a bronze/beige rim around
+  Roboport: a 4x4 building, tall (here 4 blocks). A square concrete plinth with chamfered corners; on it
+  a massive boxy stone-grey body with panel seams filling most of the height, and in the middle of its roof a large round hatch: a bronze/beige rim around
   a grey iris door with curved blades. At each corner a blue-grey steel charging pylon - a tall post
   with a bracket arm leaning out, white highlights and red cables running down its inside. Across the
   front (south in the reference image, the side facing the camera) a machinery bay: dark drums and a
@@ -19,7 +19,7 @@ Outputs (in src/main/resources/assets/minetorio/):
   models/block/roboport.json           controller: particle only (drawn by RoboportRenderer)
   models/block/roboport_IJK.json       the machine cut into 8 pieces (x half I, z half J, lower/upper K),
                                        piece px = machine px - offset (see RoboportRenderer.offset):
-                                       offset = (-16 + 16 I, 0 if K == 0 else 24, -16 + 16 J); the machine
+                                       offset = (-16 + 16 I, 40 K, -16 + 16 J); the machine (64 px tall)
                                        is authored around the footprint center at the bottom, north = front
   models/block/construction_robot.json the robot, ~8 px, centered on x = z = 8, y 0..10, north = front
   models/block/ghost.json              particle only (GhostRenderer draws the target)
@@ -287,12 +287,15 @@ class Model:
             self.box([cx - w, y0 + e, cz - d], [cx + w, y1 - e, cz + d], tex, rot=rot)
         return self
 
-    def chamfer(self, x0, z0, x1, z1, y0, y1, tex, c=4):
-        self.box([x0, y0, z0 + c], [x1, y1, z1 - c], tex)
-        self.box([x0 + c, y0 + EPS, z0], [x1 - c, y1 - EPS, z1], tex)
+    def chamfer(self, x0, z0, x1, z1, y0, y1, tex, c=4, top=True, bottom=True):
+        """A box with its four vertical edges cut off at 45 degrees; top/bottom False leave out those caps
+        (for a storey stacked on another)."""
+        only = tuple(f for f in FACES if (top or f != "up") and (bottom or f != "down"))
+        self.box([x0, y0, z0 + c], [x1, y1, z1 - c], tex, only=only)
+        self.box([x0 + c, y0 + EPS, z0], [x1 - c, y1 - EPS, z1], tex, only=only)
         s = c * math.sqrt(2)
         for (x, z) in ((x0 + c, z0 + c), (x1 - c, z0 + c), (x0 + c, z1 - c), (x1 - c, z1 - c)):
-            self.cbox(x, z, s, s, y0 + 2 * EPS, y1 - 2 * EPS, tex, rot=("y", 45, [x, y0, z]))
+            self.cbox(x, z, s, s, y0 + 2 * EPS, y1 - 2 * EPS, tex, rot=("y", 45, [x, y0, z]), only=only)
         return self
 
     def json(self, boxes=None):
@@ -316,48 +319,75 @@ def dump(obj, path):
 
 
 # =====================================================================================
-# Roboport (machine px: x, z in -32..32 around the footprint center, y up from the floor; north = front)
+# Roboport (machine px: x, z in -32..32 around the footprint center, y 0..64 up from the floor;
+# north = front). A 4x4x4 machine: a massive stone-grey body filling most of the height, the round
+# iris hatch on its roof (robots leave and enter there, RoboportBlockEntity.DOCK_HEIGHT), a charging
+# pylon at each corner and the machinery bay across the front.
 # =====================================================================================
+HATCH = (0, 0)          # roof hatch center (x, z)
+ROOF_Y = 50             # top of the body shoulder
+HATCH_TOP = 55.6       # top of the iris door
+
+
 def roboport():
     m = Model({"base": "roboport_base", "body": "roboport_body", "roof": "roboport_roof", "iris": "roboport_iris",
                "bronze": "roboport_bronze", "pylon": "roboport_pylon", "cable": "roboport_cable",
                "mach": "roboport_machinery", "drum": "roboport_drum", "yellow": "roboport_yellow"}, "roboport_body")
+    side ={"north": "body", "south": "body", "east": "body", "west": "body", "up": "roof", "down": "body"}
     # plinth: nearly the whole 4x4, chamfered corners
-    m.chamfer(-31, -31, 31, 31, 0, 4, {"north": "base", "south": "base", "east": "base", "west": "base",
-                                      "up": "base", "down": "base"}, c=6)
-    # body: stone-grey block, chamfered, with a roof slab
-    body = {"north": "body", "south": "body", "east": "body", "west": "body", "up": "roof", "down": "body"}
-    m.chamfer(-22, -20, 22, 24, 4, 20, body, c=7)
-    m.chamfer(-20, -18, 20, 22, 20, 22, {f: "roof" for f in FACES}, c=6)
-    # roof hatch: bronze rim ring and the iris door in it
-    m.prism16_y(0, 2, 13, 22, 24, "bronze")
-    m.prism16_y(0, 2, 10.5, 23.9, 24.6, {"north": "bronze", "south": "bronze", "east": "bronze", "west": "bronze",
-                                         "up": "iris", "down": "bronze"})
-    # front machinery bay (north): dark housing with a yellow trim band and two drums lying across
-    m.box([-16, 4, -28], [16, 14, -20.5], {"north": "mach", "south": "mach", "east": "mach", "west": "mach",
-                                            "up": "roof", "down": "mach"}, fit=("north",))
-    m.box([-16.5, 12, -28.5], [16.5, 14.5, -20.2], "yellow")
-    for cx in (-9, 9):
-        m.octagon_x(9, -24.8, 7, cx - 6, cx + 6, {"north": "drum", "south": "drum", "up": "drum", "down": "drum",
-                                                   "east": "mach", "west": "mach"})
-    # four corner charging pylons: foot, tall post leaning out, bracket head, red cable on the inside
+    m.chamfer(-31, -31, 31, 31, 0, 3, "base", c=6)
+    # body: a massive stone-grey block in two storeys (the rotated corner columns must each fit one piece)
+    # parted by a ledge, then a shoulder carrying the roof
+    m.chamfer(-23, -21, 23, 24, 3, 26, side, c=7, top=False)
+    m.chamfer(-24.5, -22.5, 24.5, 25.5, 26, 29.5, side, c=7.5)
+    m.chamfer(-23, -21, 23, 24, 29.5, 46, side, c=7, bottom=False)
+    m.chamfer(-21, -19, 21, 22, 46, ROOF_Y, {f: "roof" for f in FACES}, c=6)
+    # roof hatch: raised bronze rim and the iris door in it
+    hx, hz = HATCH
+    m.prism16_y(hx, hz, 15.75, ROOF_Y - 0.5, 55, "bronze")  # apothem <= 16: each strip must fit one piece
+    m.prism16_y(hx, hz, 13, 54.9, HATCH_TOP, {"north": "bronze", "south": "bronze", "east": "bronze",
+                                                "west": "bronze", "up": "iris", "down": "bronze"})
+    # machinery boxes on the roof behind the hatch
+    m.box([-14, ROOF_Y, 16.5], [-4.5, 55, 21.5], "mach")
+    m.box([-3, ROOF_Y, 17.5], [5, 53.5, 21.5], {f: ("yellow" if f == "up" else "mach") for f in FACES})
+    # front machinery bay (north): dark housing under a yellow trim band, a big upright drum and two pipes on
+    # the east half (the reference's left as it faces the camera), dark vent panels above it on the body face
+    m.box([-20, 3, -27.5], [20, 21, -21], {"north": "mach", "south": "mach", "east": "mach", "west": "mach",
+                                           "up": "roof"}, only=("north", "south", "east", "west", "up"))
+    m.box([-20.5, 20, -28], [20.5, 22.5, -20.7], "yellow")
+    m.box([-18.5, 3, -29.5], [-3.5, 17, -27.5], "mach", only=("north", "east", "west", "up"), fit=("north",))
+    m.octagon_y(10, -26.5, 9, 3.05, 25, {"north": "drum", "south": "drum", "east": "drum", "west": "drum",
+                                       "up": "mach", "down": "mach"})
+    for px in (1.5, 4.3):
+        m.cbox(px, -29.4, 1.8, 1.8, 3, 33, "pylon")
+    for px in (-12.5, 12.5):
+        m.box([px - 8, 28, -22.4], [px + 8, 42, -21], "mach", fit=("north",))
+    # four corner charging pylons: foot, a tall blue-grey post with an inner rail and a red cable, braces to
+    # the body, a cap, and three bracket fingers on top (one leaning out along x, one along z, one upright)
     for sx, sz in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-        cx, cz = 24.5 * sx, 24.5 * sz
-        m.cbox(cx, cz, 9, 9, 4, 7, "mach")
-        # Minecraft only allows 0/±22.5/±45° element rotations, so the post leans out along x only
-        m.box([cx - 2.5, 6, cz - 2.5], [cx + 2.5, 30, cz + 2.5], "pylon", rot=("z", -22.5 * sx, [cx, 6, cz]))
-        # bracket head pointing outward diagonally, white-lit pylon steel
-        hx, hz = cx + 3.5 * sx, cz + 3.5 * sz
-        m.box([hx - 4, 28, hz - 4], [hx + 4, 32, hz + 4], "pylon", rot=("y", 45, [hx, 28, hz]))
-        # red cable down the inner face
-        m.box([cx - 3.2 * sx - 0.6, 7, cz - 0.6 - 3.2 * sz], [cx - 3.2 * sx + 0.6, 26, cz + 0.6 - 3.2 * sz], "cable",
-              rot=("z", -22.5 * sx, [cx, 6, cz]))
-    # antenna mast with a small dish at the back-left corner of the roof
-    ax, az = -14, 15
-    m.cbox(ax, az, 2.5, 2.5, 22, 34, "pylon")
-    m.box([ax - 4, 32, az - 0.75], [ax + 4, 37, az + 0.75], {f: ("iris" if f in ("north", "south") else "pylon")
-                                                             for f in FACES}, rot=("x", 22.5, [ax, 32, az]))
+        cx, cz = 27.5 * sx, 27.5 * sz
+        m.cbox(cx, cz, 9, 9, 3, 7, "mach")
+        m.cbox(cx, cz, 6, 6, 7, 50, "pylon")
+        ix, iz = cx - 4.6 * sx, cz - 4.6 * sz
+        m.cbox(ix, iz, 2.4, 2.4, 7, 47, "pylon")
+        m.cbox(cx - 3.2 * sx, cz - 3.2 * sz, 1.1, 1.1, 9, 49, "cable")
+        for y in (14, 36):
+            bx, bz = cx - 5 * sx, cz - 5 * sz
+            m.cbox(bx, bz, 9, 2.4, y, y + 2.4, "pylon", rot=("y", -45 * sx * sz, [bx, y, bz]))
+        m.cbox(cx, cz, 8, 8, 50, 53, "pylon", rot=("y", 45, [cx, 50, cz]))
+        m.box([cx - 1.3, 52, cz - 1.3], [cx + 1.3, 64, cz + 1.3], "pylon", rot=("z", -22.5 * sx, [cx, 52, cz]))
+        m.box([cx - 1.3, 52.2, cz - 1.3], [cx + 1.3, 63.8, cz + 1.3], "pylon", rot=("x", 22.5 * sz, [cx, 52, cz]))
+        m.cbox(cx, cz, 2, 2, 53, 63, "cable")
+    # antenna mast with a dish at the back corner of the roof (the reference's back left)
+    ax, az = 15, 17
+    m.cbox(ax, az, 3, 3, ROOF_Y, 60, "pylon")
+    m.cbox(ax, az, 6, 6, 56, 58, "mach")
+    m.box([ax - 5, 58, az - 0.75], [ax + 5, 64, az + 0.75], {f: ("iris" if f in ("north", "south") else "pylon")
+                                                             for f in FACES}, rot=("x", 22.5, [ax, 58, az]))
     return m
+
+
+CUT_Y = 28  # lower pieces hold y < CUT_Y, upper pieces the rest
 
 
 def fits(b, d):
@@ -367,7 +397,7 @@ def fits(b, d):
 def piece_of(b):
     """The piece holding the box's center, or failing that any piece the box fits in."""
     c = b.center()
-    home = (0 if c[0] < 0 else 1, 0 if c[2] < 0 else 1, 0 if c[1] < 24 else 1)
+    home = (0 if c[0] < 0 else 1, 0 if c[2] < 0 else 1, 0 if c[1] < CUT_Y else 1)
     for p in [home] + [(i, j, k) for i in range(2) for j in range(2) for k in range(2)]:
         if fits(b, offset(*p)):
             return p
@@ -375,8 +405,8 @@ def piece_of(b):
 
 
 def offset(i, j, k):
-    """Must match RoboportRenderer.offset: pieces cover x -32..16 / -16..32, y -16..32 / 8..56, z like x."""
-    return (-16 + 16 * i, 0 if k == 0 else 24, -16 + 16 * j)
+    """Must match RoboportRenderer.offset: pieces cover x -32..16 / -16..32, y -16..32 / 24..72, z like x."""
+    return (-16 + 16 * i, 40 * k, -16 + 16 * j)
 
 
 CUT_FACES = {0: ("east", "west"), 1: ("up", "down"), 2: ("south", "north")}
@@ -387,7 +417,7 @@ def fits_any(b):
 
 
 def split(boxes):
-    """Cuts unrotated boxes that fit no piece at x = 0, then z = 0, then y = 24. The cut faces are
+    """Cuts unrotated boxes that fit no piece at x = 0, then z = 0, then y = CUT_Y. The cut faces are
     interior (the other half is right there) and are dropped."""
     out = []
     todo = list(boxes)
@@ -395,7 +425,7 @@ def split(boxes):
         b = todo.pop()
         cut = None
         if not b.rot and not fits_any(b):
-            for axis, at in ((0, 0), (2, 0), (1, 24)):
+            for axis, at in ((0, 0), (2, 0), (1, CUT_Y)):
                 if b.f[axis] < at < b.t[axis]:
                     cut = (axis, at)
                     break
@@ -427,19 +457,20 @@ def write_roboport(m):
                     obj.pop("elements")
                 dump(obj, os.path.join(MB, f"roboport_{i}{j}{k}.json"))
     dump({"textures": {"particle": NS + "roboport_body"}}, os.path.join(MB, "roboport.json"))
-    # item: the whole machine scaled 1/4 into one block (64 px -> 16 px), centered
+    # item: the whole machine scaled 1/4 into one block (64 px -> 16 px), centered; a full cube now, so the
+    # display transforms are vanilla block's (minecraft:block/block)
     item = Model(dict(m.textures), "roboport_body")
     item.textures = m.textures
     k = 0.25
     item.boxes = [b.shifted((-8 / k, 0, -8 / k)).scaled(k, (0, 0, 0)) for b in m.boxes]
     obj = item.json()
     obj["display"] = {
-        "gui": {"rotation": [30, 225, 0], "translation": [0, 2, 0], "scale": [1.0, 1.0, 1.0]},
-        "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.6, 0.6, 0.6]},
-        "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1.0, 1.0, 1.0]},
-        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.5, 0.5, 0.5]},
-        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 2, 0], "scale": [0.6, 0.6, 0.6]},
-        "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 2, 0], "scale": [0.6, 0.6, 0.6]},
+        "gui": {"rotation": [30, 225, 0], "translation": [0, 0, 0], "scale": [0.625, 0.625, 0.625]},
+        "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.25, 0.25, 0.25]},
+        "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.5, 0.5, 0.5]},
+        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.375, 0.375]},
+        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
+        "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
     }
     dump(obj, os.path.join(MI, "roboport.json"))
 
