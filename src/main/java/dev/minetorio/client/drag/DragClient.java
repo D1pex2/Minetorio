@@ -13,6 +13,7 @@ import dev.minetorio.content.drag.DragPayloads;
 import dev.minetorio.content.drag.DragPlacement;
 import dev.minetorio.content.drag.DragTerrain;
 import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.content.robot.GhostPayloads;
 import dev.minetorio.content.robot.GhostReservations;
 import dev.minetorio.content.robot.HandGhosts;
@@ -65,7 +66,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <p>With the ghost key ({@link ModKeys#GHOST}) held, a right-click with any Minetorio block item
  * places a ghost instead ({@link HandGhosts}, sent as {@link GhostPayloads.Place}; nothing is
  * placed or used here), and a belt or pole click starts a ghost drag: the same line, drawn blue,
- * laid as ghosts without items.
+ * laid as ghosts without items. A {@link GhostItem} in the main hand does all this without the key.
  */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class DragClient {
@@ -159,8 +160,15 @@ public final class DragClient {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || event.getHand() != InteractionHand.MAIN_HAND) return;
         ItemStack stack = player.getMainHandItem();
-        if (ModKeys.ghostHeld() && HandGhosts.canGhost(stack)) {
-            ghostClick(event, mc, player, stack);
+        boolean ghostItem = stack.getItem() instanceof GhostItem;
+        if (ghostItem || (ModKeys.ghostHeld() && HandGhosts.canGhost(stack))) {
+            ItemStack target = HandGhosts.effective(stack);
+            if (target.isEmpty()) {
+                event.setCanceled(true); // a ghost item without a valid target does nothing
+                event.setSwingHand(false);
+                return;
+            }
+            ghostClick(event, mc, player, target);
             return;
         }
         DragPlacement.Kind kind = DragPlacement.kindOf(stack);
@@ -212,7 +220,7 @@ public final class DragClient {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.level != d.level || mc.screen != null || !mc.options.keyUse.isDown()
-                || !player.getMainHandItem().is(d.item)) {
+                || !HandGhosts.effective(player.getMainHandItem()).is(d.item)) {
             finish(d);
             return;
         }

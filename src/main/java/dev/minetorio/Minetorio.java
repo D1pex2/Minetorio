@@ -16,6 +16,7 @@ import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.content.registry.ModCapabilities;
 import dev.minetorio.content.registry.ModCreativeTab;
+import dev.minetorio.content.registry.ModDataComponents;
 import dev.minetorio.content.registry.ModEntities;
 import dev.minetorio.content.registry.ModFeatures;
 import dev.minetorio.content.registry.ModItems;
@@ -35,6 +36,7 @@ public class Minetorio {
     public Minetorio(IEventBus modBus) {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
+        ModDataComponents.register(modBus);
         ModBlockEntities.register(modBus);
         ModEntities.register(modBus);
         ModCreativeTab.register(modBus);

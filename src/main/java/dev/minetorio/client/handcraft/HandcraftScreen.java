@@ -1,6 +1,7 @@
 package dev.minetorio.client.handcraft;
 
 import dev.minetorio.client.ModKeys;
+import dev.minetorio.content.robot.GhostPayloads;
 import dev.minetorio.client.handcraft.HandcraftGroups.Group;
 import dev.minetorio.content.handcraft.ClientHandcraft;
 import dev.minetorio.content.handcraft.HandcraftPayloads;
@@ -297,6 +298,12 @@ public class HandcraftScreen extends Screen {
             return true;
         }
         String id = recipeAt(mouseX, mouseY);
+        if (id != null && (button == 2 || (button == 0 && ModKeys.ghostKeyDown()))) {
+            // a ghost item of the output (Factorio: a ghost cursor); the server checks research and placeability
+            PacketDistributor.sendToServer(new GhostPayloads.FromRecipe(id));
+            click();
+            return true;
+        }
         if (id != null && (button == 0 || button == 1)) {
             int max = craftable.getOrDefault(id, 0);
             int want = button == 1 ? RIGHT_CLICK_TIMES : hasShiftDown() ? max : 1;

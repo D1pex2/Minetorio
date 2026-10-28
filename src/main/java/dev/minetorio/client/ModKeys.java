@@ -41,6 +41,13 @@ public final class ModKeys {
 
     private ModKeys() {}
 
+    /** Whether the ghost key is physically held, screens included (a keyboard binding only). */
+    public static boolean ghostKeyDown() {
+        InputConstants.Key key = GHOST.getKey();
+        return key.getType() == InputConstants.Type.KEYSYM && key.getValue() != InputConstants.UNKNOWN.getValue()
+                && InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), key.getValue());
+    }
+
     /** Whether the ghost key is held (in game, no screen open). */
     public static boolean ghostHeld() {
         return Minecraft.getInstance().screen == null && GHOST.isDown();

@@ -27,7 +27,7 @@ import net.neoforged.neoforge.client.model.data.ModelData;
  * item model, scaled up over the footprint and turned to the ghost's facing.
  */
 public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
-    static final float R = 0.55f, G = 0.78f, B = 1.0f, A = 0.45f;
+    public static final float R = 0.55f, G = 0.78f, B = 1.0f, A = 0.45f;
     private static final Direction[] SIDES = {null, Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
 
     public GhostRenderer(BlockEntityRendererProvider.Context ctx) {}

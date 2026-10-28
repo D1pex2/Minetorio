@@ -5,6 +5,7 @@ import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.PowerGridManager;
 import dev.minetorio.content.robot.GhostBlock;
 import dev.minetorio.content.robot.GhostBlockEntity;
+import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.content.robot.HandGhosts;
 import dev.minetorio.core.drag.DragCell;
 import dev.minetorio.core.drag.DragDir;
@@ -143,6 +144,10 @@ public final class DragPlacement {
     public static void start(ServerPlayer player, BlockPos start, DragDir dir, boolean ghost) {
         SESSIONS.remove(player.getUUID());
         ItemStack stack = player.getMainHandItem();
+        if (stack.getItem() instanceof GhostItem) {
+            if (!ghost) return; // a ghost item only lays ghosts
+            stack = GhostItem.target(stack);
+        }
         Kind kind = kindOf(stack);
         if (kind == null || dir == null || !player.level().isLoaded(start)
                 || !player.canInteractWithBlock(start, REACH_TOLERANCE) || (ghost && !HandGhosts.canGhost(stack))) {

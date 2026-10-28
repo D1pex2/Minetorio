@@ -6,6 +6,7 @@ import dev.minetorio.client.ModKeys;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
+import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.content.robot.GhostReservations;
 import dev.minetorio.content.robot.HandGhosts;
 import java.util.List;
@@ -60,7 +61,8 @@ public final class MultiblockPlacementPreview {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
-        if (ModKeys.ghostHeld() && HandGhosts.canGhost(player.getMainHandItem())) return; // a ghost click: GhostPlacementPreview
+        if ((ModKeys.ghostHeld() && HandGhosts.canGhost(player.getMainHandItem()))
+                || player.getMainHandItem().getItem() instanceof GhostItem) return; // a ghost click: GhostPlacementPreview
         InteractionHand hand = heldHand(player);
         if (hand == null || (opensOnUse(mc.level, hit.getBlockPos()) && !player.isSecondaryUseActive())) return;
         MultiblockBlockItem item = (MultiblockBlockItem) player.getItemInHand(hand).getItem();

@@ -1,6 +1,8 @@
 package dev.minetorio.content.robot;
 
 import dev.minetorio.Minetorio;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -24,6 +26,34 @@ public final class GhostPayloads {
 
         public static void handle(Place payload, IPayloadContext context) {
             if (context.player() instanceof ServerPlayer player) HandGhosts.place(player, payload.hit());
+        }
+    }
+
+    /** A ghost item of a recipe's output, from the hand-crafting screen ({@link HandGhosts#fromRecipe}). */
+    public record FromRecipe(String recipeId) implements CustomPacketPayload {
+        public static final Type<FromRecipe> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Minetorio.MODID, "ghost_from_recipe"));
+        public static final StreamCodec<FriendlyByteBuf, FromRecipe> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(64), FromRecipe::recipeId, FromRecipe::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(FromRecipe payload, IPayloadContext context) {
+            if (context.player() instanceof ServerPlayer player) HandGhosts.fromRecipe(player, payload.recipeId());
+        }
+    }
+
+    /** Pick-block on a placed block whose item the player has none of ({@link HandGhosts#pipette}). */
+    public record Pipette(BlockPos pos) implements CustomPacketPayload {
+        public static final Type<Pipette> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Minetorio.MODID, "ghost_pipette"));
+        public static final StreamCodec<FriendlyByteBuf, Pipette> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, Pipette::pos, Pipette::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(Pipette payload, IPayloadContext context) {
+            if (context.player() instanceof ServerPlayer player) HandGhosts.pipette(player, payload.pos());
         }
     }
 }

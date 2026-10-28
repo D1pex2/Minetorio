@@ -1,6 +1,10 @@
 package dev.minetorio.content.robot;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.research.RecipeLocks;
+import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.core.recipe.Recipe;
+import dev.minetorio.core.recipe.RecipeCategory;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.core.robot.RateBudget;
@@ -8,16 +12,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -26,6 +36,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -37,7 +48,12 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  * aimed origin and facing, the block's placement state, belts' shape and slope), but a ghost goes
  * there instead and no item is used. The client sends the click ({@link GhostPayloads.Place}); the
  * server re-plans it and checks reach, build rights, the cells and a rate budget. Drag lines of
- * ghosts go through {@code DragPlacement} with the same {@link #planAt}.
+ * ghosts go through {@code DragPlacement} with the same {@link #planAt}. A {@link GhostItem} in the
+ * main hand does the same without the key ({@link #effective}).
+ *
+ * <p>Ghost items come from here too: {@link #fromRecipe} (the hand-crafting screen, researched
+ * recipes only) and {@link #pipette} (pick-block on a placed block whose item the player lacks).
+ * A ghost item that would land on the ground as an item entity is deleted instead.
  *
  * <p>Also guards ghost reservations against real placement: a player placing a block into a cell
  * another ghost covers (a multiblock's footprint, a pole's upper blocks) is refused, unless that
@@ -58,6 +74,9 @@ public final class HandGhosts {
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent e) -> BUDGETS.remove(e.getEntity().getUUID()));
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent e) -> BUDGETS.clear());
         NeoForge.EVENT_BUS.addListener(HandGhosts::onPlace);
+        NeoForge.EVENT_BUS.addListener((EntityJoinLevelEvent e) -> {
+            if (e.getEntity() instanceof ItemEntity item && item.getItem().getItem() instanceof GhostItem) e.setCanceled(true);
+        });
     }
 
     /** What a hand ghost would be: its cell, the state it previews and the facing it is built with. */
@@ -69,6 +88,11 @@ public final class HandGhosts {
     public static boolean canGhost(ItemStack stack) {
         return stack.getItem() instanceof BlockItem bi && !(bi.getBlock() instanceof GhostBlock)
                 && Minetorio.MODID.equals(BuiltInRegistries.ITEM.getKey(bi).getNamespace());
+    }
+
+    /** What a click with {@code held} places ghosts of: a ghost item's target, else {@code held} itself. */
+    public static ItemStack effective(ItemStack held) {
+        return held.getItem() instanceof GhostItem ? GhostItem.target(held) : held;
     }
 
     /** The ghost a right-click {@code hit} with {@code stack} would place (either side), or null where the real block could not go. */
@@ -112,12 +136,12 @@ public final class HandGhosts {
     // --- server --------------------------------------------------------------------------------
 
     /**
-     * A ghost click from {@code player}'s client: the main hand's item, the block {@code hit}.
-     * True when a ghost was placed.
+     * A ghost click from {@code player}'s client: the main hand's item (or its ghost item's target),
+     * the block {@code hit}. True when a ghost was placed.
      */
     public static boolean place(ServerPlayer player, BlockHitResult hit) {
         ServerLevel level = player.serverLevel();
-        ItemStack stack = player.getMainHandItem();
+        ItemStack stack = effective(player.getMainHandItem());
         BlockPos clicked = hit.getBlockPos();
         if (!canGhost(stack) || !player.mayBuild() || !level.isLoaded(clicked) || !hitInside(hit)
                 || !player.canInteractWithBlock(clicked, REACH_TOLERANCE)) {
@@ -153,6 +177,65 @@ public final class HandGhosts {
         BUDGETS.remove(player.getUUID());
     }
 
+    // --- ghost items ----------------------------------------------------------------------------
+
+    /** Why a ghost item request was refused (for tests). */
+    public enum GiveResult { OK, NOT_ALLOWED, UNKNOWN, LOCKED, NOT_PLACEABLE, HAS_ITEM, TOO_FAR, TOO_SOON, NO_ROOM }
+
+    /**
+     * A ghost item of the output of hand-crafting recipe {@code recipeId}: only a crafting recipe
+     * unlocked by research whose output is a Minetorio block item.
+     */
+    public static GiveResult fromRecipe(ServerPlayer player, String recipeId) {
+        if (player.isSpectator() || !player.isAlive()) return GiveResult.NOT_ALLOWED;
+        Optional<Recipe> recipe = Phase1Data.recipes().get(recipeId);
+        if (recipe.isEmpty() || recipe.get().category() != RecipeCategory.CRAFTING || recipe.get().outputs().isEmpty()) {
+            return GiveResult.UNKNOWN;
+        }
+        if (!RecipeLocks.isUnlocked(player.server, recipeId)) return GiveResult.LOCKED;
+        ResourceLocation out = ResourceLocation.tryParse(recipe.get().outputs().getFirst().item());
+        ItemStack target = out == null ? ItemStack.EMPTY : new ItemStack(BuiltInRegistries.ITEM.get(out));
+        if (!canGhost(target)) return GiveResult.NOT_PLACEABLE;
+        if (!budget(player)) return GiveResult.TOO_SOON;
+        return give(player, target);
+    }
+
+    /**
+     * Pick-block on the block at {@code pos} by a survival player who has none of its item: a
+     * ghost item of it (a multiblock part gives its machine, a ghost its item).
+     */
+    public static GiveResult pipette(ServerPlayer player, BlockPos pos) {
+        ServerLevel level = player.serverLevel();
+        if (player.isSpectator() || !player.isAlive() || player.getAbilities().instabuild) return GiveResult.NOT_ALLOWED;
+        if (!level.isLoaded(pos) || !player.canInteractWithBlock(pos, REACH_TOLERANCE)) return GiveResult.TOO_FAR;
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir()) return GiveResult.UNKNOWN;
+        ItemStack target = state.getCloneItemStack(new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false), level, pos, player);
+        if (!canGhost(target)) return GiveResult.NOT_PLACEABLE;
+        Item item = target.getItem();
+        if (player.getInventory().hasAnyMatching(s -> s.is(item))) return GiveResult.HAS_ITEM;
+        if (!budget(player)) return GiveResult.TOO_SOON;
+        return give(player, new ItemStack(item));
+    }
+
+    /**
+     * Puts a ghost item of {@code target} in the player's hand the way vanilla pick-block does
+     * (an existing one is selected; else a suitable hotbar slot, its item moved to a free slot);
+     * refused when that would overwrite an item.
+     */
+    private static GiveResult give(ServerPlayer player, ItemStack target) {
+        ItemStack ghost = GhostItem.of(target.getItem());
+        Inventory inv = player.getInventory();
+        if (inv.findSlotMatchingItem(ghost) < 0 && !inv.getItem(inv.getSuitableHotbarSlot()).isEmpty() && inv.getFreeSlot() < 0) {
+            return GiveResult.NO_ROOM;
+        }
+        inv.setPickedItem(ghost);
+        inv.setChanged();
+        player.connection.send(new ClientboundSetCarriedItemPacket(inv.selected));
+        player.inventoryMenu.broadcastChanges();
+        return GiveResult.OK;
+    }
+
     // --- reservations --------------------------------------------------------------------------
 
     /** Refuses a real placement into cells a ghost (still standing) reserves. */
@@ -161,6 +244,7 @@ public final class HandGhosts {
         List<BlockSnapshot> snaps = event instanceof BlockEvent.EntityMultiPlaceEvent multi
                 ? multi.getReplacedBlockSnapshots() : List.of(event.getBlockSnapshot());
         for (BlockSnapshot snap : snaps) {
+            if (level.getBlockState(snap.getPos()).is(ModBlocks.GHOST.get())) continue; // a ghost item's use: checked by its plan
             for (BlockPos c : placedCells(level, snap.getPos())) {
                 BlockPos owner = GhostReservations.owner(level, c);
                 if (owner != null && level.getBlockState(owner).is(ModBlocks.GHOST.get())) {

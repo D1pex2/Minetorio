@@ -6,6 +6,7 @@ import dev.minetorio.client.ModKeys;
 import dev.minetorio.client.drag.DragClient;
 import dev.minetorio.client.machine.MultiblockPlacementPreview;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
+import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.content.robot.HandGhosts;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -29,7 +30,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 /**
- * While the ghost key is held with a Minetorio block item in the main hand, shows where a
+ * While the ghost key is held with a Minetorio block item in the main hand (or a ghost item is held), shows where a
  * right-click would put the ghost ({@link HandGhosts#plan}, the same plan the server makes): the
  * cells it covers as a blue box, or the aimed cell (a multiblock: the footprint it would take) in
  * red when no ghost can go there. Hidden during a drag, which draws its own line.
@@ -45,8 +46,10 @@ public final class GhostPlacementPreview {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES || DragClient.isDragging()) return;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (player == null || mc.level == null || !ModKeys.ghostHeld()) return;
-        ItemStack stack = player.getMainHandItem();
+        if (player == null || mc.level == null || mc.screen != null) return;
+        ItemStack held = player.getMainHandItem();
+        if (!(held.getItem() instanceof GhostItem) && !ModKeys.ghostHeld()) return;
+        ItemStack stack = HandGhosts.effective(held);
         if (!HandGhosts.canGhost(stack) || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
 
         HandGhosts.Plan plan = HandGhosts.plan(mc.level, player, stack, hit);

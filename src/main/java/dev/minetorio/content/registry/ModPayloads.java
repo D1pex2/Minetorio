@@ -44,7 +44,9 @@ public final class ModPayloads {
                 .playToClient(OreFieldPayloads.Info.TYPE, OreFieldPayloads.Info.STREAM_CODEC, OreFieldPayloads.Info::handle)
                 .playToServer(DragPayloads.Start.TYPE, DragPayloads.Start.STREAM_CODEC, DragPayloads.Start::handle)
                 .playToServer(DragPayloads.Steps.TYPE, DragPayloads.Steps.STREAM_CODEC, DragPayloads.Steps::handle)
-                .playToServer(GhostPayloads.Place.TYPE, GhostPayloads.Place.STREAM_CODEC, GhostPayloads.Place::handle);
+                .playToServer(GhostPayloads.Place.TYPE, GhostPayloads.Place.STREAM_CODEC, GhostPayloads.Place::handle)
+                .playToServer(GhostPayloads.FromRecipe.TYPE, GhostPayloads.FromRecipe.STREAM_CODEC, GhostPayloads.FromRecipe::handle)
+                .playToServer(GhostPayloads.Pipette.TYPE, GhostPayloads.Pipette.STREAM_CODEC, GhostPayloads.Pipette::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

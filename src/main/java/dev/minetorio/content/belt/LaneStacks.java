@@ -1,6 +1,7 @@
 package dev.minetorio.content.belt;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.LaneItem;
 import java.nio.charset.StandardCharsets;
@@ -56,7 +57,7 @@ public final class LaneStacks {
      * Every item entering the lane world must go through here.
      */
     public static Optional<String> toLane(ItemStack stack, HolderLookup.Provider registries) {
-        if (stack.isEmpty()) return Optional.empty();
+        if (stack.isEmpty() || stack.getItem() instanceof GhostItem) return Optional.empty(); // ghost items stay with players
         String key = key(stack, registries);
         if (key == null) return Optional.empty();
         if (key.length() > MAX_KEY_BYTES / 3 && key.getBytes(StandardCharsets.UTF_8).length > MAX_KEY_BYTES) return Optional.empty();
