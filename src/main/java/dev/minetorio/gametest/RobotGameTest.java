@@ -274,4 +274,163 @@ public class RobotGameTest {
             c.clearContent(); // passed: the chest stays in the world, its leftovers must not feed later roboport tests
         });
     }
+
+    // --- robots and chunks that do not tick ---------------------------------------------------
+
+    /**
+     * A chunk edge-adjacent to the chest's chunk (a robot flies there from the chest through those two
+     * chunks only) that is loaded but not entity-ticking, with its middle cell inside the roboport's
+     * area: that cell (absolute), at floor height. Null if the test layout offers none.
+     */
+    private static BlockPos nonTickingCell(GameTestHelper h, RoboportBlockEntity port) {
+        BlockPos chest = h.absolutePos(CHEST);
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] d : dirs) {
+            int cx = (chest.getX() >> 4) + d[0], cz = (chest.getZ() >> 4) + d[1];
+            BlockPos mid = new BlockPos((cx << 4) + 8, chest.getY(), (cz << 4) + 8);
+            if (h.getLevel().hasChunk(cx, cz) && !h.getLevel().isPositionEntityTicking(mid)
+                    && port.area().contains(ConstructionManager.cell(mid))) {
+                return mid;
+            }
+        }
+        return null;
+    }
+
+    // positions outside the test structure are absolute (GameTestHelper.relativePos turns them by 180°)
+
+    /** A belt ghost outside the test structure, with a floor under it. */
+    private static void outsideGhost(GameTestHelper h, BlockPos abs) {
+        h.getLevel().setBlock(abs.below(), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+        h.getLevel().setBlock(abs, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        h.assertTrue(Ghosts.place(h.getLevel(), abs, ModItems.TRANSPORT_BELT.get(), Direction.EAST), "no ghost at " + abs);
+    }
+
+    private static void forceChunk(GameTestHelper h, BlockPos abs, boolean on) {
+        h.getLevel().setChunkForced(abs.getX() >> 4, abs.getZ() >> 4, on);
+    }
+
+    private static boolean ticking(GameTestHelper h, BlockPos abs) {
+        return h.getLevel().isPositionEntityTicking(abs);
+    }
+
+    private static boolean isAt(GameTestHelper h, BlockPos abs, Block block) {
+        return h.getLevel().getBlockState(abs).is(block);
+    }
+
+    private static java.util.Optional<dev.minetorio.core.robot.ConstructionQueue.Job> job(GameTestHelper h, BlockPos abs) {
+        return ConstructionManager.get(h.getLevel()).queue().get(ConstructionManager.cell(abs));
+    }
+
+    private static java.util.List<ConstructionRobotEntity> robots(GameTestHelper h) {
+        return h.getLevel().getEntitiesOfClass(ConstructionRobotEntity.class, new AABB(h.absolutePos(BlockPos.ZERO)).inflate(60));
+    }
+
+    /**
+     * A ghost in the area but in a chunk that does not tick (a roboport at the edge of the loaded
+     * area) gets no robot: one flying there would freeze holding the job. The ghost in the test
+     * area is built and every robot comes home.
+     */
+    @GameTest(template = "empty16", batch = "robots_non_ticking_ghost", timeoutTicks = 600)
+    public static void ghostInANonTickingChunkIsNotDispatched(GameTestHelper h) {
+        RoboportBlockEntity port = roboport(h, 4, true);
+        ChestBlockEntity c = chest(h, new ItemStack(ModItems.TRANSPORT_BELT.get(), 5));
+        BlockPos away = nonTickingCell(h, port);
+        h.assertTrue(away != null, "no loaded, non-ticking chunk next to the test area");
+        outsideGhost(h, away);
+        BlockPos inside = new BlockPos(3, 1, 10);
+        ghost(h, inside, ModItems.TRANSPORT_BELT.get(), Direction.EAST);
+        boolean[] sent = {false};
+        h.onEachTick(() -> {
+            if (job(h, away).map(j -> j.isClaimed()).orElse(false)) sent[0] = true;
+        });
+        h.runAfterDelay(200, () -> h.succeedWhen(() -> {
+            h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), inside);
+            h.assertFalse(sent[0], "a robot took the ghost in the non-ticking chunk");
+            h.assertTrue(isAt(h, away, ModBlocks.GHOST.get()), "the ghost in the non-ticking chunk changed");
+            h.assertTrue(robots(h).isEmpty() && port.availableRobots() == 4 && port.robotsOut() == 0,
+                    "robots not home: " + port.availableRobots() + " stored, " + robots(h).size() + " flying");
+            h.assertTrue(count(c, ModItems.TRANSPORT_BELT.get()) == 4, "chest " + count(c, ModItems.TRANSPORT_BELT.get()));
+            h.getLevel().removeBlock(away, false);
+            c.clearContent();
+        }));
+    }
+
+    /**
+     * A robot on its way to a ghost whose chunk stops ticking under it (the player walked away)
+     * freezes; its claim is released, and what it saves (as an unload does) holds no job. Once the
+     * chunk ticks again, the robot loaded back takes its belt to the chest and comes home, and
+     * another robot builds the ghost.
+     */
+    @GameTest(template = "empty16", batch = "robots_chunk_stops_ticking", timeoutTicks = 1600)
+    public static void robotInAChunkThatStopsTickingReleasesItsJob(GameTestHelper h) {
+        RoboportBlockEntity port = roboport(h, 2, true);
+        ChestBlockEntity c = chest(h, new ItemStack(ModItems.TRANSPORT_BELT.get(), 5));
+        BlockPos away = nonTickingCell(h, port);
+        h.assertTrue(away != null, "no loaded, non-ticking chunk next to the test area");
+        outsideGhost(h, away);
+        forceChunk(h, away, true);
+        int[] stage = {0};
+        long[] firstId = {0};
+        boolean[] other = {false};
+        CompoundTag saved = new CompoundTag();
+        ConstructionRobotEntity[] first = {null};
+        int[] wait = {0};
+        h.onEachTick(() -> {
+            var job = job(h, away);
+            if (job.isPresent() && job.get().isClaimed() && firstId[0] != 0 && job.get().claimant() != firstId[0]) other[0] = true;
+            switch (stage[0]) {
+                case 0 -> { // the first robot flies into the ghost's chunk: it stops ticking
+                    for (ConstructionRobotEntity r : robots(h)) {
+                        if (r.phase() == ConstructionRobotEntity.Phase.TO_GHOST
+                                && (r.blockPosition().getX() >> 4) == (away.getX() >> 4)
+                                && (r.blockPosition().getZ() >> 4) == (away.getZ() >> 4)) {
+                            first[0] = r;
+                            firstId[0] = r.robotId();
+                            forceChunk(h, away, false);
+                            stage[0] = 1;
+                            break;
+                        }
+                    }
+                }
+                case 1 -> { // frozen there: the sweep releases its claim
+                    if (!ticking(h, away) && job.isPresent() && !job.get().isClaimed() && !first[0].holdsJob()) {
+                        h.assertTrue(first[0].save(saved), "robot not saved");
+                        h.assertFalse(saved.contains("job"), "the saved robot still holds the job");
+                        first[0].remove(net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_TO_CHUNK);
+                        stage[0] = 2;
+                    }
+                }
+                case 2 -> { // unloaded: the job stays free, nobody is sent to the non-ticking chunk
+                    h.assertTrue(job.isPresent() && !job.get().isClaimed(), "the job was claimed while its chunk does not tick");
+                    h.assertTrue(port.availableRobots() == 1, "a robot was sent to the non-ticking chunk");
+                    if (++wait[0] >= 40) {
+                        forceChunk(h, away, true);
+                        stage[0] = 3;
+                    }
+                }
+                case 3 -> { // the chunk ticks again: the robot is loaded back
+                    if (ticking(h, away)) {
+                        var loaded = net.minecraft.world.entity.EntityType.create(saved, h.getLevel());
+                        h.assertTrue(loaded.isPresent(), "robot not loaded");
+                        h.assertTrue(h.getLevel().addFreshEntity(loaded.get()), "robot not added");
+                        stage[0] = 4;
+                    }
+                }
+                default -> {}
+            }
+        });
+        h.succeedWhen(() -> {
+            h.assertTrue(stage[0] == 4, "stage " + stage[0] + " ticking " + ticking(h, away) + " job " + job(h, away).map(j -> j.claimant())
+                    + " away " + away + " port " + port.availableRobots() + " robots " + robots(h).stream()
+                    .map(r -> r.phase() + "@" + r.blockPosition()).toList());
+            h.assertTrue(isAt(h, away, ModBlocks.TRANSPORT_BELT.get()), "the ghost was not built");
+            h.assertTrue(other[0], "the job was not done by another robot");
+            h.assertTrue(robots(h).isEmpty() && port.availableRobots() == 2 && port.robotsOut() == 0,
+                    "robots not home: " + port.availableRobots() + " stored, " + robots(h).size() + " flying, out " + port.robotsOut());
+            h.assertTrue(count(c, ModItems.TRANSPORT_BELT.get()) == 4, "chest " + count(c, ModItems.TRANSPORT_BELT.get()));
+            forceChunk(h, away, false);
+            h.getLevel().removeBlock(away, false);
+            c.clearContent();
+        });
+    }
 }
