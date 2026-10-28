@@ -58,6 +58,10 @@ public final class ModPayloads {
                 .playToServer(BlueprintPayloads.Capture.TYPE, BlueprintPayloads.Capture.STREAM_CODEC, BlueprintPayloads.Capture::handle)
                 .playToServer(BlueprintPayloads.Paste.TYPE, BlueprintPayloads.Paste.STREAM_CODEC, BlueprintPayloads.Paste::handle)
                 .playToServer(BlueprintPayloads.Give.TYPE, BlueprintPayloads.Give.STREAM_CODEC, BlueprintPayloads.Give::handle)
+                .playToServer(BlueprintPayloads.BookScroll.TYPE, BlueprintPayloads.BookScroll.STREAM_CODEC, BlueprintPayloads.BookScroll::handle)
+                .playToServer(BlueprintPayloads.BookEdit.TYPE, BlueprintPayloads.BookEdit.STREAM_CODEC, BlueprintPayloads.BookEdit::handle)
+                .playToServer(BlueprintPayloads.SetMeta.TYPE, BlueprintPayloads.SetMeta.STREAM_CODEC, BlueprintPayloads.SetMeta::handle)
+                .playToServer(BlueprintPayloads.Upload.TYPE, BlueprintPayloads.Upload.STREAM_CODEC, BlueprintPayloads.Upload::handle)
                 .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle)
                 .playToServer(dev.minetorio.content.robot.PlannerPayloads.Select.TYPE, dev.minetorio.content.robot.PlannerPayloads.Select.STREAM_CODEC,
                         dev.minetorio.content.robot.PlannerPayloads.Select::handle)

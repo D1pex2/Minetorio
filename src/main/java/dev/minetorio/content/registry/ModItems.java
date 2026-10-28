@@ -2,6 +2,7 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltItem;
+import dev.minetorio.content.blueprint.BlueprintBookItem;
 import dev.minetorio.content.blueprint.BlueprintItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
@@ -83,6 +84,8 @@ public final class ModItems {
     public static final DeferredItem<Item> GHOST_ITEM = ITEMS.registerItem("ghost_item", p -> new GhostItem(p.stacksTo(1)));
     /** Factorio's blueprint (see {@link BlueprintItem}); free from the blueprint key. */
     public static final DeferredItem<Item> BLUEPRINT = ITEMS.registerItem("blueprint", p -> new BlueprintItem(p.stacksTo(1)));
+    /** Factorio's blueprint book (see {@link BlueprintBookItem}); free from the book key. */
+    public static final DeferredItem<Item> BLUEPRINT_BOOK = ITEMS.registerItem("blueprint_book", p -> new BlueprintBookItem(p.stacksTo(1)));
 
     /** Factorio's deconstruction planner: free from the shortcut key, never crafted. */
     public static final DeferredItem<Item> DECONSTRUCTION_PLANNER = ITEMS.registerItem("deconstruction_planner",
@@ -107,7 +110,7 @@ public final class ModItems {
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "pipe_to_ground", "storage_tank", "pump", "boiler", "steam_engine", "small_electric_pole",
             "solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation",
-            "roboport", "construction_robot", "ghost_item", "blueprint", "deconstruction_planner", "upgrade_planner",
+            "roboport", "construction_robot", "ghost_item", "blueprint", "blueprint_book", "deconstruction_planner", "upgrade_planner",
             "raw_fish");
 
     private ModItems() {}

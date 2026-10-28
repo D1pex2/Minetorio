@@ -62,7 +62,8 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  *   <li>{@link Status#FORCED} (Shift paste): it fits once the vanilla blocks in its way
  *       ({@link DeconstructionMarking#markable}) are deconstructed; those are marked.</li>
  * </ul>
- * The server ({@link #paste}) takes the blueprint from the player's hand (never from the packet),
+ * The server ({@link #paste}) takes the blueprint from the player's hand (never from the packet; a
+ * book in hand pastes its active blueprint),
  * checks the anchor's ghost reach, build rights per cell, and a paste budget; the settings lose
  * recipes that are not unlocked ({@link BlueprintRules#sanitize}). A ghost blocked only by a marked
  * block in its own cell waits for it ({@link DeconstructionMarking#addPending}).
@@ -80,6 +81,7 @@ public final class BlueprintPaste {
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent e) -> BUDGETS.remove(e.getEntity().getUUID()));
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent e) -> BUDGETS.clear());
         BlueprintCapture.register();
+        BlueprintImport.register();
     }
 
     public enum Status { OK, FORCED, SAME, BLOCKED, LOCKED, UPGRADE }
@@ -280,7 +282,7 @@ public final class BlueprintPaste {
      */
     public static Result paste(ServerPlayer player, BlockPos anchor, int bits, boolean force) {
         ServerLevel level = player.serverLevel();
-        BlueprintData data = BlueprintItem.data(player.getMainHandItem());
+        BlueprintData data = BlueprintStacks.activeData(player.getMainHandItem());
         if (data == null || !data.valid() || player.isSpectator() || !player.mayBuild() || !player.isAlive()) return Result.REFUSED;
         if (!level.isLoaded(anchor) || !RemoteView.canReachGhost(player, anchor)) return Result.REFUSED;
         if (!BUDGETS.computeIfAbsent(player.getUUID(), u -> new RateBudget(BURST, REFILL_PER_TICK)).take(player.server.getTickCount(), 1)) {

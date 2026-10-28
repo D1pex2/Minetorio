@@ -1,7 +1,9 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.blueprint.BlueprintBookData;
 import dev.minetorio.content.blueprint.BlueprintData;
+import dev.minetorio.content.blueprint.BlueprintMeta;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -34,6 +36,16 @@ public final class ModDataComponents {
             COMPONENTS.registerComponentType("upgrade_rules",
                     b -> b.persistent(dev.minetorio.content.robot.PlannerItems.RULES_CODEC)
                             .networkSynchronized(dev.minetorio.content.robot.PlannerItems.RULES_STREAM_CODEC));
+
+    /** A blueprint's or book's name and icons ({@code BlueprintMeta}); absent means none. Saved and synced. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlueprintMeta>> BLUEPRINT_META =
+            COMPONENTS.registerComponentType("blueprint_meta",
+                    b -> b.persistent(BlueprintMeta.CODEC).networkSynchronized(BlueprintMeta.STREAM_CODEC));
+
+    /** A blueprint book's contents ({@code BlueprintBookData}); an empty book has none. Saved and synced. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlueprintBookData>> BLUEPRINT_BOOK =
+            COMPONENTS.registerComponentType("blueprint_book",
+                    b -> b.persistent(BlueprintBookData.CODEC).networkSynchronized(BlueprintBookData.STREAM_CODEC).cacheEncoding());
 
     private ModDataComponents() {}
 

@@ -8,11 +8,15 @@ import dev.minetorio.client.camera.BuildCamera;
 import dev.minetorio.client.camera.RemoteViewClient;
 import dev.minetorio.client.machine.MultiblockPlacementPreview;
 import dev.minetorio.client.robot.GhostRenderer;
+import dev.minetorio.content.blueprint.BlueprintBookData;
+import dev.minetorio.content.blueprint.BlueprintBookItem;
 import dev.minetorio.content.blueprint.BlueprintData;
 import dev.minetorio.content.blueprint.BlueprintItem;
 import dev.minetorio.content.blueprint.BlueprintPaste;
 import dev.minetorio.content.blueprint.BlueprintPaste.PartPlan;
 import dev.minetorio.content.blueprint.BlueprintPayloads;
+import dev.minetorio.content.blueprint.BlueprintRecord;
+import dev.minetorio.content.blueprint.BlueprintStacks;
 import dev.minetorio.content.research.RecipeLocks;
 import dev.minetorio.core.blueprint.BlueprintTransform;
 import dev.minetorio.core.blueprint.Blueprints;
@@ -23,6 +27,10 @@ import javax.annotation.Nullable;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -31,6 +39,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -45,9 +55,11 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.settings.IKeyConflictContext;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.client.settings.KeyModifier;
@@ -58,7 +70,13 @@ import org.lwjgl.glfw.GLFW;
  * Client side of the blueprint ({@link BlueprintItem}).
  *
  * <p><b>Getting one:</b> Ctrl+B ({@link #GIVE}) puts a new empty blueprint in the hand (free, as
- * Factorio's shortcut; B alone stays free for the blueprint library).
+ * Factorio's shortcut); Ctrl+Shift+B (the same binding with Shift also held) an empty blueprint
+ * book. B ({@link #LIBRARY}) opens the blueprint library ({@link BlueprintLibraryScreen}).
+ *
+ * <p><b>Books</b> ({@link BlueprintBookItem}): held, a book pastes its active blueprint exactly like
+ * a blueprint; Ctrl + wheel picks the active entry (shown at the bottom of the screen). Right-click
+ * a book in the inventory to open it ({@link BlueprintBookScreen}), a blueprint to name it, set its
+ * icons or copy its string ({@link BlueprintMetaScreen}).
  *
  * <p><b>Copying</b> (empty blueprint). First person: right-click the first corner, right-click the
  * second; the box shows translucent. Hold Left Shift ({@link #ADJUST}) and turn the wheel to move
@@ -90,6 +108,9 @@ public final class BlueprintClient {
     };
 
     public static final KeyMapping GIVE = new KeyMapping("key.minetorio.blueprint", KeyConflictContext.IN_GAME, KeyModifier.CONTROL,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, ModKeys.CATEGORY);
+    /** The blueprint library (B alone; Ctrl+B is {@link #GIVE}). */
+    public static final KeyMapping LIBRARY = new KeyMapping("key.minetorio.blueprint_library", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, ModKeys.CATEGORY);
     public static final KeyMapping ROTATE = new KeyMapping("key.minetorio.blueprint_rotate", HOLDING_BLUEPRINT,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, ModKeys.CATEGORY);
@@ -132,6 +153,7 @@ public final class BlueprintClient {
     @SubscribeEvent
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(GIVE);
+        event.register(LIBRARY);
         event.register(ROTATE);
         event.register(FLIP_X);
         event.register(FLIP_Z);
@@ -139,13 +161,18 @@ public final class BlueprintClient {
         event.register(CONFIRM);
     }
 
-    /** The blueprint in the main hand (no screen open), or null. */
+    /** The blueprint or book in the main hand (no screen open), or null. */
     @Nullable
     static ItemStack holding() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null) return null;
         ItemStack s = mc.player.getMainHandItem();
-        return s.getItem() instanceof BlueprintItem ? s : null;
+        return BlueprintStacks.isBlueprintLike(s) ? s : null;
+    }
+
+    /** Whether {@code held} selects an area to copy: an empty blueprint (not a book). */
+    private static boolean selecting(@Nullable ItemStack held) {
+        return held != null && BlueprintItem.isEmptyBlueprint(held);
     }
 
     public static BlueprintTransform transform() {
@@ -158,7 +185,7 @@ public final class BlueprintClient {
     public static void onTickPre(ClientTickEvent.Pre event) {
         Minecraft mc = Minecraft.getInstance();
         ItemStack held = holding();
-        BlueprintData data = held == null ? null : BlueprintItem.data(held);
+        BlueprintData data = held == null ? null : BlueprintStacks.activeData(held);
         if (data != null) {
             while (ROTATE.consumeClick()) transform = transform.rotated();
             while (FLIP_X.consumeClick()) transform = transform.flippedX();
@@ -172,16 +199,16 @@ public final class BlueprintClient {
             drain(FLIP_X);
             drain(FLIP_Z);
         }
-        if (held == null || data != null) {
+        if (!selecting(held)) {
             corner = null;
             boxMin = boxMax = null;
             dragStart = null;
         }
         while (CONFIRM.consumeClick()) {
-            if (held != null && data == null && boxMin != null) confirmBox();
+            if (selecting(held) && boxMin != null) confirmBox();
         }
         if (!mc.options.keyUse.isDown()) armed = true;
-        if (dragStart != null && held != null && data == null && !mc.options.keyUse.isDown()) {
+        if (dragStart != null && selecting(held) && !mc.options.keyUse.isDown()) {
             BlockPos end = cursorCell(mc, false);
             PacketDistributor.sendToServer(new BlueprintPayloads.Capture(dragStart, end == null ? dragStart : end, true));
             dragStart = null;
@@ -190,9 +217,12 @@ public final class BlueprintClient {
 
     @SubscribeEvent
     public static void onTickPost(ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
         while (GIVE.consumeClick()) {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null && mc.screen == null) PacketDistributor.sendToServer(new BlueprintPayloads.Give());
+            if (mc.player != null && mc.screen == null) PacketDistributor.sendToServer(new BlueprintPayloads.Give(Screen.hasShiftDown()));
+        }
+        while (LIBRARY.consumeClick()) {
+            if (mc.player != null && mc.screen == null && !Screen.hasControlDown()) mc.setScreen(new BlueprintLibraryScreen());
         }
     }
 
@@ -216,10 +246,10 @@ public final class BlueprintClient {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || event.isPickBlock()) return;
         ItemStack held = player.getMainHandItem();
-        if (!(held.getItem() instanceof BlueprintItem)) return;
+        if (!BlueprintStacks.isBlueprintLike(held)) return;
         event.setCanceled(true);
         event.setSwingHand(false);
-        BlueprintData data = BlueprintItem.data(held);
+        BlueprintData data = BlueprintStacks.activeData(held);
         if (event.isAttack()) {
             corner = null;
             boxMin = boxMax = null;
@@ -236,6 +266,7 @@ public final class BlueprintClient {
             }
             return;
         }
+        if (!selecting(held)) return; // a book whose active entry is empty
         if (BuildCamera.isActive()) {
             dragStart = cursorCell(mc, false);
             return;
@@ -263,6 +294,18 @@ public final class BlueprintClient {
         PacketDistributor.sendToServer(new BlueprintPayloads.Capture(boxMin, boxMax, false));
         boxMin = boxMax = null;
         corner = null;
+    }
+
+    /** Ctrl + wheel with a book in the main hand: the active entry (wheel down: the next one). */
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onBookScroll(InputEvent.MouseScrollingEvent event) {
+        ItemStack held = holding();
+        if (held == null || !BlueprintStacks.isBook(held) || !Screen.hasControlDown() || event.getScrollDeltaY() == 0) return;
+        if (!BlueprintStacks.book(held).isEmpty()) {
+            PacketDistributor.sendToServer(new BlueprintPayloads.BookScroll(event.getScrollDeltaY() > 0 ? -1 : 1));
+            planKey = null;
+        }
+        event.setCanceled(true);
     }
 
     /** Shift + wheel (first person, a box selected): moves the face looked at out (wheel up) or in. */
@@ -338,9 +381,9 @@ public final class BlueprintClient {
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        BlueprintData data = BlueprintItem.data(held);
-        if (data == null) drawSelection(mc, pose, buffers);
-        else drawPaste(mc, data, pose, buffers);
+        BlueprintData data = BlueprintStacks.activeData(held);
+        if (data != null) drawPaste(mc, data, pose, buffers);
+        else if (selecting(held)) drawSelection(mc, pose, buffers);
         pose.popPose();
     }
 
@@ -447,8 +490,11 @@ public final class BlueprintClient {
         ItemStack held = holding();
         if (held == null || mc.options.hideGui) return;
         GuiGraphics g = event.getGuiGraphics();
+        if (BlueprintStacks.isBook(held)) drawBookLine(mc, g, held);
         Component help;
-        if (BlueprintItem.data(held) != null) {
+        if (BlueprintStacks.isBook(held) && BlueprintStacks.activeData(held) == null) {
+            help = Component.translatable("minetorio.blueprint_book.help.empty");
+        } else if (BlueprintStacks.activeData(held) != null) {
             help = Component.translatable("minetorio.blueprint.help.paste", ROTATE.getTranslatedKeyMessage(),
                     FLIP_X.getTranslatedKeyMessage(), FLIP_Z.getTranslatedKeyMessage());
         } else if (BuildCamera.isActive()) {
@@ -460,5 +506,47 @@ public final class BlueprintClient {
         }
         int y = g.guiHeight() - 72;
         g.drawCenteredString(mc.font, help, g.guiWidth() / 2, y, 0xFFB0D8FF);
+    }
+
+    /** The book in hand: its name, the active entry's number and name, and the wheel hint. */
+    private static void drawBookLine(Minecraft mc, GuiGraphics g, ItemStack held) {
+        BlueprintBookData d = BlueprintStacks.book(held);
+        Component line;
+        if (d.isEmpty()) {
+            line = Component.translatable("minetorio.blueprint_book.hud.empty", held.getHoverName());
+        } else {
+            BlueprintRecord a = d.activeEntry();
+            line = Component.translatable("minetorio.blueprint_book.hud", held.getHoverName(), d.active() + 1, d.size(),
+                    a == null ? Component.empty() : BlueprintStacks.name(a));
+        }
+        g.drawCenteredString(mc.font, line, g.guiWidth() / 2, g.guiHeight() - 84, 0xFFFFE080);
+    }
+
+    // --- opening blueprints and books from the inventory -------------------------------------------
+
+    /**
+     * Right-click (with nothing on the cursor) on a blueprint or book in the player's own inventory
+     * opens it: a book its window, a blueprint its name/icons/string editor.
+     */
+    @SubscribeEvent
+    public static void onInventoryClick(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
+        if (!(event.getScreen() instanceof InventoryScreen) && !(event.getScreen() instanceof CreativeModeInventoryScreen)) return;
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) event.getScreen();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || !screen.getMenu().getCarried().isEmpty()) return;
+        Slot slot = screen.getSlotUnderMouse();
+        if (slot == null || !(slot.container instanceof Inventory) || slot.getContainerSlot() >= Inventory.INVENTORY_SIZE) return;
+        ItemStack s = slot.getItem();
+        if (!BlueprintStacks.isBlueprintLike(s)) return;
+        int index = slot.getContainerSlot();
+        mc.setScreen(BlueprintStacks.isBook(s) ? new BlueprintBookScreen(screen, index) : BlueprintMetaScreen.forSlot(screen, index, List.of()));
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void registerDecorations(RegisterItemDecorationsEvent event) {
+        event.register(dev.minetorio.content.registry.ModItems.BLUEPRINT.get(), (g, font, stack, x, y) -> BlueprintGui.drawIcons(g, stack, x, y));
+        event.register(dev.minetorio.content.registry.ModItems.BLUEPRINT_BOOK.get(), (g, font, stack, x, y) -> BlueprintGui.drawIcons(g, stack, x, y));
     }
 }

@@ -1,7 +1,9 @@
 package dev.minetorio.content.blueprint;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.core.blueprint.BlueprintBooks;
 import io.netty.buffer.ByteBuf;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -47,16 +49,84 @@ public final class BlueprintPayloads {
         }
     }
 
-    /** The blueprint shortcut: a new empty blueprint in hand. */
-    public record Give() implements CustomPacketPayload {
+    /** The blueprint shortcut: a new empty blueprint (or, {@code book}, an empty blueprint book) in hand. */
+    public record Give(boolean book) implements CustomPacketPayload {
         public static final Type<Give> TYPE = new Type<>(id("blueprint_give"));
-        public static final StreamCodec<ByteBuf, Give> STREAM_CODEC = StreamCodec.unit(new Give());
+        public static final StreamCodec<ByteBuf, Give> STREAM_CODEC = ByteBufCodecs.BOOL.map(Give::new, Give::book);
 
         @Override
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
         public static void handle(Give p, IPayloadContext context) {
-            if (context.player() instanceof ServerPlayer player) BlueprintCapture.give(player);
+            if (context.player() instanceof ServerPlayer player) {
+                BlueprintCapture.give(player, p.book() ? BlueprintBookItem.empty() : BlueprintItem.empty());
+            }
+        }
+    }
+
+    private static final StreamCodec<ByteBuf, List<Integer>> PATH =
+            ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list(BlueprintBooks.MAX_DEPTH));
+
+    /** Ctrl + wheel with a book in the main hand: the active entry {@code delta} (sign only) steps on. */
+    public record BookScroll(int delta) implements CustomPacketPayload {
+        public static final Type<BookScroll> TYPE = new Type<>(id("blueprint_book_scroll"));
+        public static final StreamCodec<ByteBuf, BookScroll> STREAM_CODEC = ByteBufCodecs.VAR_INT.map(BookScroll::new, BookScroll::delta);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(BookScroll p, IPayloadContext context) {
+            if (context.player() instanceof ServerPlayer player) BlueprintBookOps.scroll(player, p.delta());
+        }
+    }
+
+    /** A book window change ({@link BlueprintBookOps.Op} {@code op}) on the book at {@code path} in inventory slot {@code slot}. */
+    public record BookEdit(int slot, List<Integer> path, int op, int a, int b) implements CustomPacketPayload {
+        public static final Type<BookEdit> TYPE = new Type<>(id("blueprint_book_edit"));
+        public static final StreamCodec<ByteBuf, BookEdit> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, BookEdit::slot, PATH, BookEdit::path, ByteBufCodecs.VAR_INT, BookEdit::op,
+                ByteBufCodecs.VAR_INT, BookEdit::a, ByteBufCodecs.VAR_INT, BookEdit::b, BookEdit::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(BookEdit p, IPayloadContext context) {
+            if (context.player() instanceof ServerPlayer player) {
+                BlueprintBookOps.edit(player, p.slot(), p.path(), BlueprintBookOps.Op.byId(p.op()), p.a(), p.b());
+            }
+        }
+    }
+
+    /** New name and icons for the blueprint or book at {@code path} in inventory slot {@code slot}. */
+    public record SetMeta(int slot, List<Integer> path, BlueprintMeta meta) implements CustomPacketPayload {
+        public static final Type<SetMeta> TYPE = new Type<>(id("blueprint_set_meta"));
+        public static final StreamCodec<ByteBuf, SetMeta> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, SetMeta::slot, PATH, SetMeta::path, BlueprintMeta.STREAM_CODEC, SetMeta::meta, SetMeta::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(SetMeta p, IPayloadContext context) {
+            if (context.player() instanceof ServerPlayer player) BlueprintBookOps.setMeta(player, p.slot(), p.path(), p.meta());
+        }
+    }
+
+    /**
+     * One chunk ({@code index} of {@code total}) of upload {@code transfer}: a blueprint or book
+     * from the library or a string, as deflated bytes, to become an item in slot {@code slot}
+     * ({@link BlueprintImport}).
+     */
+    public record Upload(int transfer, int index, int total, int slot, byte[] data) implements CustomPacketPayload {
+        public static final Type<Upload> TYPE = new Type<>(id("blueprint_upload"));
+        public static final StreamCodec<ByteBuf, Upload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, Upload::transfer, ByteBufCodecs.VAR_INT, Upload::index, ByteBufCodecs.VAR_INT, Upload::total,
+                ByteBufCodecs.VAR_INT, Upload::slot, ByteBufCodecs.byteArray(BlueprintImport.CHUNK), Upload::data, Upload::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(Upload p, IPayloadContext context) {
+            if (context.player() instanceof ServerPlayer player) BlueprintImport.chunk(player, p.transfer(), p.index(), p.total(), p.slot(), p.data());
         }
     }
 }
