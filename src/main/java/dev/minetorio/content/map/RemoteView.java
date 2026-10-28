@@ -59,7 +59,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * items, remove ghosts, and open a machine's GUI to look at it and change its recipe. The server
  * replaces the reach check of those actions by {@link #canReach}: inside the view's area, on
  * eligible chunks. Real block placing and breaking, item use and entity interaction are refused
- * while the view is open, and the machine GUI moves no items ({@link #blocksTransfer}).
+ * while the view is open, and the machine GUI's slots move no items ({@link #blocksTransfer}); what
+ * a recipe change returns goes to the player's inventory (the rest dropped at his body).
  *
  * <p><b>Lifetime.</b> Focus updates are rate-limited and must stay over eligible chunks. The view
  * closes when its focus chunk stops being eligible (the radar stops), and on exit, logout, death and

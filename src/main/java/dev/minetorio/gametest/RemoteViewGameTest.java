@@ -43,7 +43,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * The remote view's server side ({@link RemoteView}): entering only over watched (or own-view)
  * chunks, ghosts placed and removed through the remote path only inside its watched area, recipe
- * changes from a machine GUI opened remotely (no item moves), and its chunk ticket released on
+ * changes from a machine GUI opened remotely (no slot moves; returned items go to the player), and its chunk ticket released on
  * every way out. A fake player far from the test (out of reach and out of his own view) stands in
  * for the client; the watched set is a stand-in radar's.
  *
@@ -135,7 +135,10 @@ public class RemoteViewGameTest {
         floor(h);
         ServerPlayer p = farPlayer(h, ModItems.TRANSPORT_BELT.get());
         ChunkPos a = chunkOf(h, new BlockPos(5, 1, 5));
-        long id = watchOnly(h, a, 0);
+        // radius 1: every cell of the test (0..15) is within one chunk of (5, 5), wherever the batch
+        // put the test; with radius 0 the drag cells (3..5, 3) fell outside the area whenever a chunk
+        // border ran between them and (5, 5) (the flaky "ghost drag refused")
+        long id = watchOnly(h, a, 1);
         h.assertFalse(ghostClick(h, p, new BlockPos(5, 0, 5)), "ghost placed from afar without the remote view");
 
         h.assertTrue(RemoteView.enter(p, centerX(a), centerZ(a)) == RemoteView.Result.OK, "remote view refused");
@@ -183,8 +186,9 @@ public class RemoteViewGameTest {
 
     /**
      * An assembler's GUI opened from the remote view: the recipe can be changed (what the machine
-     * gives up spills at the machine, nothing reaches the player), slot clicks move nothing, and
-     * closing the view closes the GUI.
+     * gives up goes into the player's inventory, nothing is left at the non-ticking remote machine;
+     * a full inventory drops the rest at the player's body), slot clicks move nothing, and closing
+     * the view closes the GUI.
      */
     @GameTest(template = "empty16", batch = BATCH)
     public static void remoteGuiChangesTheRecipeWithoutMovingItems(GameTestHelper h) {
@@ -218,11 +222,27 @@ public class RemoteViewGameTest {
 
         h.assertTrue(AssemblerBlockEntity.select(p, pos, "pipe") == SelectResult.OK, "second recipe change refused");
         h.assertTrue(be.machine().inputs().isEmpty(), "inputs kept " + be.machine().inputs());
-        h.assertTrue(p.getInventory().isEmpty(), "plates went to the far player");
-        List<ItemEntity> spilled = h.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(3));
-        int plates = spilled.stream().filter(e -> e.getItem().is(ModItems.IRON_PLATE.get())).mapToInt(e -> e.getItem().getCount()).sum();
-        h.assertTrue(plates == 3, "spilled plates " + plates);
-        spilled.forEach(e -> e.discard());
+        h.assertTrue(p.getInventory().countItem(ModItems.IRON_PLATE.get()) == 3, "plates in the inventory: "
+                + p.getInventory().countItem(ModItems.IRON_PLATE.get()));
+        h.assertTrue(h.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(3)).isEmpty(), "items spilled at the machine");
+
+        // a full inventory: the rest lands at the player's body (home), not at the remote machine
+        // (the body steps into the test's corner, loaded and well clear of the machine: the far
+        // fake player's chunk is not loaded, so a drop there could not be seen)
+        BlockPos body = h.absolutePos(new BlockPos(14, 1, 14));
+        p.moveTo(body.getX() + 0.5, body.getY(), body.getZ() + 0.5);
+        p.getInventory().clearContent();
+        for (int i = 0; i < p.getInventory().items.size(); i++) p.getInventory().items.set(i, new ItemStack(Blocks.DIRT, 64));
+        h.assertTrue(AssemblerBlockEntity.select(p, pos, "iron_gear_wheel") == SelectResult.OK, "third recipe change refused");
+        be.machine().insertInput(PLATE, 2, false);
+        h.assertTrue(AssemblerBlockEntity.select(p, pos, "pipe") == SelectResult.OK, "fourth recipe change refused");
+        h.assertTrue(be.machine().inputs().isEmpty(), "inputs kept " + be.machine().inputs());
+        h.assertTrue(h.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(3)).isEmpty(), "items spilled at the machine");
+        List<ItemEntity> home = h.getLevel().getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(2));
+        int plates = home.stream().filter(e -> e.getItem().is(ModItems.IRON_PLATE.get())).mapToInt(e -> e.getItem().getCount()).sum();
+        h.assertTrue(plates == 2, "plates dropped at the body " + plates);
+        home.forEach(e -> e.discard());
+        p.getInventory().clearContent();
 
         RemoteView.endForTests(p);
         h.assertTrue(p.containerMenu == p.inventoryMenu, "GUI kept open after the view closed");
