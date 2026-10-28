@@ -212,13 +212,22 @@ COMPOSITE_ENTRIES = [
      + placed("minetorio:block/steam_engine_front", dz=-24) + placed("minetorio:block/steam_engine_rear", dz=24)
      + placed("minetorio:block/steam_engine_gear", dy=7, dz=2)
      + placed("minetorio:block/steam_engine_gear_small", dy=4, dz=-14)
-     + placed("minetorio:block/steam_engine_gear_small", dy=13, dz=17)),
-    ("lab (in world, researching)", lambda: placed("minetorio:block/lab_body") + placed("minetorio:block/lab_dome")),
+     + placed("minetorio:block/steam_engine_gear_small", dy=13, dz=17)
+     + placed("minetorio:block/steam_engine_flywheel", dy=6, dz=-31)
+     + placed("minetorio:block/steam_engine_rod") + placed("minetorio:block/steam_engine_crosshead")
+     + placed("minetorio:block/steam_engine_valve", dz=-24) + placed("minetorio:block/steam_engine_valve")
+     + placed("minetorio:block/steam_engine_valve", dz=24)),
+    ("lab (in world, researching)", lambda: placed("minetorio:block/lab_body") + placed("minetorio:block/lab_rotor")
+     + placed("minetorio:block/lab_core_glow") + placed("minetorio:block/lab_dome")),
     ("electric_mining_drill (in world)", lambda: placed("minetorio:block/electric_mining_drill_body")
      + placed("minetorio:block/electric_mining_drill_head") + placed("minetorio:block/electric_mining_drill_carriage")
      + placed("minetorio:block/electric_mining_drill_tower", dy=16)),
     ("burner_mining_drill (in world)", lambda: placed("minetorio:block/burner_mining_drill")
-     + placed("minetorio:block/burner_mining_drill_head", 8, 0, -8)),
+     + placed("minetorio:block/burner_mining_drill_head", 8, 0, -8)
+     + placed("minetorio:block/burner_mining_drill_piston", 8, 0, -8)),
+    ("offshore_pump (in world, pumping)", lambda: placed("minetorio:block/offshore_pump")
+     + placed("minetorio:block/offshore_pump_gear", dy=-2, dz=-12)
+     + placed("minetorio:block/offshore_pump_gear_b", dy=-2, dz=-5) + placed("minetorio:block/offshore_pump_flow", dz=-8)),
     ("small_electric_pole (in world, 3 high)", lambda: placed("minetorio:block/small_electric_pole")
      + placed("minetorio:block/small_electric_pole_middle", dy=16) + placed("minetorio:block/small_electric_pole_top", dy=32)),
 ]

@@ -1,0 +1,12 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "rod": "minetorio:block/piston_rod",
+    "cap": "minetorio:block/dark_panel",
+    "particle": "minetorio:block/piston_rod"
+  },
+  "elements": [
+    {"from": [-1.5, 22.25, 0.25], "to": [0, 29.5, 1.75], "faces": {"north": {"uv": [7.25, 4.375, 8.75, 11.625], "texture": "#rod"}, "south": {"uv": [7.25, 4.375, 8.75, 11.625], "texture": "#rod"}, "east": {"uv": [7.25, 4.375, 8.75, 11.625], "texture": "#rod"}, "west": {"uv": [7.25, 4.375, 8.75, 11.625], "texture": "#rod"}, "up": {"uv": [7.25, 7.25, 8.75, 8.75], "texture": "#rod"}}},
+    {"from": [-2, 29.5, -0.25], "to": [0.5, 31, 2.25], "faces": {"north": {"uv": [6.75, 7.25, 9.25, 8.75], "texture": "#cap"}, "south": {"uv": [6.75, 7.25, 9.25, 8.75], "texture": "#cap"}, "east": {"uv": [6.75, 7.25, 9.25, 8.75], "texture": "#cap"}, "west": {"uv": [6.75, 7.25, 9.25, 8.75], "texture": "#cap"}, "up": {"uv": [6.75, 6.75, 9.25, 9.25], "texture": "#cap"}, "down": {"uv": [6.75, 6.75, 9.25, 9.25], "texture": "#cap"}}}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "rod": "minetorio:block/piston_rod",
+    "end": "minetorio:block/dark_panel",
+    "particle": "minetorio:block/piston_rod"
+  },
+  "elements": [
+    {"from": [30.5, 19.25, 9.25], "to": [31.5, 30, 10.75], "faces": {"north": {"uv": [7.5, 2.625, 8.5, 13.375], "texture": "#rod"}, "south": {"uv": [7.5, 2.625, 8.5, 13.375], "texture": "#rod"}, "east": {"uv": [7.25, 2.625, 8.75, 13.375], "texture": "#rod"}, "west": {"uv": [7.25, 2.625, 8.75, 13.375], "texture": "#rod"}, "up": {"uv": [7.5, 7.25, 8.5, 8.75], "texture": "#rod"}, "down": {"uv": [7.5, 7.25, 8.5, 8.75], "texture": "#rod"}}}
+  ]
+}

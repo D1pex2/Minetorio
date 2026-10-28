@@ -35,6 +35,10 @@ public class OffshorePumpBlockEntity extends SteamMachineBlockEntity {
     @Override
     public FluidBox fluidBox(int port) { return water; }
 
+    /** The side cogs: two turns per Factorio pump animation loop (32 frames at 1/4 speed = 128 ticks). */
+    @Override
+    protected float animationDegreesPerTick() { return 720f / 128; }
+
     @Override
     protected void tickMachine(Level level) {
         boolean source = level.isLoaded(OffshorePumpBlock.waterPos(worldPosition, facing())) && hasWater();

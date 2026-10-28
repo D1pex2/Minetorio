@@ -2,11 +2,14 @@ package dev.minetorio.content.power;
 
 import com.mojang.serialization.MapCodec;
 import dev.minetorio.content.machine.MachineItems;
+import dev.minetorio.content.multiblock.ModelPoint;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.data.Phase1Data;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -70,5 +73,15 @@ public class BoilerBlock extends SteamMachineBlock {
         if (accepted == 0) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         stack.consume(accepted, player);
         return ItemInteractionResult.CONSUME;
+    }
+
+    /** Client: while it burns, smoke rises from the stack and steam puffs from the safety valve now and then. */
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        if (!(level.getBlockEntity(pos) instanceof SteamMachineBlockEntity be) || !be.isWorking()) return;
+        ModelPoint.puff(level, random, ParticleTypes.SMOKE, 2, pos, be.facing(), shape(), -10, 31, -1, 3, 0.05);
+        if (random.nextInt(3) == 0) {
+            ModelPoint.puff(level, random, ParticleTypes.WHITE_SMOKE, 1, pos, be.facing(), shape(), 8, 29.5, 12, 1, 0.03);
+        }
     }
 }
