@@ -41,6 +41,8 @@ public final class Phase1Data {
                 tech("logistics", "", "automation", 20, 15, "underground_belt,splitter"),
                 tech("fast_inserter", "automation", "automation", 30, 15, "fast_inserter,filter_inserter"),
                 tech("logistic_science_pack", "", "automation", 75, 5, "logistic_science_pack"),
+                // TEMP: Factorio 1.1 fluid handling also needs engine (oil stage); unlocks barrels too, later
+                tech("fluid_handling", "automation_2", "automation,logistic", 50, 15, "storage_tank,pump"),
                 tech("automation_2", "automation,logistic_science_pack", "automation,logistic", 40, 15,
                         "assembling_machine_2"),
                 tech("logistics_2", "logistics,logistic_science_pack", "automation,logistic", 200, 30,
@@ -85,6 +87,11 @@ public final class Phase1Data {
         r.add(craft("copper_cable", "1 copper_plate", 2, 0.5));
         r.add(craft("electronic_circuit", "1 iron_plate, 3 copper_cable", 1, 0.5));
         r.add(craft("pipe", "1 iron_plate", 1, 0.5));
+        r.add(craft("pipe_to_ground", "10 pipe, 5 iron_plate", 2, 0.5));
+        // TEMP until steel and engine units: Factorio's storage tank is 20 iron + 5 steel, the pump 1 engine unit,
+        // 1 steel, 1 pipe
+        r.add(craft("storage_tank", "20 iron_plate, 5 iron_gear_wheel", 1, 3));
+        r.add(craft("pump", "1 pipe, 2 iron_gear_wheel, 2 iron_plate, 1 electronic_circuit", 1, 2));
         r.add(craft("stone_furnace", "5 minecraft:cobblestone", 1, 0.5));
         r.add(craft("burner_mining_drill", "3 iron_gear_wheel, 1 stone_furnace, 3 iron_plate", 1, 2));
         r.add(craft("electric_mining_drill", "3 electronic_circuit, 5 iron_gear_wheel, 10 iron_plate", 1, 2));

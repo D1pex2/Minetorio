@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
-import dev.minetorio.content.power.FluidPorts;
+import dev.minetorio.content.fluid.FluidPortBlock;
+import dev.minetorio.content.fluid.FluidPorts;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -25,7 +26,7 @@ public final class ModCapabilities {
         event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.MULTIBLOCK_PART.get(), (be, side) -> {
             Level level = be.getLevel();
             if (level == null || !be.isLinked() || !level.isLoaded(be.controllerPos())) return null;
-            if (level.getBlockState(be.controllerPos()).getBlock() instanceof FluidPorts.Machine) {
+            if (level.getBlockState(be.controllerPos()).getBlock() instanceof FluidPortBlock) {
                 return FluidPorts.handler(level, be.getBlockPos(), side);
             }
             return be.controllerCapability(Capabilities.FluidHandler.BLOCK, side);
@@ -34,20 +35,18 @@ public final class ModCapabilities {
 
         // Pipes and the fluid ports on the steam machines' controller cells.
         event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.PIPE.get(), (be, side) -> be.fluidHandler());
-        registerPorts(event, ModBlockEntities.OFFSHORE_PUMP.get());
-        registerPorts(event, ModBlockEntities.BOILER.get());
-        registerPorts(event, ModBlockEntities.STEAM_ENGINE.get());
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.UNDERGROUND_PIPE.get(), (be, side) -> be.fluidHandler());
+        FluidPorts.registerCapability(event, ModBlockEntities.OFFSHORE_PUMP.get());
+        FluidPorts.registerCapability(event, ModBlockEntities.BOILER.get());
+        FluidPorts.registerCapability(event, ModBlockEntities.STEAM_ENGINE.get());
+        FluidPorts.registerCapability(event, ModBlockEntities.STORAGE_TANK.get());
+        FluidPorts.registerCapability(event, ModBlockEntities.PUMP.get());
 
         // Crafting machines: automated inserts into inputs/fuel, extraction from outputs only.
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.STONE_FURNACE.get(), (be, side) -> be.itemHandler());
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.ASSEMBLING_MACHINE.get(), (be, side) -> be.itemHandler());
         // Labs: automated inserts of science packs, no extraction.
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.LAB.get(), (be, side) -> be.itemHandler());
-    }
-
-    private static <B extends BlockEntity> void registerPorts(RegisterCapabilitiesEvent event, BlockEntityType<B> type) {
-        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, type,
-                (be, side) -> be.getLevel() == null ? null : FluidPorts.handler(be.getLevel(), be.getBlockPos(), side));
     }
 
     private static <T> void delegateToController(RegisterCapabilitiesEvent event, BlockCapability<T, Direction> capability) {

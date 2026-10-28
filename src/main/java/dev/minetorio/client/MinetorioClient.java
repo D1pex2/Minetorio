@@ -48,6 +48,7 @@ public final class MinetorioClient {
                 ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC));
         event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.STORAGE_TANK.get(), dev.minetorio.client.power.StorageTankRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.LAB.get(), LabRenderer::new);
@@ -87,6 +88,7 @@ public final class MinetorioClient {
         event.register(SteamMachineRenderer.ENGINE_REAR);
         event.register(SteamMachineRenderer.ENGINE_GEAR);
         event.register(SteamMachineRenderer.ENGINE_GEAR_SMALL);
+        event.register(dev.minetorio.client.power.StorageTankRenderer.BODY);
         for (var m : AssemblerRenderer.MODELS) event.register(m);
         event.register(LabRenderer.BODY);
         event.register(LabRenderer.DOME);

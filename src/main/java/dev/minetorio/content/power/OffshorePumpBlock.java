@@ -3,6 +3,7 @@ package dev.minetorio.content.power;
 import com.mojang.serialization.MapCodec;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.content.fluid.FluidPort;
 import dev.minetorio.content.registry.ModBlockEntities;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +30,7 @@ import net.minecraft.world.level.material.FluidState;
  */
 public class OffshorePumpBlock extends SteamMachineBlock {
     public static final MapCodec<OffshorePumpBlock> CODEC = simpleCodec(OffshorePumpBlock::new);
-    private static final List<FluidPorts.Spec> PORTS = List.of(new FluidPorts.Spec(0, 0, FluidPorts.Side.BACK, "water"));
+    private static final List<FluidPort> PORTS = List.of(FluidPort.output(0, 0, FluidPort.Side.BACK, "water"));
 
     public OffshorePumpBlock(Properties properties) {
         super(properties);
@@ -42,7 +43,7 @@ public class OffshorePumpBlock extends SteamMachineBlock {
     public MultiblockShape shape() { return MultiblockShape.OFFSHORE_PUMP; }
 
     @Override
-    public List<FluidPorts.Spec> fluidPorts() { return PORTS; }
+    public List<FluidPort> fluidPorts() { return PORTS; }
 
     /** The cell level with the pump just past its front end; the intake water is here or one lower. */
     public static BlockPos waterPos(BlockPos controller, Direction facing) {

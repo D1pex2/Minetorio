@@ -13,6 +13,8 @@ import dev.minetorio.core.alt.AltInfo;
 import dev.minetorio.core.alt.AltRules;
 import dev.minetorio.core.alt.AltStatus;
 import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.core.fluid.FluidData;
+import dev.minetorio.core.fluid.FluidGauge;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.Camera;
@@ -51,6 +53,8 @@ import org.joml.Quaternionf;
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class AltIconRenderer {
     public static final double MAX_DISTANCE = 32;
+    /** Pipe gauges (small) show only this close, so a big pipe field does not drown the view. */
+    public static final double GAUGE_DISTANCE = 16;
     private static final int BACKDROP = 0xB0181A1D;
     private static final int ERROR = 0xF0D93A2B;
     private static final int WARNING = 0xF0F0C02C;
@@ -102,6 +106,19 @@ public final class AltIconRenderer {
             double h = size / 2;
             if (!frustum.isVisible(new AABB(m.x() - h, m.y() - h, m.z() - h, m.x() + h, m.y() + h, m.z() + h))) continue;
             drawIcon(ctx, dx, dy, dz, (float) size, icon, info.status());
+        }
+
+        double gaugeMax2 = GAUGE_DISTANCE * GAUGE_DISTANCE;
+        for (MachineIndex.Gauge g : MachineIndex.gauges()) {
+            if (g.be().isRemoved()) continue;
+            FluidGauge gauge = g.source().fluidGauge();
+            if (gauge.isEmpty()) continue;
+            double dx = g.x() - cam.x, dy = g.y() - cam.y, dz = g.z() - cam.z;
+            double d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > (g.size() < 0.5 ? gaugeMax2 : max2)) continue;
+            double h = g.size() / 2;
+            if (!frustum.isVisible(new AABB(g.x() - h, g.y() - h, g.z() - h, g.x() + h, g.y() + h, g.z() + h))) continue;
+            drawGauge(pose, solid, rotation, dx, dy, dz, (float) g.size(), gauge);
         }
 
         for (InserterBlockEntity ins : MachineIndex.inserters()) {
@@ -173,6 +190,27 @@ public final class AltIconRenderer {
             c.font().drawInBatch(glyph, -c.font().width(glyph) / 2f, -4f, color, false, pose.last().pose(), c.items(),
                     Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
         }
+        pose.popPose();
+    }
+
+    /**
+     * A fluid gauge: the dark backdrop, the fluid's colour dimmed over the whole square and bright up
+     * to the fill level (bottom up), like a tank's sight glass.
+     */
+    private static void drawGauge(PoseStack pose, VertexConsumer vc, Quaternionf rotation, double dx, double dy, double dz,
+                                  float size, FluidGauge gauge) {
+        pose.pushPose();
+        pose.translate(dx, dy, dz);
+        pose.mulPose(rotation);
+        pose.scale(size, size, size);
+        Matrix4f m = pose.last().pose();
+        roundedRect(vc, m, 0, 0, 0.5f, 0, BACKDROP);
+        int rgb = FluidData.color(gauge.fluid()) & 0xFFFFFF;
+        float in = 0.36f, top = -in + 2 * in * gauge.fill();
+        OverlayQuads.quad(vc, m, 0x50000000 | rgb, -in, -in, 0.05f, in, -in, 0.05f, in, in, 0.05f, -in, in, 0.05f);
+        OverlayQuads.quad(vc, m, 0xF0000000 | rgb, -in, -in, 0.1f, in, -in, 0.1f, in, top, 0.1f, -in, top, 0.1f);
+        int flow = FluidData.fluid(gauge.fluid()) == null ? 0xB3B3B3 : FluidData.fluid(gauge.fluid()).flow();
+        OverlayQuads.quad(vc, m, 0xE0000000 | flow, -in, top - 0.04f, 0.12f, in, top - 0.04f, 0.12f, in, top, 0.12f, -in, top, 0.12f);
         pose.popPose();
     }
 

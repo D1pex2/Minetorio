@@ -460,6 +460,37 @@ class ModelZFightTest {
         pipe.add(Part.fixed("up", "pipe_up"));
         pipe.add(Part.fixed("down", "pipe_down"));
         c.add(new Composite("pipe(all arms)", pipe));
+        // pipe.json with closed sides (art/check_zfight.py): caps on the sides + arms up/down, arms on the sides + caps up/down.
+        V mid = new V(8, 8, 8);
+        List<Part> sideCaps = new ArrayList<>(List.of(Part.fixed("core", "pipe_core")));
+        for (int y : new int[] {0, 90, 180, 270}) {
+            sideCaps.add(y == 0 ? Part.fixed("cap0", "pipe_cap") : Part.fixed("cap" + y, "pipe_cap", Tr.r('y', -y, mid)));
+        }
+        sideCaps.add(Part.fixed("up", "pipe_up"));
+        sideCaps.add(Part.fixed("down", "pipe_down"));
+        c.add(new Composite("pipe(side caps)", sideCaps));
+        List<Part> vertCaps = new ArrayList<>(List.of(Part.fixed("core", "pipe_core")));
+        for (int y : new int[] {0, 90, 180, 270}) {
+            vertCaps.add(y == 0 ? Part.fixed("side0", "pipe_side") : Part.fixed("side" + y, "pipe_side", Tr.r('y', -y, mid)));
+        }
+        vertCaps.add(Part.fixed("capup", "pipe_cap", Tr.r('x', -270, mid)));
+        vertCaps.add(Part.fixed("capdown", "pipe_cap", Tr.r('x', -90, mid)));
+        c.add(new Composite("pipe(vertical caps)", vertCaps));
+        // Fluid neighbours: a pipe at an underground pipe's open end, pipes at the tank's front-right connections
+        // (StorageTankRenderer: body around the center block), pipes at both ends of the pump.
+        c.add(new Composite("pipe_to_ground+pipe", List.of(Part.fixed("ug", "pipe_to_ground"),
+                Part.fixed("core", "pipe_core", Tr.t(0, 0, -16)),
+                Part.fixed("arm", "pipe_side", Tr.r('y', -180, mid), Tr.t(0, 0, -16)))));
+        c.add(new Composite("storage_tank+pipes", List.of(Part.fixed("tank", "storage_tank_body"),
+                Part.fixed("core_n", "pipe_core", Tr.t(16, 0, -32)),
+                Part.fixed("arm_n", "pipe_side", Tr.r('y', -180, mid), Tr.t(16, 0, -32)),
+                Part.fixed("core_e", "pipe_core", Tr.t(32, 0, -16)),
+                Part.fixed("arm_e", "pipe_side", Tr.r('y', -270, mid), Tr.t(32, 0, -16)))));
+        c.add(new Composite("pump+pipes", List.of(Part.fixed("pump", "pump"),
+                Part.fixed("core_n", "pipe_core", Tr.t(0, 0, -32)),
+                Part.fixed("arm_n", "pipe_side", Tr.r('y', -180, mid), Tr.t(0, 0, -32)),
+                Part.fixed("core_s", "pipe_core", Tr.t(0, 0, 16)),
+                Part.fixed("arm_s", "pipe_side", Tr.t(0, 0, 16)))));
         // Neighbours.
         for (String pre : List.of("", "fast_", "express_")) {
             c.add(new Composite(pre + "underground_belt_input+belt", List.of(Part.fixed("ug", pre + "underground_belt_input"),

@@ -2,6 +2,8 @@ package dev.minetorio.client.alt;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.content.fluid.FluidGaugeSource;
+import dev.minetorio.content.fluid.StorageTankBlockEntity;
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
@@ -34,7 +36,11 @@ public final class MachineIndex {
     /** A machine with an icon: the block entity and the icon's anchor (world coordinates) and base size. */
     public record Machine(BlockEntity be, double x, double y, double z, double size) {}
 
+    /** A fluid gauge (pipe, tank, fluid machine) and where it goes: world coordinates and size. */
+    public record Gauge(FluidGaugeSource source, BlockEntity be, double x, double y, double z, double size) {}
+
     private static List<Machine> machines = List.of();
+    private static List<Gauge> gauges = List.of();
     private static List<InserterBlockEntity> inserters = List.of();
     private static List<ElectricPoleBlockEntity> poles = List.of();
     private static int countdown;
@@ -45,6 +51,9 @@ public final class MachineIndex {
 
     public static List<InserterBlockEntity> inserters() { return inserters; }
 
+    /** Fluid gauges: pipes and underground pipes (above the block), tanks and fluid machines (under their icon spot). */
+    public static List<Gauge> gauges() { return gauges; }
+
     public static List<ElectricPoleBlockEntity> poles() { return poles; }
 
     @SubscribeEvent
@@ -52,6 +61,7 @@ public final class MachineIndex {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             machines = List.of();
+            gauges = List.of();
             inserters = List.of();
             poles = List.of();
             return;
@@ -63,6 +73,7 @@ public final class MachineIndex {
 
     private static void rebuild(ClientLevel level, BlockPos center) {
         List<Machine> m = new ArrayList<>();
+        List<Gauge> g = new ArrayList<>();
         List<InserterBlockEntity> ins = new ArrayList<>();
         List<ElectricPoleBlockEntity> p = new ArrayList<>();
         int c0x = (center.getX() - RADIUS) >> 4, c1x = (center.getX() + RADIUS) >> 4;
@@ -73,6 +84,10 @@ public final class MachineIndex {
                 if (chunk == null) continue;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     if (be.isRemoved()) continue;
+                    if (be instanceof FluidGaugeSource src) {
+                        Gauge gauge = gauge(src, be);
+                        if (gauge != null) g.add(gauge);
+                    }
                     if (be instanceof AltSource) {
                         Machine e = anchor(be);
                         if (e != null) m.add(e);
@@ -85,8 +100,22 @@ public final class MachineIndex {
             }
         }
         machines = m;
+        gauges = g;
         inserters = ins;
         poles = p;
+    }
+
+    private static Gauge gauge(FluidGaugeSource src, BlockEntity be) {
+        BlockState state = be.getBlockState();
+        BlockPos p = be.getBlockPos();
+        if (!(state.getBlock() instanceof MultiblockControllerBlock)) {
+            return new Gauge(src, be, p.getX() + 0.5, p.getY() + 0.95, p.getZ() + 0.5, 0.32);
+        }
+        Machine anchor = anchor(be);
+        if (anchor == null) return null;
+        if (be instanceof StorageTankBlockEntity) return new Gauge(src, be, anchor.x(), anchor.y(), anchor.z(), anchor.size());
+        double size = anchor.size() * 0.45;
+        return new Gauge(src, be, anchor.x(), anchor.y() - anchor.size() / 2 - size / 2 - 0.05, anchor.z(), size);
     }
 
     private static Machine anchor(BlockEntity be) {
