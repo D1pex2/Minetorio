@@ -17,18 +17,21 @@ public final class DragPayloads {
 
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath(Minetorio.MODID, path); }
 
-    /** A drag starts at {@code pos} (the cell the click placed) running {@code dir} ({@link DragDir} id). */
-    public record Start(BlockPos pos, byte dir) implements CustomPacketPayload {
+    /**
+     * A drag starts at {@code pos} (the cell the click placed) running {@code dir} ({@link DragDir}
+     * id); {@code ghost}: it lays ghosts.
+     */
+    public record Start(BlockPos pos, byte dir, boolean ghost) implements CustomPacketPayload {
         public static final Type<Start> TYPE = new Type<>(id("drag_start"));
         public static final StreamCodec<ByteBuf, Start> STREAM_CODEC = StreamCodec.composite(
-                BlockPos.STREAM_CODEC, Start::pos, ByteBufCodecs.BYTE, Start::dir, Start::new);
+                BlockPos.STREAM_CODEC, Start::pos, ByteBufCodecs.BYTE, Start::dir, ByteBufCodecs.BOOL, Start::ghost, Start::new);
 
         @Override
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
         public static void handle(Start payload, IPayloadContext context) {
             DragDir dir = DragDir.byId(payload.dir());
-            if (context.player() instanceof ServerPlayer player && dir != null) DragPlacement.start(player, payload.pos(), dir);
+            if (context.player() instanceof ServerPlayer player && dir != null) DragPlacement.start(player, payload.pos(), dir, payload.ghost());
         }
     }
 

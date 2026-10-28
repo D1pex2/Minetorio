@@ -3,6 +3,10 @@ package dev.minetorio.content.drag;
 import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.robot.GhostBlock;
+import dev.minetorio.content.robot.GhostBlockEntity;
+import dev.minetorio.content.robot.GhostItem;
+import dev.minetorio.content.robot.HandGhosts;
 import dev.minetorio.core.drag.DragCell;
 import dev.minetorio.core.drag.DragDir;
 import dev.minetorio.core.drag.DragLine;
@@ -51,6 +55,10 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  * {@value #REACH_TOLERANCE} blocks of slack), the line geometry (contiguous, never reversing,
  * at most {@value #MAX_CELLS} cells), the step index, and a step rate budget; anything invalid
  * ends the drag. Running out of items ends it too.
+ *
+ * <p>A ghost drag (the ghost key held at the click, see {@link HandGhosts}) lays ghosts instead:
+ * same line, levels and pole spacing, each cell planned like a hand ghost ({@link HandGhosts#planAt}),
+ * no items needed or used.
  */
 public final class DragPlacement {
     /** Most steps one packet may carry. */
@@ -99,6 +107,7 @@ public final class DragPlacement {
 
     private static final class Session {
         final Kind kind;
+        final boolean ghost;
         final Item item;
         final Block block;
         final ResourceKey<Level> dimension;
@@ -110,8 +119,9 @@ public final class DragPlacement {
         double tokens = BURST;
         long lastTick;
 
-        Session(Kind kind, BlockItem item, ResourceKey<Level> dimension, BlockPos start, DragDir dir, long tick) {
+        Session(Kind kind, boolean ghost, BlockItem item, ResourceKey<Level> dimension, BlockPos start, DragDir dir, long tick) {
             this.kind = kind;
+            this.ghost = ghost;
             this.item = item;
             this.block = item.getBlock();
             this.dimension = dimension;
@@ -129,18 +139,27 @@ public final class DragPlacement {
 
     /**
      * Starts a drag from the cell at {@code start} (placed by the click before) in {@code dir},
-     * with the item in the main hand. Replaces any drag the player had going.
+     * with the item in the main hand; {@code ghost}: a line of ghosts. Replaces any drag the player had going.
      */
-    public static void start(ServerPlayer player, BlockPos start, DragDir dir) {
+    public static void start(ServerPlayer player, BlockPos start, DragDir dir, boolean ghost) {
         SESSIONS.remove(player.getUUID());
         ItemStack stack = player.getMainHandItem();
+        if (stack.getItem() instanceof GhostItem) {
+            if (!ghost) return; // a ghost item only lays ghosts
+            stack = GhostItem.target(stack);
+        }
         Kind kind = kindOf(stack);
         if (kind == null || dir == null || !player.level().isLoaded(start)
-                || !player.canInteractWithBlock(start, REACH_TOLERANCE)) {
+                || !player.canInteractWithBlock(start, REACH_TOLERANCE) || (ghost && !HandGhosts.canGhost(stack))) {
             return;
         }
-        SESSIONS.put(player.getUUID(), new Session(kind, (BlockItem) stack.getItem(), player.level().dimension(), start, dir,
+        SESSIONS.put(player.getUUID(), new Session(kind, ghost, (BlockItem) stack.getItem(), player.level().dimension(), start, dir,
                 player.server.getTickCount()));
+    }
+
+    /** A drag of real blocks (see {@link #start(ServerPlayer, BlockPos, DragDir, boolean)}). */
+    public static void start(ServerPlayer player, BlockPos start, DragDir dir) {
+        start(player, start, dir, false);
     }
 
     /**
@@ -209,6 +228,12 @@ public final class DragPlacement {
         BlockPos pos = s.pos(0);
         Direction facing = DragTerrain.toMc(s.line.cell(0).facing());
         BlockState state = level.getBlockState(pos);
+        if (s.ghost) { // the click placed a ghost facing the look: turn it (or place it if the click placed none)
+            GhostBlockEntity g = GhostBlock.at(level, pos);
+            boolean turn = g != null && g.isValid() && g.item() == s.item && g.facing() != facing;
+            if ((g == null && DragTerrain.isFree(level, pos)) || turn) placeCell(player, level, s, pos, facing);
+            return true;
+        }
         if (DragTerrain.isFree(level, pos)) return placeCell(player, level, s, pos, facing) != Result.STOP;
         if (s.kind != Kind.BELT || !state.is(s.block) || state.getValue(BeltBlock.FACING) == facing || !mayBuild(player, level, pos)) {
             return true;
@@ -226,6 +251,7 @@ public final class DragPlacement {
 
     private static Result placeCell(ServerPlayer player, ServerLevel level, Session s, BlockPos pos, Direction facing) {
         if (!mayBuild(player, level, pos)) return Result.SKIPPED;
+        if (s.ghost) return placeGhost(player, level, s, pos, facing);
         BlockState state = level.getBlockState(pos);
         boolean fastReplace = s.kind == Kind.BELT && state.getBlock() instanceof BeltBlock other && other != s.block
                 && state.getValue(BeltBlock.FACING) == facing && !player.isSecondaryUseActive();
@@ -244,6 +270,13 @@ public final class DragPlacement {
             player.setYRot(yRot);
         }
         return level.getBlockState(pos) != before ? Result.PLACED : Result.SKIPPED;
+    }
+
+    /** A ghost cell: planned like a hand ghost; a cell the real block could not take is skipped. */
+    private static Result placeGhost(ServerPlayer player, ServerLevel level, Session s, BlockPos pos, Direction facing) {
+        if (!DragTerrain.isFree(level, pos)) return Result.SKIPPED;
+        HandGhosts.Plan plan = HandGhosts.planAt(level, player, new ItemStack(s.item), pos, facing);
+        return plan != null && HandGhosts.commit(player, level, plan) ? Result.PLACED : Result.SKIPPED;
     }
 
     /**

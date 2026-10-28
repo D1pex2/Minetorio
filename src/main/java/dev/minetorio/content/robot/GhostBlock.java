@@ -77,6 +77,14 @@ public class GhostBlock extends BaseEntityBlock {
         return ItemInteractionResult.sidedSuccess(level.isClientSide());
     }
 
+    /** A belt ghost re-plans its shape when a neighbour changes (diagonal ramp neighbours: {@link Ghosts#refreshAround}). */
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
+        if (!level.isClientSide()) Ghosts.refresh(level, pos);
+    }
+
     @Override
     public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
         return level.getBlockEntity(pos) instanceof GhostBlockEntity be && be.isValid() ? new ItemStack(be.item()) : ItemStack.EMPTY;

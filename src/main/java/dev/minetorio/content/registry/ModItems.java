@@ -4,6 +4,7 @@ import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.content.robot.GhostItem;
 import java.util.List;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -64,6 +65,8 @@ public final class ModItems {
     // Construction robots
     public static final DeferredItem<BlockItem> ROBOPORT = multiblock(ModBlocks.ROBOPORT);
     public static final DeferredItem<Item> CONSTRUCTION_ROBOT = ITEMS.registerSimpleItem("construction_robot");
+    /** Factorio's ghost cursor as an item (see {@link GhostItem}); not in the creative tab. */
+    public static final DeferredItem<Item> GHOST_ITEM = ITEMS.registerItem("ghost_item", p -> new GhostItem(p.stacksTo(1)));
 
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
     public static final List<String> IDS = List.of(
@@ -76,7 +79,7 @@ public final class ModItems {
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
-            "roboport", "construction_robot");
+            "roboport", "construction_robot", "ghost_item");
 
     private ModItems() {}
 

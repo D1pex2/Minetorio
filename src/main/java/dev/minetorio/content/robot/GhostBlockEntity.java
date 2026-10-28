@@ -60,6 +60,17 @@ public class GhostBlockEntity extends BlockEntity {
         register();
     }
 
+    /**
+     * Changes the previewed state only (a belt's shape or slope after its planned neighbours
+     * changed); the item, facing and footprint stay. Synced to clients.
+     */
+    void retarget(BlockState next) {
+        if (next == target) return;
+        target = next;
+        setChanged();
+        if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+    }
+
     @Override
     public void onLoad() {
         super.onLoad();
@@ -67,6 +78,7 @@ public class GhostBlockEntity extends BlockEntity {
     }
 
     private void register() {
+        reserve();
         if (level instanceof ServerLevel server && !isRemoved() && isValid()) {
             ConstructionManager m = ConstructionManager.get(server);
             if (seq == 0) {
@@ -89,7 +101,18 @@ public class GhostBlockEntity extends BlockEntity {
         unregister();
     }
 
+    /** Reserves the cells this ghost covers (both sides; see {@link GhostReservations}). */
+    private void reserve() {
+        if (level == null || isRemoved()) return;
+        if (isValid()) {
+            GhostReservations.reserve(level, worldPosition, Ghosts.footprint(target, worldPosition));
+        } else {
+            GhostReservations.release(level, worldPosition);
+        }
+    }
+
     private void unregister() {
+        if (level != null) GhostReservations.release(level, worldPosition);
         if (level instanceof ServerLevel server) {
             ConstructionManager m = ConstructionManager.getIfPresent(server);
             if (m != null) {
@@ -115,6 +138,7 @@ public class GhostBlockEntity extends BlockEntity {
         Direction d = Direction.byName(tag.getString(KEY_FACING));
         facing = d == null || d.getAxis().isVertical() ? Direction.NORTH : d;
         seq = tag.getLong(KEY_SEQ);
+        if (level != null && level.isClientSide()) reserve(); // an update from the server
     }
 
     @Override

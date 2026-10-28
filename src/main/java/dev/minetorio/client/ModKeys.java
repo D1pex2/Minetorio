@@ -14,7 +14,10 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import org.lwjgl.glfw.GLFW;
 
-/** Client key bindings: Y opens the research screen, R the hand-crafting screen, Left Alt toggles alt mode. */
+/**
+ * Client key bindings: Y opens the research screen, R the hand-crafting screen, Left Alt toggles
+ * alt mode, Left Control held while right-clicking places ghosts.
+ */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class ModKeys {
     public static final String CATEGORY = "key.categories.minetorio";
@@ -26,13 +29,36 @@ public final class ModKeys {
     public static final KeyMapping ALT_MODE = new KeyMapping("key.minetorio.alt_mode",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, CATEGORY);
 
+    /**
+     * Ghost placement (Factorio's Shift-click): held while right-clicking with a Minetorio block
+     * item, the click places a ghost instead of the block ({@code HandGhosts}); held at the start of
+     * a drag, the line is laid as ghosts. Only read at the moment of a right-click (and for the
+     * preview while such an item is held), so sharing Left Control with vanilla sprint is harmless:
+     * NeoForge delivers the key to both bindings, and vanilla has no Ctrl+right-click.
+     */
+    public static final KeyMapping GHOST = new KeyMapping("key.minetorio.ghost",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_CONTROL, CATEGORY);
+
     private ModKeys() {}
+
+    /** Whether the ghost key is physically held, screens included (a keyboard binding only). */
+    public static boolean ghostKeyDown() {
+        InputConstants.Key key = GHOST.getKey();
+        return key.getType() == InputConstants.Type.KEYSYM && key.getValue() != InputConstants.UNKNOWN.getValue()
+                && InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), key.getValue());
+    }
+
+    /** Whether the ghost key is held (in game, no screen open). */
+    public static boolean ghostHeld() {
+        return Minecraft.getInstance().screen == null && GHOST.isDown();
+    }
 
     @SubscribeEvent
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(RESEARCH);
         event.register(HANDCRAFT);
         event.register(ALT_MODE);
+        event.register(GHOST);
     }
 
     @SubscribeEvent

@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.robot.GhostItem;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -22,7 +23,9 @@ public final class ModCreativeTab {
                     .icon(() -> new ItemStack(ModItems.STONE_FURNACE.get()))
                     .displayItems((params, output) -> {
                         for (Item item : BuiltInRegistries.ITEM) {
-                            if (BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(Minetorio.MODID)) output.accept(item);
+                            if (BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(Minetorio.MODID) && !(item instanceof GhostItem)) {
+                                output.accept(item);
+                            }
                         }
                     })
                     .build());
