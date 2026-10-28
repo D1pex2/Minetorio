@@ -3,7 +3,7 @@
     python art/render_compare.py REF_DIR OUT.png
 
 REF_DIR holds the reference crops from the Factorio wiki (lab.png, steam_engine.png, ...; roboport_open.png is
-the open-door frame of the wiki's roboport animation). They are
+the open-door frame of the wiki's roboport animation, anim/lab_working.png a lit frame of the wiki's lab animation). They are
 Factorio's art, so neither they nor the sheet belong in this repository: keep both in a scratch folder.
 Each machine is drawn as its block entity renderer assembles it (render_models.placed), seen from above
 at about Factorio's angle, from the side that the reference shows facing the camera.
@@ -77,37 +77,81 @@ def assembler(tier, working=False):
 
 
 def engine():
+    """SteamMachineRenderer.Engine.assemble at angle 0: tanks, gears, flywheel, rod, crosshead, valve stems (the front
+    and rear stems lifted as at angle 0)."""
     els = (placed(B + "steam_engine_body") + placed(B + "steam_engine_front", dz=-24)
            + placed(B + "steam_engine_rear", dz=24))
     for model, py, pz in (("steam_engine_gear", 15, 10), ("steam_engine_gear_small", 12, -6),
-                          ("steam_engine_gear_small", 21, 25)):
+                          ("steam_engine_gear_small", 21, 25), ("steam_engine_flywheel", 14, -23)):
         els += placed(B + model, dy=py - 8, dz=pz - 8)
+    els += placed(B + "steam_engine_rod") + placed(B + "steam_engine_crosshead")
+    for k, dz in enumerate((-24, 0, 24)):
+        els += placed(B + "steam_engine_valve", dy=0 if k == 1 else 1.125, dz=dz)
+    return els
+
+
+def burner_drill(working=False):
+    """DrillRenderer.assemble for the burner drill: head and piston at (+8, 0, -8) px from the blockstate body; working
+    pose: piston up, fire lit."""
+    els = placed(B + "burner_mining_drill") + placed(B + "burner_mining_drill_head", 8, 0, -8)
+    els += placed(B + "burner_mining_drill_piston", 8, 3 if working else 0, -8)
+    if working:
+        els += placed(B + "burner_mining_drill_fire", 8, 0, -8)
+    return els
+
+
+def electric_drill(working=False):
+    """DrillRenderer.assemble for the electric drill; working pose: carriage raised, status lamp lit."""
+    els = (placed(B + "electric_mining_drill_body") + placed(B + "electric_mining_drill_head")
+           + placed(B + "electric_mining_drill_carriage", dy=4 if working else 0)
+           + placed(B + "electric_mining_drill_tower", dy=16))
+    if working:
+        els += placed(B + "electric_mining_drill_lamp")
+    return els
+
+
+def lab(working=False):
+    """LabRenderer.assemble: body, the ring inside, the dome; researching: core and glass lit."""
+    els = placed(B + "lab_body") + placed(B + "lab_rotor")
+    if working:
+        els += placed(B + "lab_core_glow")
+    return els + placed(B + ("lab_dome" if working else "lab_dome_idle"))
+
+
+def offshore_pump(working=False):
+    """Blockstate body plus OffshorePumpRenderer's cogs (and, pumping, the flow) at (0, 0, -8) px."""
+    els = placed(B + "offshore_pump") + placed(B + "offshore_pump_gear", dy=6 - 8, dz=4 - 16)
+    els += placed(B + "offshore_pump_gear_b", dy=6 - 8, dz=11 - 16)
+    if working:
+        els += placed(B + "offshore_pump_flow", dz=-8)
     return els
 
 
 # (reference file, label, elements, camera yaw: 180 = from the south, 0 = from the north, 90 = from the west,
 #  270 = from the east)
 MACHINES = [
-    ("lab.png", "lab", lambda: placed(B + "lab_body") + placed(B + "lab_dome_idle"), 180),
+    ("lab.png", "lab (idle)", lab, 0),
+    ("anim/lab_working.png", "lab (researching)", lambda: lab(True), 0),
     ("assembling_machine_1.png", "assembling machine 1 (rest)", lambda: assembler(1), 180),
     ("assembling_machine_1.png", "assembling machine 1 (working pose)", lambda: assembler(1, True), 180),
     ("assembling_machine_2.png", "assembling machine 2 (rest)", lambda: assembler(2), 180),
     ("assembling_machine_2.png", "assembling machine 2 (working pose)", lambda: assembler(2, True), 180),
     ("steam_engine.png", "steam engine (gears east)", engine, 270),
-    ("electric_mining_drill.png", "electric mining drill (front)",
-     lambda: placed(B + "electric_mining_drill_body") + placed(B + "electric_mining_drill_head")
-     + placed(B + "electric_mining_drill_carriage") + placed(B + "electric_mining_drill_tower", dy=16), 0),
-    ("burner_mining_drill.png", "burner mining drill (front)",
-     lambda: placed(B + "burner_mining_drill") + placed(B + "burner_mining_drill_head", 8, 0, -8), 0),
+    ("electric_mining_drill.png", "electric mining drill (front)", electric_drill, 0),
+    ("electric_mining_drill.png", "electric mining drill (mining pose)", lambda: electric_drill(True), 0),
+    ("burner_mining_drill.png", "burner mining drill (front)", burner_drill, 0),
+    ("burner_mining_drill.png", "burner mining drill (mining pose)", lambda: burner_drill(True), 0),
     ("boiler.png", "boiler (burning)", lambda: placed(B + "boiler_body") + placed(B + "boiler_fire"), 180),
     ("stone_furnace.png", "stone furnace (lit)", lambda: placed(B + "stone_furnace_lit"), 180),
+    ("stone_furnace.png", "stone furnace (cold)", lambda: placed(B + "stone_furnace"), 180),
     ("inserter.png", "inserter (in world, reaching north)", lambda: inserter("inserter", 1, T + "tier_yellow"), 90),
     ("long_handed_inserter.png", "long-handed inserter (in world)",
      lambda: inserter("long_handed_inserter", 2, T + "tier_red"), 90),
     ("filter_inserter.png", "filter inserter (in world)", lambda: inserter("filter_inserter", 1, T + "tier_purple"), 90),
     ("stack_inserter.png", "stack inserter (in world, wide hand)",
      lambda: inserter("stack_inserter", 1, T + "tier_green", STACK_HAND_HALF), 90),
-    ("offshore_pump.png", "offshore pump (water north)", lambda: placed(B + "offshore_pump"), 90),
+    ("offshore_pump.png", "offshore pump (water north)", offshore_pump, 90),
+    ("offshore_pump.png", "offshore pump (pumping)", lambda: offshore_pump(True), 270),
     ("small_electric_pole.png", "small electric pole (3 high)",
      lambda: placed(B + "small_electric_pole") + placed(B + "small_electric_pole_middle", dy=16)
      + placed(B + "small_electric_pole_top", dy=32), 180),
@@ -116,7 +160,7 @@ MACHINES = [
     ("roboport.png", "roboport (machinery front)", lambda: roboport_elements(), 0),
     ("roboport_open.png", "roboport (iris open, charging)",
      lambda: roboport_elements(door=1, charging=4, lamps=range(8)), 0),
-    ("construction_robot_crop.png", "construction robot", lambda: placed(B + "construction_robot"), 20),
+    ("construction_robot_crop.png", "construction robot", lambda: placed(B + "construction_robot") + placed(B + "construction_robot_rotor"), 20),
 ]
 
 if __name__ == "__main__":

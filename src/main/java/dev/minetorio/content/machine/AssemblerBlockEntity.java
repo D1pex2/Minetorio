@@ -200,7 +200,8 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
      * spectator and must have this assembler's GUI open (still valid), the assembler must be within
      * {@value #SELECT_DISTANCE} blocks, and the recipe a known, unlocked CRAFTING recipe. On success what the machine gave up goes into the player's inventory (the
      * rest is dropped at the player). From the remote view ({@link RemoteView}) the assembler must be in
-     * the view's area instead of near, and what it gave up spills at the assembler.
+     * the view's area instead of near; what it gave up still goes to the player (the rest dropped at
+     * his body at home): a remote chunk does not tick, so nothing may be left lying there.
      */
     public static SelectResult select(ServerPlayer player, BlockPos pos, String recipeId) {
         if (player.isSpectator()) return SelectResult.SPECTATOR;
@@ -220,9 +221,8 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         if (recipe.get().category() != RecipeCategory.CRAFTING) return SelectResult.NOT_CRAFTING;
         if (!RecipeLocks.isUnlocked(player.server, recipeId)) return SelectResult.LOCKED;
         Map<String, Integer> returned = be.setRecipe(recipe.get());
-        // from the remote view nothing moves between the machine and the player: it spills at the machine
-        if (remote) MachineItems.drop(level, pos, returned);
-        else MachineItems.give(player, returned);
+        // also from the remote view: items left at a remote machine would lie in a chunk that does not tick
+        MachineItems.give(player, returned);
         return SelectResult.OK;
     }
 

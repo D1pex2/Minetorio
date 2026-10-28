@@ -25,8 +25,14 @@ Order: `python art/gen_blocks.py && python art/gen_models.py && python art/gen_b
 
 - **Palette:** vanilla-like steel, dark steel, brass, copper, rust and stone. Tier colours are yellow, red and blue, with green for the lab's science holders and the stack inserter, purple for the filter inserter.
 - **Animated textures:**
-  - `fire` (8 frames, frametime 2): furnace mouth and boiler door.
   - `lab_glow` (8 frames, pulsing): shown only while researching. Idle, the lab uses `lab_glass`.
+  - Flicker strips (per-frame `time` lists, so they never pulse evenly): `furnace_fire` (16 frames, after Factorio's
+    48-frame furnace fire) in the stone furnace's mouth and behind the burner drill's and the boiler's fire doors;
+    `furnace_vent_glow` (the furnace's top vent) and `furnace_stone_lit` (the furnace's bricks washed yellow by the fire),
+    all only on the lit furnace / while the machine works.
+  - `lab_core_glow` (12 frames, one pulse per 36 ticks): the lab's core while researching; `lab_dome_glow` the glass.
+  - `edr_lamp_glow` (8 frames): the electric drill's status lamp while mining.
+  - `pump_flow` (16 frames, 1 px per tick): water running through the offshore pump's glass tubes while it pumps.
   - `asm_lamp_glow` (8 frames, pulsing): the assemblers' status lamp, drawn at full brightness only while crafting (tier 1 blinks it twice per work loop). Idle, the lens is the dull `asm_lamp`.
   - Belts: straights and curves scroll at Factorio speed at 20 tps: 1.5, 3 and 4.5 px per tick for yellow, red and blue. The chevron period is 16 px, so tiles join seamlessly and the fast tiers don't alias.
   - Curves map the same pattern onto a quarter circle around the inner corner, matching `BeltGeometry`.
@@ -35,4 +41,11 @@ Order: `python art/gen_blocks.py && python art/gen_models.py && python art/gen_b
   - Round parts are octagons: a box plus a copy turned 45°.
   - Cogwheels are discs with 8 tooth bars at 22.5° steps.
   - Upright cogs (assemblers) are octagons with 4 tooth bars (8 teeth). A cog meshing with another is authored half a tooth (22.5°) turned and 0.1 px further along its axis (`ASM_MESH_DZ`), so neighbours never share a face plane while they turn.
+  - Burner and steam machines (stone furnace, drills, lab, boiler, steam engine, offshore pump) were reworked after the wiki's
+    entity animations (frames studied side by side) and factorio-data's animation timing; their moving parts are separate
+    models in their rest pose, posed by DrillRenderer, LabRenderer, SteamMachineRenderer and OffshorePumpRenderer (angle 0 is
+    what a ghost shows): burner drill head + piston (+ fire), electric drill carriage + head (+ lamp), lab ring (+ core, glass),
+    steam engine gears, flywheel, crank-driven connecting rod and crosshead, three valve stems, pump cogs (+ flow). The furnace
+    has no moving part: its lit blockstate model carries the flicker strips. Smoke and steam are vanilla particles from
+    `animateTick` (furnace vent, burner drill chimney, boiler stack and safety valve) while working.
   - Assembler moving parts (cogs, gears, push rod, carriage, arm, press head, fan, lamp) are separate models authored in their rest pose; `AssemblerRenderer.assemble` moves them through one work loop (Factorio's timing: 32 frames at 3 × crafting speed per tick), so phase 0 is what ghosts and the item show.

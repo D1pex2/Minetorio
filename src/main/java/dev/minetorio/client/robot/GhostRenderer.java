@@ -16,7 +16,9 @@ import dev.minetorio.content.machine.ElectricDrillBlock;
 import dev.minetorio.content.map.RadarBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.client.power.OffshorePumpRenderer;
 import dev.minetorio.content.power.BoilerBlock;
+import dev.minetorio.content.power.OffshorePumpBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
@@ -112,6 +114,7 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
         else if (block instanceof RoboportBlock) RoboportRenderer.assemble(facing, shape, pose, sink);
         else if (block instanceof BoilerBlock) SteamMachineRenderer.Boiler.assemble(facing, shape, false, pose, sink);
         else if (block instanceof SteamEngineBlock) SteamMachineRenderer.Engine.assemble(facing, shape, 0, pose, sink);
+        else if (block instanceof OffshorePumpBlock) OffshorePumpRenderer.assemble(facing, shape, 0, false, pose, sink);
     }
 
     /** The facing the built machine will have: its state's, else the look direction the ghost was placed with. */

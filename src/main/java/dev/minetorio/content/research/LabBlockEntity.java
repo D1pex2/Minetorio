@@ -49,7 +49,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * breaking the lab drops the stored packs and those of the unit in progress.
  *
  * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} (researched with power recently) is synced; the
- * client lights and turns the dome while it is set. It turns on at once and off after
+ * client lights the dome and core and turns the ring inside while it is set. It turns on at once and off after
  * {@value #IDLE_GRACE} idle ticks.
  */
 public class LabBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, AltSource {
@@ -58,7 +58,8 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
     /** Item handler slots: one per pack type. */
     public static final List<String> PACKS = List.of("minetorio:automation_science_pack", "minetorio:logistic_science_pack");
     private static final int IDLE_GRACE = 10;
-    private static final float DOME_DEGREES_PER_TICK = 3f;
+    /** The inner ring turns once per Factorio lab animation loop (33 frames at 1/3 speed = 99 ticks). */
+    private static final float DOME_DEGREES_PER_TICK = 360f / 99;
     private static final String KEY_LAB = "lab";
     private static final String KEY_WORKING = "working";
 
@@ -161,7 +162,7 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
         if (domeAngle < prevDomeAngle) prevDomeAngle -= 360f; // keep interpolation monotonic across the wrap
     }
 
-    /** Client: dome rotation in degrees, interpolated between the last two ticks. */
+    /** Client: rotation of the ring inside the dome in degrees, interpolated between the last two ticks. */
     public float renderDomeAngle(float partialTick) {
         return prevDomeAngle + (domeAngle - prevDomeAngle) * partialTick;
     }

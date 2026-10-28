@@ -48,6 +48,7 @@ public final class MinetorioClient {
                 ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC));
         event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.OFFSHORE_PUMP.get(), dev.minetorio.client.power.OffshorePumpRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.LAB.get(), LabRenderer::new);
@@ -75,26 +76,16 @@ public final class MinetorioClient {
     /** Models drawn by block entity renderers rather than through a blockstate. */
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
-        event.register(DrillRenderer.BURNER_HEAD);
-        event.register(DrillRenderer.ELECTRIC_BODY);
-        event.register(DrillRenderer.ELECTRIC_HEAD);
-        event.register(DrillRenderer.ELECTRIC_CARRIAGE);
-        event.register(DrillRenderer.ELECTRIC_TOWER);
-        event.register(SteamMachineRenderer.BOILER_BODY);
-        event.register(SteamMachineRenderer.BOILER_FIRE);
-        event.register(SteamMachineRenderer.ENGINE_BODY);
-        event.register(SteamMachineRenderer.ENGINE_FRONT);
-        event.register(SteamMachineRenderer.ENGINE_REAR);
-        event.register(SteamMachineRenderer.ENGINE_GEAR);
-        event.register(SteamMachineRenderer.ENGINE_GEAR_SMALL);
+        for (var m : DrillRenderer.MODELS) event.register(m);
+        for (var m : SteamMachineRenderer.MODELS) event.register(m);
+        for (var m : dev.minetorio.client.power.OffshorePumpRenderer.MODELS) event.register(m);
         for (var m : AssemblerRenderer.MODELS) event.register(m);
-        event.register(LabRenderer.BODY);
-        event.register(LabRenderer.DOME);
-        event.register(LabRenderer.DOME_IDLE);
+        for (var m : LabRenderer.MODELS) event.register(m);
         event.register(RadarRenderer.BASE);
         event.register(RadarRenderer.DISH);
         RoboportRenderer.PIECES.forEach(event::register);
         RoboportRenderer.ANIMATED.forEach(event::register);
         event.register(ConstructionRobotRenderer.MODEL);
+        event.register(ConstructionRobotRenderer.ROTOR);
     }
 }
