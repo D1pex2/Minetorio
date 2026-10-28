@@ -1,6 +1,7 @@
 package dev.minetorio.client.map;
 
 import dev.minetorio.content.map.ClientMapData;
+import dev.minetorio.content.map.ClientWatchedChunks;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -13,7 +14,8 @@ import net.minecraft.world.level.Level;
 /**
  * The full-screen map (M, as in Factorio): drag with the mouse to move, scroll to zoom about the
  * cursor (down to half a screen pixel per block), the block coordinates under the cursor (plus any {@link MapHoverInfo} lines) at the
- * bottom. Opens centered on the player. Overworld only: elsewhere it says the map is unavailable.
+ * bottom. Chunks a working radar watches right now are tinted and outlined
+ * ({@link RadarCoverageOverlay}). Opens centered on the player. Overworld only: elsewhere it says the map is unavailable.
  * Does not pause the game.
  */
 public class MapScreen extends Screen {
@@ -59,6 +61,7 @@ public class MapScreen extends Screen {
             return;
         }
         MapTextures.draw(g, cx, cz, scale, 0, 0, width, height);
+        RadarCoverageOverlay.draw(g, cx, cz, scale, 0, 0, width, height);
         int bx = Mth.floor(cx + (mouseX - width / 2.0) / scale), bz = Mth.floor(cz + (mouseY - height / 2.0) / scale);
         int color = ClientMapData.colorAt(bx, bz);
         List<Component> lines = new ArrayList<>();
@@ -66,6 +69,7 @@ public class MapScreen extends Screen {
         if (color < 0) {
             lines.add(Component.translatable("minetorio.map.unexplored"));
         } else {
+            if (ClientWatchedChunks.isWatched(bx >> 4, bz >> 4)) lines.add(Component.translatable("minetorio.map.watched"));
             for (MapHoverInfo p : MapHoverInfo.PROVIDERS) p.appendLines(bx, bz, color, lines);
             MapHoverInfo.MapView view = new MapHoverInfo.MapView(cx, cz, scale, 0, 0, width, height);
             g.enableScissor(0, 0, width, height);

@@ -188,6 +188,7 @@
   "minetorio.map.unavailable": "The map is only available in the Overworld",
   "minetorio.map.coords": "X %s, Z %s",
   "minetorio.map.unexplored": "Unexplored",
+  "minetorio.map.watched": "Radar coverage (live)",
   "minetorio.map.help": "Drag to move · scroll to zoom · %s to close",
   "minetorio.radar.no_power": "Radar: no power",
   "minetorio.radar.scanning": "Radar: %s chunks explored, next in %s s",

@@ -40,6 +40,7 @@ public final class ModPayloads {
                 .playToClient(HandcraftPayloads.QueueSync.TYPE, HandcraftPayloads.QueueSync.STREAM_CODEC, HandcraftPayloads.QueueSync::handle)
                 .playToClient(MapPayloads.Chunks.TYPE, MapPayloads.Chunks.STREAM_CODEC, MapPayloads.Chunks::handle)
                 .playToClient(MapPayloads.Players.TYPE, MapPayloads.Players.STREAM_CODEC, MapPayloads.Players::handle)
+                .playToClient(MapPayloads.Watched.TYPE, MapPayloads.Watched.STREAM_CODEC, MapPayloads.Watched::handle)
                 .playToServer(OreFieldPayloads.Query.TYPE, OreFieldPayloads.Query.STREAM_CODEC, OreFieldPayloads.Query::handle)
                 .playToClient(OreFieldPayloads.Info.TYPE, OreFieldPayloads.Info.STREAM_CODEC, OreFieldPayloads.Info::handle)
                 .playToServer(DragPayloads.Start.TYPE, DragPayloads.Start.STREAM_CODEC, DragPayloads.Start::handle)

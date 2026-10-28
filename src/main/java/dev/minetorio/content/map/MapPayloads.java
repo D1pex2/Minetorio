@@ -3,10 +3,13 @@ package dev.minetorio.content.map;
 import com.mojang.logging.LogUtils;
 import dev.minetorio.Minetorio;
 import dev.minetorio.core.map.MapChunkBatch;
+import dev.minetorio.core.map.WatchCoverage;
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import net.minecraft.network.VarInt;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -73,6 +76,69 @@ public final class MapPayloads {
 
         public static void handle(Players payload, IPayloadContext context) {
             ClientMapData.setPlayers(payload.players());
+        }
+    }
+
+    /**
+     * The chunks watched by working radars ({@link WatchedChunks}): with {@code reset}, the client
+     * first forgets its copy (the first piece of a full set on login); then it adds {@code added}
+     * and removes {@code removed}. At most {@value #MAX_KEYS} chunks in all per payload.
+     */
+    public record Watched(boolean reset, long[] added, long[] removed) implements CustomPacketPayload {
+        public static final int MAX_KEYS = 4096;
+        public static final Type<Watched> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Minetorio.MODID, "map_watched"));
+        public static final StreamCodec<ByteBuf, Watched> STREAM_CODEC = StreamCodec.of(Watched::write, Watched::read);
+
+        public Watched {
+            if (added.length + removed.length > MAX_KEYS) throw new IllegalArgumentException("too many chunks: " + (added.length + removed.length));
+        }
+
+        /** The whole set: a reset piece first, then as many pieces as needed. */
+        public static List<Watched> full(Collection<Long> chunks) {
+            List<Watched> out = new ArrayList<>();
+            for (long[] piece : WatchCoverage.split(chunks, MAX_KEYS)) out.add(new Watched(out.isEmpty(), piece, new long[0]));
+            return out;
+        }
+
+        /** A diff, in as many pieces as needed (none if empty). */
+        public static List<Watched> diff(Collection<Long> added, Collection<Long> removed) {
+            List<Watched> out = new ArrayList<>();
+            if (!added.isEmpty()) for (long[] piece : WatchCoverage.split(added, MAX_KEYS)) out.add(new Watched(false, piece, new long[0]));
+            if (!removed.isEmpty()) for (long[] piece : WatchCoverage.split(removed, MAX_KEYS)) out.add(new Watched(false, new long[0], piece));
+            return out;
+        }
+
+        private static void write(ByteBuf buf, Watched w) {
+            buf.writeBoolean(w.reset);
+            writeKeys(buf, w.added);
+            writeKeys(buf, w.removed);
+        }
+
+        private static void writeKeys(ByteBuf buf, long[] keys) {
+            VarInt.write(buf, keys.length);
+            for (long k : keys) buf.writeLong(k);
+        }
+
+        private static Watched read(ByteBuf buf) {
+            boolean reset = buf.readBoolean();
+            long[] added = readKeys(buf, MAX_KEYS);
+            long[] removed = readKeys(buf, MAX_KEYS - added.length);
+            return new Watched(reset, added, removed);
+        }
+
+        private static long[] readKeys(ByteBuf buf, int max) {
+            int n = VarInt.read(buf);
+            if (n < 0 || n > max) throw new io.netty.handler.codec.DecoderException("watched chunks: " + n + " > " + max);
+            long[] keys = new long[n];
+            for (int i = 0; i < n; i++) keys[i] = buf.readLong();
+            return keys;
+        }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+        public static void handle(Watched payload, IPayloadContext context) {
+            ClientWatchedChunks.accept(payload.reset(), payload.added(), payload.removed());
         }
     }
 }

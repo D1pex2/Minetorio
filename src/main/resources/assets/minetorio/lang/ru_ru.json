@@ -188,6 +188,7 @@
   "minetorio.map.unavailable": "Карта доступна только в обычном мире",
   "minetorio.map.coords": "X %s, Z %s",
   "minetorio.map.unexplored": "Не исследовано",
+  "minetorio.map.watched": "Под наблюдением радара",
   "minetorio.map.help": "Тащите мышью · колесо — масштаб · %s — закрыть",
   "minetorio.radar.no_power": "Радар: нет питания",
   "minetorio.radar.scanning": "Радар: открыто чанков: %s, следующий через %s с",

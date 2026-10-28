@@ -9,8 +9,10 @@ import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
+import dev.minetorio.core.map.ChunkKeys;
 import dev.minetorio.core.map.RadarFrontier;
 import dev.minetorio.core.map.RadarLogic;
+import dev.minetorio.core.map.WatchCoverage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -36,6 +38,11 @@ import net.minecraft.world.phys.Vec3;
  * load that timed out, a server restart) never leaves a hole. The frontier index, the pending
  * target and the charge are saved with the radar; a radar broken and placed again starts its
  * frontier over (explored chunks are skipped at once).
+ *
+ * <p><b>Watching.</b> While it gets power, its near area counts as watched ({@link WatchedChunks}):
+ * each tick it compares its registered center with what it should be (an O(1) lookup) and
+ * registers or removes itself on a change; it removes itself when removed or unloaded. Nothing of
+ * this is saved: after a load it registers again on its first powered tick.
  *
  * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} (powered) is synced; the client turns the dish
  * while it is set.
@@ -117,6 +124,11 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity implements
                 }
             }
             if (satisfaction > 0) setChanged();
+            long watch = satisfaction > 0 ? ChunkKeys.of(c[0], c[1]) : WatchCoverage.NONE;
+            if (WatchedChunks.centerOf(server, worldPosition.asLong()) != watch) {
+                if (watch == WatchCoverage.NONE) WatchedChunks.unwatch(server, worldPosition.asLong());
+                else WatchedChunks.watch(server, worldPosition.asLong(), watch, RadarLogic.NEAR_RADIUS);
+            }
         }
         boolean now = satisfaction > 0;
         if (now != working) {
@@ -166,12 +178,18 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity implements
     public void setRemoved() {
         super.setRemoved();
         power.onRemoved();
+        stopWatching();
     }
 
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
         power.onRemoved();
+        stopWatching();
+    }
+
+    private void stopWatching() {
+        if (level instanceof ServerLevel server) WatchedChunks.unwatch(server, worldPosition.asLong());
     }
 
     @Override
