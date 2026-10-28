@@ -1,0 +1,8 @@
+{
+  "parent": "minetorio:block/logistic_chest",
+  "textures": {
+    "plate": "minetorio:block/logistic_chest_passive_provider_plate",
+    "louver": "minetorio:block/logistic_chest_passive_provider_louver",
+    "particle": "minetorio:block/logistic_chest_passive_provider_plate"
+  }
+}

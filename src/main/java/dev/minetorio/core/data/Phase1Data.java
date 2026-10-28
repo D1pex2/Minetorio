@@ -62,7 +62,15 @@ public final class Phase1Data {
                 tech("solar_energy", "logistic_science_pack", "automation,logistic", 100, 30, "solar_panel"),
                 // TEMP prerequisites: Factorio 1.1 also needs battery (oil stage)
                 tech("electric_energy_accumulators", "electric_energy_distribution_1", "automation,logistic", 150, 30,
-                        "accumulator")));
+                        "accumulator"),
+                // Stage 4 logistic network. TEMP: red + green until the oil stage (Factorio 1.1: logistic
+                // robotics and personal roboport need chemical science, logistic system also utility science;
+                // logistic robotics' prerequisite "robotics" is stood in for by construction robotics)
+                tech("logistic_robotics", "construction_robotics", "automation,logistic", 250, 30,
+                        "logistic_robot,passive_provider_chest,storage_chest"),
+                tech("logistic_system", "logistic_robotics", "automation,logistic", 500, 30,
+                        "active_provider_chest,requester_chest,buffer_chest"),
+                tech("personal_roboport", "construction_robotics", "automation,logistic", 50, 30, "personal_roboport")));
     }
 
     private static Ingredient ing(String spec) {
@@ -145,6 +153,15 @@ public final class Phase1Data {
         r.add(craft("big_electric_pole", "5 copper_plate, 29 iron_plate", 1, 0.5)); // TEMP
         // Factorio 1.1: 5 copper plate, 5 advanced circuit, 10 steel plate (0.5 s)
         r.add(craft("substation", "5 copper_plate, 50 iron_plate, 10 electronic_circuit, 20 copper_cable", 1, 0.5)); // TEMP
+        // Stage 4. TEMP until the oil stage: Factorio's logistic robot is 1 flying robot frame + 2 advanced
+        // circuits (as the construction robot's TEMP recipe here); each logistic chest 1 steel chest (8 steel)
+        // + 3 electronic + 1 advanced circuit (iron instead of steel, 2 more electronic circuits); the personal
+        // roboport 10 advanced circuits, 45 batteries, 20 gears, 20 steel (no batteries: more circuits)
+        r.add(craft("logistic_robot", "3 electronic_circuit, 2 iron_gear_wheel, 2 iron_plate", 1, 0.5));
+        for (String chest : List.of("passive_provider_chest", "active_provider_chest", "storage_chest", "requester_chest", "buffer_chest")) {
+            r.add(craft(chest, "8 iron_plate, 5 electronic_circuit", 1, 0.5));
+        }
+        r.add(craft("personal_roboport", "40 electronic_circuit, 20 iron_gear_wheel, 20 iron_plate, 20 copper_cable", 1, 10));
         r.add(craft("automation_science_pack", "1 copper_plate, 1 iron_gear_wheel", 1, 5));
         r.add(craft("logistic_science_pack", "1 inserter, 1 transport_belt", 1, 6));
         return new RecipeBook(r);
@@ -167,7 +184,9 @@ public final class Phase1Data {
     private static Set<String> buildStart() {
         Set<String> locked = Set.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
                 "fast_inserter", "filter_inserter", "stack_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot",
-                "solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation");
+                "solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation",
+                "logistic_robot", "passive_provider_chest", "active_provider_chest", "storage_chest", "requester_chest",
+                "buffer_chest", "personal_roboport");
         Set<String> s = new LinkedHashSet<>();
         for (Recipe r : BOOK.all()) {
             if (r.category() == RecipeCategory.CRAFTING

@@ -239,7 +239,8 @@ public class RobotGameTest {
         h.runAfterDelay(120, () -> {
             h.assertBlockPresent(ModBlocks.GHOST.get(), new BlockPos(3, 1, 10));
             h.assertTrue(port.buffer() == 0, "buffer filled without power: " + port.buffer());
-            h.assertTrue(port.availableRobots() == 4 && robotsFlying(h) == 0, "a robot was sent");
+            // (only this roboport's robots: a neighbouring test area's robots may fly past)
+            h.assertTrue(port.availableRobots() == 4 && port.robotsOut() == 0, "a robot was sent");
             // powered afterwards, the same roboport builds it
             TestPower.powerAt(h, POLE);
             h.succeedWhen(() -> h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(3, 1, 10)));

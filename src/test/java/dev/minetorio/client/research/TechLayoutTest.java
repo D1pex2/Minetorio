@@ -25,8 +25,9 @@ class TechLayoutTest {
         }
         assertEquals(new TechLayout.Cell(0, 0), layout.cell("automation"));
         assertEquals(1, layout.cell("automation_2").column());
-        assertEquals(3, layout.columns()); // stack_inserter after fast_inserter and logistics_2
-        // column 1: fast inserter, automation 2, logistics 2, construction robotics, electric energy distribution 1, solar energy
+        assertEquals(4, layout.columns()); // logistic_system after logistic_robotics after construction_robotics
+        // column 1: fast inserter, automation 2, logistics 2, construction robotics, electric energy distribution 1, solar energy;
+        // column 2: stack inserter, fluid handling, EED 2, accumulators, logistic robotics, personal roboport
         assertEquals(6, layout.rows());
     }
 

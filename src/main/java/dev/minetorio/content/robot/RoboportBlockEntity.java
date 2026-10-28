@@ -4,6 +4,9 @@ import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.power.ElectricConsumerHelper;
+import dev.minetorio.content.logistics.LogisticChestBlockEntity;
+import dev.minetorio.content.logistics.LogisticRobotEntity;
+import dev.minetorio.content.logistics.LogisticsRegistry;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.content.registry.ModEntities;
 import dev.minetorio.content.registry.ModItems;
@@ -80,7 +83,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
 
     private final SimpleContainer robots = new SimpleContainer(RobotStats.ROBOT_SLOTS) {
         @Override
-        public boolean canPlaceItem(int slot, ItemStack stack) { return stack.is(ModItems.CONSTRUCTION_ROBOT.get()); }
+        public boolean canPlaceItem(int slot, ItemStack stack) { return isRobotItem(stack); }
 
         @Override
         public void setChanged() {
@@ -135,7 +138,37 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         setChanged();
     }
 
-    /** Robot items in the slots. */
+    /** Whether the robot slots take this item: a construction or (stage 4) a logistic robot. */
+    public static boolean isRobotItem(ItemStack stack) {
+        return stack.is(ModItems.CONSTRUCTION_ROBOT.get()) || stack.is(LogisticsRegistry.LOGISTIC_ROBOT.get());
+    }
+
+    /** Logistic robot items in the slots. */
+    public int availableLogisticRobots() {
+        int n = 0;
+        for (int i = 0; i < robots.getContainerSize(); i++) {
+            ItemStack s = robots.getItem(i);
+            if (s.is(LogisticsRegistry.LOGISTIC_ROBOT.get())) n += s.getCount();
+        }
+        return n;
+    }
+
+    /** Takes one logistic robot out to launch it (counted as out, opens the iris); false if none is stored. */
+    public boolean takeLogisticRobot() {
+        if (availableLogisticRobots() <= 0) return false;
+        robots.removeItemType(LogisticsRegistry.LOGISTIC_ROBOT.get(), 1);
+        out++;
+        doorHold = RoboportAnimation.DOOR_HOLD_TICKS;
+        setChanged();
+        return true;
+    }
+
+    /** Takes a docked robot of any kind back into the slots; false when they are full. */
+    public boolean storeRobot(ItemStack robot) {
+        return robots.addItem(robot.copy()).isEmpty();
+    }
+
+    /** Construction robot items in the slots. */
     public int availableRobots() {
         int n = 0;
         for (int i = 0; i < robots.getContainerSize(); i++) {
@@ -175,7 +208,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     }
 
     /** Charges {@code battery} for one tick from the buffer if a charging station is free; returns the joules given. */
-    long charge(RobotBattery battery) {
+    public long charge(RobotBattery battery) {
         if (chargingThisTick >= RobotStats.CHARGING_STATIONS || buffer <= 0 || battery.isFull()) return 0;
         chargingThisTick++;
         long given = battery.charge(Math.min(RobotStats.CHARGE_PER_TICK_J, buffer));
@@ -191,7 +224,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     }
 
     /** A robot launched here is back home, or lost. */
-    void robotReturned() {
+    public void robotReturned() {
         if (out > 0) out--;
         setChanged();
     }
@@ -230,8 +263,9 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     private void tickAnimation(ServerLevel level, int charged) {
         boolean near = charged > 0;
         if (!near && timer % 4 == 0) {
-            near = !level.getEntitiesOfClass(ConstructionRobotEntity.class,
-                    new AABB(dock(), dock()).inflate(RoboportAnimation.DOOR_REACH)).isEmpty();
+            AABB reach = new AABB(dock(), dock()).inflate(RoboportAnimation.DOOR_REACH);
+            near = !level.getEntitiesOfClass(ConstructionRobotEntity.class, reach).isEmpty()
+                    || !level.getEntitiesOfClass(LogisticRobotEntity.class, reach).isEmpty();
         }
         doorHold = RoboportAnimation.nextHold(doorHold, near);
         boolean open = doorHold > 0;
@@ -407,6 +441,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         BlockEntity be = level.getBlockEntity(p);
         if (be == null) return false;
         String ns = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()).getNamespace();
+        if (be instanceof LogisticChestBlockEntity chest) return chest.mode().suppliesConstruction();
         boolean kind = be instanceof RandomizableContainerBlockEntity || (!ns.equals("minecraft") && !ns.equals("minetorio"));
         return kind && level.getCapability(Capabilities.ItemHandler.BLOCK, p, null) != null;
     }
@@ -503,7 +538,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
         return new RoboportMenu(id, inventory, robots, data, p -> !isRemoved()
-                && p.distanceToSqr(Vec3.atCenterOf(worldPosition)) <= 100);
+                && p.distanceToSqr(Vec3.atCenterOf(worldPosition)) <= 100, worldPosition);
     }
 
     /** Render bounds helper for the client. */

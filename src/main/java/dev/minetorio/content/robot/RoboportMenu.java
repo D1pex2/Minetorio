@@ -1,6 +1,5 @@
 package dev.minetorio.content.robot;
 
-import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.content.registry.ModMenus;
 import dev.minetorio.core.robot.RobotStats;
 import java.util.function.Predicate;
@@ -24,16 +23,25 @@ public class RoboportMenu extends AbstractContainerMenu {
     private final Container robots;
     private final ContainerData data;
     private final Predicate<Player> valid;
+    /** The roboport (server side; null on the client): its logistic network's figures are sent while open. */
+    @javax.annotation.Nullable
+    private final net.minecraft.core.BlockPos pos;
 
     public RoboportMenu(int id, Inventory inventory, Container robots, ContainerData data, Predicate<Player> valid) {
+        this(id, inventory, robots, data, valid, null);
+    }
+
+    public RoboportMenu(int id, Inventory inventory, Container robots, ContainerData data, Predicate<Player> valid,
+                        @javax.annotation.Nullable net.minecraft.core.BlockPos pos) {
         super(ModMenus.ROBOPORT.get(), id);
+        this.pos = pos;
         this.robots = robots;
         this.data = data;
         this.valid = valid;
         for (int i = 0; i < RobotStats.ROBOT_SLOTS; i++) {
             addSlot(new Slot(robots, i, SLOT_X + i * 18, SLOT_Y) {
                 @Override
-                public boolean mayPlace(ItemStack stack) { return stack.is(ModItems.CONSTRUCTION_ROBOT.get()); }
+                public boolean mayPlace(ItemStack stack) { return RoboportBlockEntity.isRobotItem(stack); }
             });
         }
         for (int row = 0; row < 3; row++) {
@@ -47,6 +55,10 @@ public class RoboportMenu extends AbstractContainerMenu {
         return new RoboportMenu(id, inventory, new SimpleContainer(RobotStats.ROBOT_SLOTS),
                 new SimpleContainerData(RoboportBlockEntity.DATA_COUNT), p -> true);
     }
+
+    /** The roboport's controller position (server side only). */
+    @javax.annotation.Nullable
+    public net.minecraft.core.BlockPos pos() { return pos; }
 
     public int available() { return data.get(RoboportBlockEntity.DATA_AVAILABLE); }
 
@@ -67,7 +79,7 @@ public class RoboportMenu extends AbstractContainerMenu {
         int n = RobotStats.ROBOT_SLOTS;
         if (index < n) {
             if (!moveItemStackTo(stack, n, slots.size(), true)) return ItemStack.EMPTY;
-        } else if (!stack.is(ModItems.CONSTRUCTION_ROBOT.get()) || !moveItemStackTo(stack, 0, n, false)) {
+        } else if (!RoboportBlockEntity.isRobotItem(stack) || !moveItemStackTo(stack, 0, n, false)) {
             return ItemStack.EMPTY;
         }
         if (stack.isEmpty()) slot.setByPlayer(ItemStack.EMPTY);

@@ -37,6 +37,11 @@
     "minetorio:accumulator",
     "minetorio:medium_electric_pole",
     "minetorio:big_electric_pole",
-    "minetorio:substation"
+    "minetorio:substation",
+    "minetorio:passive_provider_chest",
+    "minetorio:active_provider_chest",
+    "minetorio:storage_chest",
+    "minetorio:requester_chest",
+    "minetorio:buffer_chest"
   ]
 }
