@@ -123,6 +123,24 @@ Check these once in English and once with the game language set to Russian (the 
 - [ ] Hold or look at a burner drill (2×2) or an electric drill (5×5): a green square shows the mining area. Hold or look at a radar: a blue outline marks its 7×7-chunk continuous scan area.
 - [ ] The highlights follow steps in the terrain, do not flicker against the ground, and are not drawn on top of belts or machines.
 
+### Solar power, accumulators and poles
+
+All five are in the creative tab; in survival they are locked behind research (red + green packs): **Electric energy distribution 1** (medium and big pole), **Electric energy distribution 2** (substation, after EED 1), **Solar energy** (solar panel), **Electric energy accumulators** (accumulator, after EED 1). Their recipes are TEMP until steel, batteries and advanced circuits exist (iron plates stand in for steel and iron sticks, iron + copper plates for batteries, circuits + cable for advanced circuits).
+
+| Machine | Size | Look for | Animation |
+|---|---|---|---|
+| Solar panel | 3×3, 1 high | Four long blue cell panels side by side, running front to back, tilted with the far end raised, on light steel rails and legs | none (static) |
+| Accumulator | 2×2, 2 high | Four grey-blue cylinders with domed tops on a dark grated base, a brass terminal cross between the domes, four thin insulator rods at the corners | Five lamps along the front show the charge (one per fifth, lit from the left). While charging the next lamp blinks, while discharging the top lit one blinks |
+| Medium electric pole | 1×1, 4 high | Rust-brown square steel lattice mast on a concrete footing, a small cross of arms with white insulators on top | Wires attach at the middle top insulator |
+| Big electric pole | 2×2, 5 high | Dark blue-grey lattice tower: four splayed legs at the base, a narrower lattice column, an X of cross arms with four insulators at the top | Wires attach at the top center |
+| Substation | 2×2, 3 high | Low dark steel box with copper coils on the sides and red/green cables on top, a short lattice mast with three insulators (the outer two leaning out) | Wires attach at the middle insulator |
+
+- [ ] **Reach and areas** (hold each pole and look at the ground; numbers as in Factorio): medium pole 7×7 square, ring 9; big pole 4×4 square around its 2×2 footprint, ring 30; substation 18×18 square, ring 18. Poles of different kinds connect at the smaller of their two reaches (a small pole wires to a big pole only within 7.5).
+- [ ] **Drag** a line with each pole: medium poles land every 9 blocks, big poles every 28 (two blocks less than their reach, so a 2×2 pole turned any way still connects), substations every 16; wires appear between all of them.
+- [ ] **Solar**: place a panel in a pole's area at noon (`/time set noon`). Right-click it: "60 kW (peak 60 kW)". Watch it at sunset (`/time set 12000`, then wait): the output falls smoothly to 0 and climbs smoothly at sunrise. In rain it gives 30 % less, in a thunderstorm about half. Put any block (even glass or leaves) anywhere above one of its nine cells: within a second it says "covered", 0 kW. A panel outside every pole's area says "not connected" and, in alt mode, flashes the no-power badge.
+- [ ] **Accumulator**: with two solar panels and a small load (an electric inserter) on one pole by day, right-click it: "charging", the percentage rises and the lamps fill one by one (about 47 s here at ~107 kW of surplus; 17 s at the full 300 kW). Set the time to night: the load keeps running, the accumulator says "discharging" and the lamps go out one by one. Steam engines charge accumulators too, but only after the solar panels' output is used up (solar first, then steam, then accumulators).
+- [ ] Break a big pole or substation in the middle of a line: the wires to it disappear and machines past it lose power, as with small poles.
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
 1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.

@@ -13,7 +13,8 @@ import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.drag.DragPayloads;
 import dev.minetorio.content.drag.DragPlacement;
 import dev.minetorio.content.drag.DragTerrain;
-import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.client.machine.MachineRender;
 import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.content.robot.GhostPayloads;
 import dev.minetorio.content.robot.GhostReservations;
@@ -258,10 +259,10 @@ public final class DragClient {
         int poles = 0;
         if (d.kind == DragPlacement.Kind.POLE) {
             List<int[]> path = d.path();
-            List<Integer> picks = PoleSpacer.picks(path, PowerGridManager.WIRE_REACH);
+            List<Integer> picks = PoleSpacer.picks(path, DragPlacement.dragReach(d.item));
             poles = picks.size();
             int[] last = picks.isEmpty() ? path.getFirst() : path.get(picks.getLast());
-            spacer = new PoleSpacer(PowerGridManager.WIRE_REACH, last[0], last[1], last[2]);
+            spacer = new PoleSpacer(DragPlacement.dragReach(d.item), last[0], last[1], last[2]);
         }
         for (DragDir step : d.line.plan(t[0], t[1], TURN_THRESHOLD, MAX_GROWTH_PER_TICK)) {
             DragCell head = d.line.head();
@@ -343,13 +344,19 @@ public final class DragClient {
                 if (ok) arrow(pose, buffers, p, facing, d.ghost);
             }
         } else {
-            Set<Integer> picks = new HashSet<>(PoleSpacer.picks(d.path(), PowerGridManager.WIRE_REACH));
+            Set<Integer> picks = new HashSet<>(PoleSpacer.picks(d.path(), DragPlacement.dragReach(d.item)));
             for (int i = from; i < d.line.size(); i++) {
                 BlockPos p = d.pos(i);
                 if (picks.contains(i)) {
-                    AABB box = new AABB(p.getX() + 6 / 16.0, p.getY(), p.getZ() + 6 / 16.0, p.getX() + 10 / 16.0, p.getY() + 3,
-                            p.getZ() + 10 / 16.0).inflate(INFLATE);
-                    MultiblockPlacementPreview.drawBox(pose, buffers, box, poleFits(d, p), d.ghost);
+                    Direction facing = DragTerrain.toMc(d.line.cell(i).facing());
+                    AABB box;
+                    if (((BlockItem) d.item).getBlock() instanceof MultiblockControllerBlock mb) {
+                        box = MachineRender.footprintBox(mb.placementOrigin(p, facing), facing, mb.shape()).inflate(INFLATE);
+                    } else {
+                        box = new AABB(p.getX() + 6 / 16.0, p.getY(), p.getZ() + 6 / 16.0, p.getX() + 10 / 16.0, p.getY() + 3,
+                                p.getZ() + 10 / 16.0).inflate(INFLATE);
+                    }
+                    MultiblockPlacementPreview.drawBox(pose, buffers, box, poleFits(d, p, facing), d.ghost);
                 } else if (i == d.line.size() - 1) {
                     AABB box = new AABB(p.getX(), p.getY(), p.getZ(), p.getX() + 1, p.getY() + 1 / 16.0, p.getZ() + 1).inflate(INFLATE);
                     MultiblockPlacementPreview.drawBox(pose, buffers, box, true, d.ghost);
@@ -359,10 +366,17 @@ public final class DragClient {
         pose.popPose();
     }
 
-    private static boolean poleFits(Drag d, BlockPos p) {
-        for (int k = 0; k < 3; k++) {
-            if (!DragTerrain.isFree(d.level, p.above(k))) return false;
-            if (d.ghost && !GhostReservations.freeFor(d.level, p.above(k), p)) return false;
+    /** Whether a pole of the dragged kind fits with its anchor at {@code p}, turned to {@code facing}. */
+    private static boolean poleFits(Drag d, BlockPos p, Direction facing) {
+        List<BlockPos> cells = new ArrayList<>();
+        if (((BlockItem) d.item).getBlock() instanceof MultiblockControllerBlock mb) {
+            cells.addAll(mb.shape().footprint(mb.placementOrigin(p, facing), facing));
+        } else {
+            for (int k = 0; k < 3; k++) cells.add(p.above(k));
+        }
+        for (BlockPos c : cells) {
+            if (!DragTerrain.isFree(d.level, c)) return false;
+            if (d.ghost && !GhostReservations.freeFor(d.level, c, p)) return false;
         }
         return true;
     }

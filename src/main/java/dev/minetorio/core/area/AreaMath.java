@@ -12,6 +12,14 @@ public final class AreaMath {
     }
 
     /**
+     * Supply area of a pole whose {@code size}×{@code size} footprint starts at column (x0, z0):
+     * the footprint grown by {@code margin} on every side.
+     */
+    public static GroundRect poleSupply(int x0, int z0, int size, int margin) {
+        return new GroundRect(x0 - margin, z0 - margin, x0 + size - 1 + margin, z0 + size - 1 + margin);
+    }
+
+    /**
      * Mining area of a drill: the {@code areaSize} square around the center of its footprint. The
      * footprint starts at the origin column (ox, oz) and extends {@code depth} along the facing
      * (fx, fz) and {@code width} to its clockwise side (−fz, fx). For an even/odd mismatch the

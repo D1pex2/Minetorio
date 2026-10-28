@@ -64,6 +64,13 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> STEAM_ENGINE = multiblock(ModBlocks.STEAM_ENGINE);
     public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE);
 
+    // Solar power and electric network
+    public static final DeferredItem<BlockItem> SOLAR_PANEL = multiblock(ModBlocks.SOLAR_PANEL);
+    public static final DeferredItem<BlockItem> ACCUMULATOR = multiblock(ModBlocks.ACCUMULATOR);
+    public static final DeferredItem<BlockItem> MEDIUM_ELECTRIC_POLE = multiblock(ModBlocks.MEDIUM_ELECTRIC_POLE);
+    public static final DeferredItem<BlockItem> BIG_ELECTRIC_POLE = multiblock(ModBlocks.BIG_ELECTRIC_POLE);
+    public static final DeferredItem<BlockItem> SUBSTATION = multiblock(ModBlocks.SUBSTATION);
+
     // Construction robots
     public static final DeferredItem<BlockItem> ROBOPORT = multiblock(ModBlocks.ROBOPORT);
     public static final DeferredItem<Item> CONSTRUCTION_ROBOT = ITEMS.registerSimpleItem("construction_robot");
@@ -81,6 +88,7 @@ public final class ModItems {
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
+            "solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation",
             "roboport", "construction_robot", "ghost_item");
 
     private ModItems() {}

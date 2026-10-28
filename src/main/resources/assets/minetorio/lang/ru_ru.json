@@ -236,5 +236,21 @@
   "technology.minetorio.stack_inserter": "Пакетный манипулятор",
   "minetorio.filter_inserter.whitelist": "Режим: белый список",
   "minetorio.filter_inserter.blacklist": "Режим: чёрный список",
-  "minetorio.filter_inserter.hint": "Щёлкните слот предметом"
+  "minetorio.filter_inserter.hint": "Щёлкните слот предметом",
+  "block.minetorio.solar_panel": "Солнечная панель",
+  "block.minetorio.accumulator": "Аккумулятор",
+  "block.minetorio.medium_electric_pole": "Средний столб",
+  "block.minetorio.big_electric_pole": "Большой столб",
+  "block.minetorio.substation": "Подстанция",
+  "technology.minetorio.electric_energy_distribution_1": "Электросети 1",
+  "technology.minetorio.electric_energy_distribution_2": "Электросети 2",
+  "technology.minetorio.solar_energy": "Солнечная энергия",
+  "technology.minetorio.electric_energy_accumulators": "Аккумуляторы",
+  "minetorio.solar_panel.status": "Солнечная панель: %s кВт (пик %s кВт)",
+  "minetorio.solar_panel.covered": "Солнечная панель: закрыта — над ней нет неба, 0 кВт",
+  "minetorio.solar_panel.not_connected": "Солнечная панель: не подключена к столбу (доступно %s кВт)",
+  "minetorio.accumulator.charging": "Аккумулятор: %s%% (%s МДж), заряжается на %s кВт",
+  "minetorio.accumulator.discharging": "Аккумулятор: %s%% (%s МДж), разряжается на %s кВт",
+  "minetorio.accumulator.idle": "Аккумулятор: %s%% (%s МДж), простаивает (%s кВт)",
+  "minetorio.accumulator.not_connected": "Аккумулятор: %s%% (%s МДж), не подключён к столбу (%s кВт)"
 }

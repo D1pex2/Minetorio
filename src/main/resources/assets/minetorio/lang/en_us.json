@@ -236,5 +236,21 @@
   "technology.minetorio.stack_inserter": "Stack Inserter",
   "minetorio.filter_inserter.whitelist": "Mode: whitelist",
   "minetorio.filter_inserter.blacklist": "Mode: blacklist",
-  "minetorio.filter_inserter.hint": "Click a slot with an item to set it"
+  "minetorio.filter_inserter.hint": "Click a slot with an item to set it",
+  "block.minetorio.solar_panel": "Solar Panel",
+  "block.minetorio.accumulator": "Accumulator",
+  "block.minetorio.medium_electric_pole": "Medium Electric Pole",
+  "block.minetorio.big_electric_pole": "Big Electric Pole",
+  "block.minetorio.substation": "Substation",
+  "technology.minetorio.electric_energy_distribution_1": "Electric Energy Distribution 1",
+  "technology.minetorio.electric_energy_distribution_2": "Electric Energy Distribution 2",
+  "technology.minetorio.solar_energy": "Solar Energy",
+  "technology.minetorio.electric_energy_accumulators": "Electric Energy Accumulators",
+  "minetorio.solar_panel.status": "Solar panel: %s kW (peak %s kW)",
+  "minetorio.solar_panel.covered": "Solar panel: covered — no sky above, 0 kW",
+  "minetorio.solar_panel.not_connected": "Solar panel: not connected to a pole (%s kW available)",
+  "minetorio.accumulator.charging": "Accumulator: %s%% (%s MJ), charging at %s kW",
+  "minetorio.accumulator.discharging": "Accumulator: %s%% (%s MJ), discharging at %s kW",
+  "minetorio.accumulator.idle": "Accumulator: %s%% (%s MJ), idle (%s kW)",
+  "minetorio.accumulator.not_connected": "Accumulator: %s%% (%s MJ), not connected to a pole (%s kW)"
 }

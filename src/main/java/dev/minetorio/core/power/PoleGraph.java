@@ -3,36 +3,59 @@ package dev.minetorio.core.power;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 
-/** Poles auto-connect to every other pole within wire reach (Euclidean, inclusive). */
+/**
+ * Poles of any {@link PoleType}, keyed by their footprint's corner ({@link PolePos}). A pole
+ * auto-connects to every other pole whose footprint center lies within the smaller of the two wire
+ * reaches (Euclidean, 3D, inclusive), as Factorio does; connected poles form components.
+ */
 public final class PoleGraph {
-    private final double wireReach;
-    private final int supplyRadius;
-    private final Set<PolePos> poles = new LinkedHashSet<>();
+    private final Map<PolePos, PoleType> poles = new LinkedHashMap<>();
     private Map<PolePos, Integer> components = new HashMap<>();
     private boolean dirty = true;
 
-    public PoleGraph(double wireReach, int supplyRadius) {
-        this.wireReach = wireReach;
-        this.supplyRadius = supplyRadius;
-    }
-
-    public void addPole(PolePos p) {
-        if (poles.add(p)) dirty = true;
+    public void addPole(PolePos p, PoleType type) {
+        if (poles.put(p, type) != type) dirty = true;
     }
 
     public void removePole(PolePos p) {
-        if (poles.remove(p)) dirty = true;
+        if (poles.remove(p) != null) dirty = true;
+    }
+
+    public boolean contains(PolePos p) { return poles.containsKey(p); }
+
+    /** Whether poles {@code a} (of type {@code ta}) and {@code b} (of {@code tb}) are close enough to be wired. */
+    public static boolean inReach(PolePos a, PoleType ta, PolePos b, PoleType tb) {
+        double reach = Math.min(ta.wireReach(), tb.wireReach());
+        double dx = (a.x() + ta.size() / 2.0) - (b.x() + tb.size() / 2.0);
+        double dy = a.y() - b.y();
+        double dz = (a.z() + ta.size() / 2.0) - (b.z() + tb.size() / 2.0);
+        return dx * dx + dy * dy + dz * dz <= reach * reach;
+    }
+
+    /** Whether the pole at {@code p} of {@code type} supplies block (x, y, z). */
+    public static boolean supplies(PolePos p, PoleType type, int x, int y, int z) {
+        return suppliesAny(p, type, x, y, z, x, y, z);
+    }
+
+    /** Whether the pole supplies any block of the box (inclusive block coordinates). */
+    public static boolean suppliesAny(PolePos p, PoleType type, int x0, int y0, int z0, int x1, int y1, int z1) {
+        int m = type.supplyMargin();
+        return p.x() - m <= x1 && p.x() + type.size() - 1 + m >= x0
+                && p.z() - m <= z1 && p.z() + type.size() - 1 + m >= z0
+                && p.y() - type.verticalReach() <= y1 && p.y() + type.verticalReach() >= y0;
     }
 
     public Set<PolePos> neighbors(PolePos p) {
         Set<PolePos> out = new HashSet<>();
-        for (PolePos q : poles) {
-            if (!q.equals(p) && distSq(p, q) <= wireReach * wireReach) out.add(q);
+        PoleType tp = poles.get(p);
+        if (tp == null) return out;
+        for (Map.Entry<PolePos, PoleType> q : poles.entrySet()) {
+            if (!q.getKey().equals(p) && inReach(p, tp, q.getKey(), q.getValue())) out.add(q.getKey());
         }
         return out;
     }
@@ -43,27 +66,29 @@ public final class PoleGraph {
         return components.getOrDefault(p, -1);
     }
 
+    /** Component of the smallest pole ({@link PolePos#compareTo}) supplying block (x, y, z); empty if none does. */
     public OptionalInt componentCovering(int x, int y, int z) {
-        rebuild();
-        for (PolePos p : poles) {
-            if (Math.abs(p.x() - x) <= supplyRadius && Math.abs(p.z() - z) <= supplyRadius
-                    && Math.abs(p.y() - y) <= supplyRadius) {
-                return OptionalInt.of(components.get(p));
-            }
-        }
-        return OptionalInt.empty();
+        return componentCovering(x, y, z, x, y, z);
     }
 
-    private static double distSq(PolePos a, PolePos b) {
-        double dx = a.x() - b.x(), dy = a.y() - b.y(), dz = a.z() - b.z();
-        return dx * dx + dy * dy + dz * dz;
+    /**
+     * Component of the smallest pole ({@link PolePos#compareTo}) supplying any block of the box
+     * (inclusive block coordinates), so the choice does not depend on insertion order; empty if no pole does.
+     */
+    public OptionalInt componentCovering(int x0, int y0, int z0, int x1, int y1, int z1) {
+        PolePos best = null;
+        for (Map.Entry<PolePos, PoleType> e : poles.entrySet()) {
+            PolePos p = e.getKey();
+            if (suppliesAny(p, e.getValue(), x0, y0, z0, x1, y1, z1) && (best == null || p.compareTo(best) < 0)) best = p;
+        }
+        return best == null ? OptionalInt.empty() : OptionalInt.of(componentOf(best));
     }
 
     private void rebuild() {
         if (!dirty) return;
         components = new HashMap<>();
         int next = 0;
-        for (PolePos start : poles) {
+        for (PolePos start : poles.keySet()) {
             if (components.containsKey(start)) continue;
             int id = next++;
             ArrayDeque<PolePos> queue = new ArrayDeque<>();

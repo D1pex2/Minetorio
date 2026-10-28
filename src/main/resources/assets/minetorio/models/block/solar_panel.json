@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "minetorio:block/energy_solar_cell"
+  },
+  "elements": []
+}

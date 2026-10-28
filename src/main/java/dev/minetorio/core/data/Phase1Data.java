@@ -49,7 +49,18 @@ public final class Phase1Data {
                 tech("stack_inserter", "fast_inserter,logistics_2", "automation,logistic", 150, 30, "stack_inserter"),
                 // TEMP: red + green until the oil stage; Factorio's construction robotics needs more
                 tech("construction_robotics", "automation,logistic_science_pack", "automation,logistic", 100, 30,
-                        "roboport,construction_robot")));
+                        "roboport,construction_robot"),
+                // TEMP prerequisites: Factorio 1.1 also needs electronics and steel processing (not in the game yet)
+                tech("electric_energy_distribution_1", "logistic_science_pack", "automation,logistic", 120, 30,
+                        "medium_electric_pole,big_electric_pole"),
+                // TEMP: Factorio 1.1 needs chemical (blue) science packs too, and the chemical science pack research
+                tech("electric_energy_distribution_2", "electric_energy_distribution_1", "automation,logistic", 100, 45,
+                        "substation"),
+                // TEMP prerequisites: Factorio 1.1 also needs optics, electronics and steel processing
+                tech("solar_energy", "logistic_science_pack", "automation,logistic", 100, 30, "solar_panel"),
+                // TEMP prerequisites: Factorio 1.1 also needs battery (oil stage)
+                tech("electric_energy_accumulators", "electric_energy_distribution_1", "automation,logistic", 150, 30,
+                        "accumulator")));
     }
 
     private static Ingredient ing(String spec) {
@@ -114,6 +125,19 @@ public final class Phase1Data {
         // 45 advanced circuits; and 1 flying robot frame + 2 circuits)
         r.add(craft("roboport", "45 electronic_circuit, 45 iron_gear_wheel, 45 iron_plate", 1, 5));
         r.add(craft("construction_robot", "3 electronic_circuit, 2 iron_gear_wheel, 2 iron_plate", 1, 0.5));
+        // Solar power and electric network. TEMP recipes until steel, iron sticks, batteries and
+        // advanced circuits exist; raw cost kept: 1 steel = 5 iron plates, 2 iron sticks = 1 iron plate,
+        // 1 battery = 1 iron + 1 copper plate, 1 advanced circuit = 2 electronic circuits + 4 copper cable.
+        // Factorio 1.1: 5 copper plate, 15 steel plate, 15 electronic circuit (10 s)
+        r.add(craft("solar_panel", "5 copper_plate, 75 iron_plate, 15 electronic_circuit", 1, 10)); // TEMP
+        // Factorio 1.1: 2 iron plate, 5 battery (10 s)
+        r.add(craft("accumulator", "7 iron_plate, 5 copper_plate", 1, 10)); // TEMP
+        // Factorio 1.1: 2 copper plate, 4 iron stick, 2 steel plate (0.5 s)
+        r.add(craft("medium_electric_pole", "2 copper_plate, 12 iron_plate", 1, 0.5)); // TEMP
+        // Factorio 1.1: 5 copper plate, 8 iron stick, 5 steel plate (0.5 s)
+        r.add(craft("big_electric_pole", "5 copper_plate, 29 iron_plate", 1, 0.5)); // TEMP
+        // Factorio 1.1: 5 copper plate, 5 advanced circuit, 10 steel plate (0.5 s)
+        r.add(craft("substation", "5 copper_plate, 50 iron_plate, 10 electronic_circuit, 20 copper_cable", 1, 0.5)); // TEMP
         r.add(craft("automation_science_pack", "1 copper_plate, 1 iron_gear_wheel", 1, 5));
         r.add(craft("logistic_science_pack", "1 inserter, 1 transport_belt", 1, 6));
         return new RecipeBook(r);
@@ -135,7 +159,8 @@ public final class Phase1Data {
 
     private static Set<String> buildStart() {
         Set<String> locked = Set.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
-                "fast_inserter", "filter_inserter", "stack_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot");
+                "fast_inserter", "filter_inserter", "stack_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot",
+                "solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation");
         Set<String> s = new LinkedHashSet<>();
         for (Recipe r : BOOK.all()) {
             if (r.category() == RecipeCategory.CRAFTING

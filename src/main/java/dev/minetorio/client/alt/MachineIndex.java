@@ -4,7 +4,7 @@ import dev.minetorio.Minetorio;
 import dev.minetorio.content.alt.AltSource;
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
-import dev.minetorio.content.power.ElectricPoleBlockEntity;
+import dev.minetorio.content.power.PowerPoleEntity;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -36,7 +36,7 @@ public final class MachineIndex {
 
     private static List<Machine> machines = List.of();
     private static List<InserterBlockEntity> inserters = List.of();
-    private static List<ElectricPoleBlockEntity> poles = List.of();
+    private static List<PowerPoleEntity> poles = List.of();
     private static int countdown;
 
     private MachineIndex() {}
@@ -45,7 +45,7 @@ public final class MachineIndex {
 
     public static List<InserterBlockEntity> inserters() { return inserters; }
 
-    public static List<ElectricPoleBlockEntity> poles() { return poles; }
+    public static List<PowerPoleEntity> poles() { return poles; }
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -64,7 +64,7 @@ public final class MachineIndex {
     private static void rebuild(ClientLevel level, BlockPos center) {
         List<Machine> m = new ArrayList<>();
         List<InserterBlockEntity> ins = new ArrayList<>();
-        List<ElectricPoleBlockEntity> p = new ArrayList<>();
+        List<PowerPoleEntity> p = new ArrayList<>();
         int c0x = (center.getX() - RADIUS) >> 4, c1x = (center.getX() + RADIUS) >> 4;
         int c0z = (center.getZ() - RADIUS) >> 4, c1z = (center.getZ() + RADIUS) >> 4;
         for (int cx = c0x; cx <= c1x; cx++) {
@@ -78,7 +78,7 @@ public final class MachineIndex {
                         if (e != null) m.add(e);
                     } else if (be instanceof InserterBlockEntity i) {
                         ins.add(i);
-                    } else if (be instanceof ElectricPoleBlockEntity pole) {
+                    } else if (be instanceof PowerPoleEntity pole) {
                         p.add(pole);
                     }
                 }

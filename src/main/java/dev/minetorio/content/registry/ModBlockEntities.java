@@ -11,7 +11,10 @@ import dev.minetorio.content.machine.ElectricDrillBlockEntity;
 import dev.minetorio.content.machine.StoneFurnaceBlockEntity;
 import dev.minetorio.content.map.RadarBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
+import dev.minetorio.content.power.AccumulatorBlockEntity;
 import dev.minetorio.content.power.BoilerBlockEntity;
+import dev.minetorio.content.power.MultiblockPoleBlockEntity;
+import dev.minetorio.content.power.SolarPanelBlockEntity;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
 import dev.minetorio.content.power.PipeBlockEntity;
@@ -97,6 +100,20 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ElectricPoleBlockEntity>> SMALL_ELECTRIC_POLE =
             BLOCK_ENTITIES.register("small_electric_pole", () -> BlockEntityType.Builder
                     .of(ElectricPoleBlockEntity::new, ModBlocks.SMALL_ELECTRIC_POLE.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SolarPanelBlockEntity>> SOLAR_PANEL =
+            BLOCK_ENTITIES.register("solar_panel", () -> BlockEntityType.Builder
+                    .of(SolarPanelBlockEntity::new, ModBlocks.SOLAR_PANEL.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AccumulatorBlockEntity>> ACCUMULATOR =
+            BLOCK_ENTITIES.register("accumulator", () -> BlockEntityType.Builder
+                    .of(AccumulatorBlockEntity::new, ModBlocks.ACCUMULATOR.get()).build(null));
+
+    /** Medium and big electric poles and the substation. */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<MultiblockPoleBlockEntity>> MULTIBLOCK_POLE =
+            BLOCK_ENTITIES.register("multiblock_pole", () -> BlockEntityType.Builder
+                    .of(MultiblockPoleBlockEntity::new, ModBlocks.MEDIUM_ELECTRIC_POLE.get(), ModBlocks.BIG_ELECTRIC_POLE.get(),
+                            ModBlocks.SUBSTATION.get()).build(null));
 
     private ModBlockEntities() {}
 

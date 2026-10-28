@@ -91,7 +91,25 @@ public class ResearchScreen extends Screen {
         }
         int w = cols * nodeW + Math.max(0, cols - 1) * gapX;
         originX = (width - w) / 2;
-        originY = TOP;
+        scrollY = Math.min(scrollY, maxScroll());
+        originY = TOP - scrollY;
+    }
+
+    /** Pixels the tree is scrolled up (mouse wheel) when it is taller than the screen. */
+    private int scrollY;
+
+    private int maxScroll() {
+        int h = layout.rows() * (NODE_H + GAP_Y) - GAP_Y;
+        return Math.max(0, TOP + h + MARGIN - height);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double deltaY) {
+        int max = maxScroll();
+        if (max == 0) return super.mouseScrolled(mouseX, mouseY, scrollX, deltaY);
+        scrollY = (int) Math.max(0, Math.min(max, scrollY - deltaY * (NODE_H + GAP_Y) / 2));
+        originY = TOP - scrollY;
+        return true;
     }
 
     @Override

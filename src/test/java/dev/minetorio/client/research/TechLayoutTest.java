@@ -26,7 +26,8 @@ class TechLayoutTest {
         assertEquals(new TechLayout.Cell(0, 0), layout.cell("automation"));
         assertEquals(1, layout.cell("automation_2").column());
         assertEquals(3, layout.columns()); // stack_inserter after fast_inserter and logistics_2
-        assertEquals(4, layout.rows());
+        // column 1: fast inserter, automation 2, logistics 2, construction robotics, electric energy distribution 1, solar energy
+        assertEquals(6, layout.rows());
     }
 
     @Test

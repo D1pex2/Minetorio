@@ -65,6 +65,29 @@ class Phase1DataTest {
         assertEquals(new dev.minetorio.core.recipe.Ingredient("minetorio:roboport", 1), book.get("roboport").orElseThrow().outputs().get(0));
     }
 
+    /** Factorio 1.1 research for solar, accumulators and electric energy distribution 1 & 2; all locked at start. */
+    @Test
+    void energyResearch() {
+        var tree = Phase1Data.techTree();
+        assertEquals(java.util.List.of("medium_electric_pole", "big_electric_pole"),
+                tree.get("electric_energy_distribution_1").orElseThrow().unlocksRecipes());
+        assertEquals(java.util.List.of("substation"), tree.get("electric_energy_distribution_2").orElseThrow().unlocksRecipes());
+        assertEquals(java.util.List.of("electric_energy_distribution_1"),
+                tree.get("electric_energy_distribution_2").orElseThrow().prerequisites());
+        assertEquals(java.util.List.of("solar_panel"), tree.get("solar_energy").orElseThrow().unlocksRecipes());
+        var acc = tree.get("electric_energy_accumulators").orElseThrow();
+        assertEquals(java.util.List.of("accumulator"), acc.unlocksRecipes());
+        assertEquals(150, acc.units());
+        assertEquals(120, tree.get("electric_energy_distribution_1").orElseThrow().units());
+        for (String id : java.util.List.of("solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation")) {
+            assertFalse(Phase1Data.startRecipes().contains(id), id);
+            assertEquals(new dev.minetorio.core.recipe.Ingredient("minetorio:" + id, 1), book.get(id).orElseThrow().outputs().get(0));
+        }
+        assertEquals(200, book.get("solar_panel").orElseThrow().ticks()); // 10 s
+        assertEquals(200, book.get("accumulator").orElseThrow().ticks());
+        assertEquals(10, book.get("substation").orElseThrow().ticks());
+    }
+
     @Test void assemblerLockedAtStart() { assertFalse(Phase1Data.startRecipes().contains("assembling_machine_1")); }
 
     @Test

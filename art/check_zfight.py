@@ -401,6 +401,12 @@ COMPOSITES = [
                           [("t", (0, py - 8, pz - 8), None)] for a in SPIN], X)
                         for model, py, pz in (("steam_engine_gear", 15, 10), ("steam_engine_gear_small", 12, -6),
                                               ("steam_engine_gear_small", 21, 25))]]),
+    # art/gen_energy.py: tall machines cut into 32 px pieces, piece k drawn 32 k px up (MultiblockPoleRenderer);
+    # the accumulator's lit lamps over the dull ones (AccumulatorRenderer: model (8, 0, 8) at the lamp's machine px).
+    *[(name, [(f"p{k}", M(f"{name}_p{k}"), [[("t", (0, 32 * k, 0), None)]] if k else [[]]) for k in range(n)])
+      for name, n in (("medium_electric_pole", 2), ("big_electric_pole", 3), ("substation", 2))],
+    ("accumulator+lamps", [("body", M("accumulator_p0"), [[]])]
+     + [(f"lamp{i}", M("accumulator_lamp_on"), [[("t", (-8 + 4 * i, 2, -15), None)]]) for i in range(5)]),
     # blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
     ("small_electric_pole", [("lower", M("small_electric_pole"), [[]]),
                              ("middle", M("small_electric_pole_middle"), [[("t", (0, 16, 0), None)]]),

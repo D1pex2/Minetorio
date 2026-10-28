@@ -439,6 +439,18 @@ class ModelZFightTest {
             engine.add(spinning("gear@" + py + "," + pz, (String) g[0], 'x', new V(0, 8, 8), Tr.t(0, py - 8, pz - 8)));
         }
         c.add(new Composite("steam_engine", engine));
+        // art/gen_energy.py: tall machines cut into 32 px pieces, piece k drawn 32 k px up (MultiblockPoleRenderer);
+        // the accumulator's lit lamps over the dull ones (AccumulatorRenderer: model (8, 0, 8) at the lamp's machine px).
+        for (Object[] tall : new Object[][] {{"medium_electric_pole", 2}, {"big_electric_pole", 3}, {"substation", 2}}) {
+            List<Part> parts = new ArrayList<>();
+            for (int k = 0; k < (int) tall[1]; k++) {
+                parts.add(k == 0 ? Part.fixed("p0", tall[0] + "_p0") : Part.fixed("p" + k, tall[0] + "_p" + k, Tr.t(0, 32 * k, 0)));
+            }
+            c.add(new Composite((String) tall[0], parts));
+        }
+        List<Part> accumulator = new ArrayList<>(List.of(Part.fixed("body", "accumulator_p0")));
+        for (int i = 0; i < 5; i++) accumulator.add(Part.fixed("lamp" + i, "accumulator_lamp_on", Tr.t(-8 + 4 * i, 2, -15)));
+        c.add(new Composite("accumulator+lamps", accumulator));
         // blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
         c.add(new Composite("small_electric_pole", List.of(Part.fixed("lower", "small_electric_pole"),
                 Part.fixed("middle", "small_electric_pole_middle", Tr.t(0, 16, 0)),

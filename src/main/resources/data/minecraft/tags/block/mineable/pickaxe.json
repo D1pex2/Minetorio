@@ -29,6 +29,11 @@
     "minetorio:copper_ore_field",
     "minetorio:coal_ore_field",
     "minetorio:stone_ore_field",
-    "minetorio:roboport"
+    "minetorio:roboport",
+    "minetorio:solar_panel",
+    "minetorio:accumulator",
+    "minetorio:medium_electric_pole",
+    "minetorio:big_electric_pole",
+    "minetorio:substation"
   ]
 }

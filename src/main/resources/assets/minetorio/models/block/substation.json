@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "minetorio:block/energy_sub_body"
+  },
+  "elements": []
+}

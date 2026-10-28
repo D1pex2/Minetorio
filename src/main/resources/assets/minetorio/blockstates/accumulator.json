@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/accumulator"
+    },
+    "facing=south": {
+      "model": "minetorio:block/accumulator"
+    },
+    "facing=east": {
+      "model": "minetorio:block/accumulator"
+    },
+    "facing=west": {
+      "model": "minetorio:block/accumulator"
+    }
+  }
+}
