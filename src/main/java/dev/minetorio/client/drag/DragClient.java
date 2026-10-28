@@ -18,6 +18,9 @@ import dev.minetorio.content.robot.GhostItem;
 import dev.minetorio.content.robot.GhostPayloads;
 import dev.minetorio.content.robot.GhostReservations;
 import dev.minetorio.content.robot.HandGhosts;
+import dev.minetorio.content.map.RemotePayloads;
+import dev.minetorio.content.registry.ModBlocks;
+import dev.minetorio.core.robot.GhostReach;
 import dev.minetorio.core.drag.DragCell;
 import dev.minetorio.core.drag.DragDir;
 import dev.minetorio.core.drag.DragLine;
@@ -162,7 +165,8 @@ public final class DragClient {
         if (player == null || mc.level == null || event.getHand() != InteractionHand.MAIN_HAND) return;
         ItemStack stack = player.getMainHandItem();
         boolean ghostItem = stack.getItem() instanceof GhostItem;
-        if (ghostItem || (ModKeys.ghostHeld() && HandGhosts.canGhost(stack))) {
+        BlockHitResult far = farHit(mc);
+        if (ghostItem || ((ModKeys.ghostHeld() || far != null) && HandGhosts.canGhost(stack))) {
             ItemStack target = HandGhosts.effective(stack);
             if (target.isEmpty()) {
                 event.setCanceled(true); // a ghost item without a valid target does nothing
@@ -187,7 +191,8 @@ public final class DragClient {
      */
     private static void ghostClick(InputEvent.InteractionKeyMappingTriggered event, Minecraft mc, LocalPlayer player, ItemStack stack) {
         event.setCanceled(true);
-        if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
+        BlockHitResult hit = ghostHit(mc);
+        if (hit == null) {
             event.setSwingHand(false);
             return;
         }
@@ -197,6 +202,39 @@ public final class DragClient {
         if (kind != null && plan != null) {
             drag = new Drag(kind, true, stack.getItem(), plan.pos(), DragTerrain.fromMc(player.getDirection()), mc.level);
         }
+    }
+
+    /**
+     * Top-down build camera (not remote): the block under the cursor when it is beyond the normal
+     * reach but within ghost reach (Factorio: placing out of reach makes ghosts); else null.
+     */
+    @Nullable
+    public static BlockHitResult farHit(Minecraft mc) {
+        if (!BuildCamera.isActive() || BuildCamera.isRemote() || BuildCamera.cursorInReach() || mc.player == null) return null;
+        if (!(BuildCamera.cursorHit() instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return null;
+        BlockPos p = hit.getBlockPos();
+        return GhostReach.inReach(p.getX() + 0.5 - mc.player.getX(), p.getZ() + 0.5 - mc.player.getZ(), 0) ? hit : null;
+    }
+
+    /** The block a ghost click acts on: the reach-filtered target, else (top-down) the far one ({@link #farHit}). */
+    @Nullable
+    public static BlockHitResult ghostHit(Minecraft mc) {
+        if (mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) return hit;
+        return farHit(mc);
+    }
+
+    /**
+     * Left-click on a ghost beyond reach in the top-down camera removes it through the ghost-reach
+     * path (vanilla only breaks blocks in reach); the remote view does the same in its own handler.
+     */
+    @SubscribeEvent
+    public static void onAttack(InputEvent.InteractionKeyMappingTriggered event) {
+        if (!event.isAttack()) return;
+        Minecraft mc = Minecraft.getInstance();
+        BlockHitResult far = farHit(mc);
+        if (far == null || mc.level == null || !mc.level.getBlockState(far.getBlockPos()).is(ModBlocks.GHOST.get())) return;
+        event.setCanceled(true);
+        PacketDistributor.sendToServer(new RemotePayloads.RemoveGhost(far.getBlockPos()));
     }
 
     /** Whether a drag is in progress (the single-click ghost preview hides meanwhile). */
@@ -238,7 +276,8 @@ public final class DragClient {
 
     /** The column the line heads for: the cell a click would place into, or the player's own. */
     private static int[] target(Minecraft mc, LocalPlayer player, Drag d) {
-        if (mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
+        HitResult aim = d.ghost ? ghostHit(mc) : mc.hitResult;
+        if (aim instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
             BlockPos p = new BlockPlaceContext(new UseOnContext(player, InteractionHand.MAIN_HAND, hit)).getClickedPos();
             return new int[] {p.getX(), p.getZ()};
         }

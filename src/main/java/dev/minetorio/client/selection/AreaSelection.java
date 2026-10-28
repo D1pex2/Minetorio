@@ -43,10 +43,11 @@ import org.lwjgl.glfw.GLFW;
  * the tool's alternative, e.g. unmark). Left-click cancels. Right-click into the air with no
  * selection opens the tool's settings.
  *
- * <p><b>Top-down / remote view</b> ({@link BuildCamera}): hold the left button and drag a rectangle
- * under the cursor; letting go applies it ({@link SelectionBox#column}: the rectangle from a little
- * below the ground to well above it). Shift held on release: the alternative. Right-click opens
- * the settings.
+ * <p><b>Top-down / remote view</b> ({@link BuildCamera}): hold the left or the right button (the
+ * blueprint drags with the right one) and drag a rectangle under the cursor; letting go applies it
+ * ({@link SelectionBox#column}: the rectangle from a little below the ground to well above it).
+ * Shift held on release: the alternative. A right click without dragging opens the settings.
+ * The wheel also nudges with Shift held (the blueprint's gesture).
  *
  * <p>While a tool is held its clicks never reach vanilla (no block breaking with a planner).
  */
@@ -195,26 +196,31 @@ public final class AreaSelection {
         if (!BuildCamera.isActive() || mc.screen != null) return;
         Tool t = held();
         if (t == null) return;
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            event.setCanceled(true);
-            if (event.getAction() == GLFW.GLFW_PRESS) {
-                BlockPos at = target();
-                dragStart = at == null ? null : at.immutable();
-                hover = dragStart;
-            } else if (event.getAction() == GLFW.GLFW_RELEASE && dragStart != null) {
-                BlockPos end = target() != null ? target() : hover;
-                if (end != null) {
-                    SelectionBox b = SelectionBox.column(dragStart.getX(), dragStart.getY(), dragStart.getZ(), end.getX(), end.getY(), end.getZ());
-                    if (b.withinLimits()) t.apply(b, alternative());
-                    else tooLarge();
-                }
-                dragStart = null;
+        int button = event.getButton();
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT && button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
+        event.setCanceled(true);
+        if (event.getAction() == GLFW.GLFW_PRESS) {
+            if (dragStart != null) return; // the other button is already dragging
+            BlockPos at = target();
+            dragStart = at == null ? null : at.immutable();
+            dragButton = button;
+            hover = dragStart;
+            if (dragStart == null && button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) t.openSettings(); // right-click into the sky
+        } else if (event.getAction() == GLFW.GLFW_RELEASE && dragStart != null && button == dragButton) {
+            BlockPos end = target() != null ? target() : hover;
+            if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && (end == null || end.equals(dragStart))) {
+                t.openSettings(); // a right click without a drag
+            } else if (end != null) {
+                SelectionBox b = SelectionBox.column(dragStart.getX(), dragStart.getY(), dragStart.getZ(), end.getX(), end.getY(), end.getZ());
+                if (b.withinLimits()) t.apply(b, alternative());
+                else tooLarge();
             }
-        } else if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            event.setCanceled(true);
-            if (event.getAction() == GLFW.GLFW_PRESS) t.openSettings();
+            dragStart = null;
         }
     }
+
+    /** Mouse button of the drag in progress. */
+    private static int dragButton = -1;
 
     private static void tooLarge() {
         LocalPlayer p = Minecraft.getInstance().player;

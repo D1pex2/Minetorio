@@ -4,6 +4,7 @@
     "disc": "minetorio:block/steel_panel",
     "teeth": "minetorio:block/dark",
     "hub": "minetorio:block/brass",
+    "pin": "minetorio:block/piston_rod",
     "particle": "minetorio:block/steel_panel"
   },
   "elements": [

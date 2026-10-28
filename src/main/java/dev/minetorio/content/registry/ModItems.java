@@ -2,6 +2,7 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltItem;
+import dev.minetorio.content.blueprint.BlueprintItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.robot.GhostItem;
@@ -69,6 +70,8 @@ public final class ModItems {
     public static final DeferredItem<Item> CONSTRUCTION_ROBOT = ITEMS.registerSimpleItem("construction_robot");
     /** Factorio's ghost cursor as an item (see {@link GhostItem}); not in the creative tab. */
     public static final DeferredItem<Item> GHOST_ITEM = ITEMS.registerItem("ghost_item", p -> new GhostItem(p.stacksTo(1)));
+    /** Factorio's blueprint (see {@link BlueprintItem}); free from the blueprint key. */
+    public static final DeferredItem<Item> BLUEPRINT = ITEMS.registerItem("blueprint", p -> new BlueprintItem(p.stacksTo(1)));
 
     /** Factorio's deconstruction planner: free from the shortcut key, never crafted. */
     public static final DeferredItem<Item> DECONSTRUCTION_PLANNER = ITEMS.registerItem("deconstruction_planner",
@@ -88,7 +91,7 @@ public final class ModItems {
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
-            "roboport", "construction_robot", "ghost_item", "deconstruction_planner", "upgrade_planner");
+            "roboport", "construction_robot", "ghost_item", "blueprint", "deconstruction_planner", "upgrade_planner");
 
     private ModItems() {}
 

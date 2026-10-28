@@ -31,10 +31,14 @@ public class GhostBlockEntity extends BlockEntity {
     private static final String KEY_TARGET = "target";
     private static final String KEY_FACING = "facing";
     private static final String KEY_SEQ = "seq";
+    private static final String KEY_SETTINGS = "settings";
 
     private BlockState target = Blocks.AIR.defaultBlockState();
     private Direction facing = Direction.NORTH;
     private long seq;
+    /** Settings the built block gets ({@link dev.minetorio.content.nbt.CopyableSettings}), or null. Saved, not synced. */
+    @javax.annotation.Nullable
+    private CompoundTag settings;
 
     public GhostBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.GHOST.get(), pos, state);
@@ -45,6 +49,15 @@ public class GhostBlockEntity extends BlockEntity {
     public Direction facing() { return facing; }
 
     public long seq() { return seq; }
+
+    /** Settings applied to the block once built (a blueprint's recipe or filters), or null. */
+    @javax.annotation.Nullable
+    public CompoundTag settings() { return settings == null ? null : settings.copy(); }
+
+    void setSettings(@javax.annotation.Nullable CompoundTag tag) {
+        settings = tag == null || tag.isEmpty() ? null : tag.copy();
+        setChanged();
+    }
 
     /** The item that builds this ghost (AIR when the target has none). */
     public Item item() { return target.getBlock().asItem(); }
@@ -129,6 +142,7 @@ public class GhostBlockEntity extends BlockEntity {
         tag.put(KEY_TARGET, NbtUtils.writeBlockState(target));
         tag.putString(KEY_FACING, facing.getSerializedName());
         tag.putLong(KEY_SEQ, seq);
+        if (settings != null) tag.put(KEY_SETTINGS, settings.copy());
     }
 
     @Override
@@ -138,12 +152,15 @@ public class GhostBlockEntity extends BlockEntity {
         Direction d = Direction.byName(tag.getString(KEY_FACING));
         facing = d == null || d.getAxis().isVertical() ? Direction.NORTH : d;
         seq = tag.getLong(KEY_SEQ);
+        settings = tag.contains(KEY_SETTINGS) ? tag.getCompound(KEY_SETTINGS).copy() : null;
         if (level != null && level.isClientSide()) reserve(); // an update from the server
     }
 
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        return saveWithoutMetadata(registries);
+        CompoundTag tag = saveWithoutMetadata(registries);
+        tag.remove(KEY_SETTINGS); // the client has no use for them
+        return tag;
     }
 
     @Override

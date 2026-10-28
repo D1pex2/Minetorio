@@ -1,11 +1,14 @@
 package dev.minetorio.content.machine;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.content.multiblock.ModelPoint;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.registry.ModBlockEntities;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -69,5 +72,12 @@ public class StoneFurnaceBlock extends MultiblockControllerBlock {
         if (!(level.getBlockEntity(pos) instanceof StoneFurnaceBlockEntity be)) return InteractionResult.PASS;
         player.openMenu(be, pos);
         return InteractionResult.CONSUME;
+    }
+
+    /** Client: while lit, smoke rises from the vent on top (model center frame (8, 24, 8)). */
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        if (!state.getValue(LIT)) return;
+        ModelPoint.puff(level, random, ParticleTypes.SMOKE, 2, pos, state.getValue(FACING), shape(), 8, 24.5, 8, 6, 0.04);
     }
 }

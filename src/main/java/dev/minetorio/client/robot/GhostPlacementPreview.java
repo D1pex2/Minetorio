@@ -48,9 +48,11 @@ public final class GhostPlacementPreview {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.screen != null) return;
         ItemStack held = player.getMainHandItem();
-        if (!(held.getItem() instanceof GhostItem) && !ModKeys.ghostHeld()) return;
+        BlockHitResult far = DragClient.farHit(mc); // top-down beyond reach: a click places a ghost
+        if (!(held.getItem() instanceof GhostItem) && !ModKeys.ghostHeld() && far == null) return;
         ItemStack stack = HandGhosts.effective(held);
-        if (!HandGhosts.canGhost(stack) || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
+        BlockHitResult hit = DragClient.ghostHit(mc);
+        if (!HandGhosts.canGhost(stack) || hit == null) return;
 
         HandGhosts.Plan plan = HandGhosts.plan(mc.level, player, stack, hit);
         AABB box;

@@ -278,6 +278,26 @@ public class PlannerGameTest {
         h.succeed();
     }
 
+    /** A blueprint pasted over a belt of another tier facing the same way marks it for upgrade (not red). */
+    @GameTest(template = "empty16")
+    public static void blueprintPasteMarksOtherTierForUpgrade(GameTestHelper h) {
+        BlockPos at = new BlockPos(3, 1, 12), turned = new BlockPos(6, 1, 12);
+        BeltGameTest.place(h, ModItems.FAST_TRANSPORT_BELT.get(), at, Direction.EAST);
+        BeltGameTest.place(h, ModItems.FAST_TRANSPORT_BELT.get(), turned, Direction.NORTH);
+        ServerPlayer p = BlueprintGameTest.player(h, new BlockPos(1, 1, 1));
+        BlueprintGameTest.beltBlueprint(p); // one yellow belt facing east
+        var r = BlueprintGameTest.paste(h, p, at, dev.minetorio.core.blueprint.BlueprintTransform.IDENTITY, false);
+        h.assertTrue(r.placed() == 1 && r.blocked() == 0, "paste " + r);
+        var o = marks(h).upgradeOrder(h.getLevel(), h.absolutePos(at));
+        h.assertTrue(o != null && o.toItem().equals("minetorio:transport_belt"), "no upgrade order: " + o);
+        var r2 = BlueprintGameTest.paste(h, p, turned, dev.minetorio.core.blueprint.BlueprintTransform.IDENTITY, false);
+        h.assertTrue(r2.blocked() == 1 && marks(h).upgradeOrder(h.getLevel(), h.absolutePos(turned)) == null,
+                "a belt facing another way is not upgraded: " + r2);
+        marks(h).unmarkUpgrade(h.getLevel(), h.absolutePos(at));
+        p.getInventory().clearContent();
+        h.succeed();
+    }
+
     // --- robots ------------------------------------------------------------------------------------
 
     /** Belts and an assembler (with plates inside) are taken apart by robots; everything arrives in the chest. */

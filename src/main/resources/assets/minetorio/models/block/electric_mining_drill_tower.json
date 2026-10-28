@@ -1,7 +1,7 @@
 {
   "ambientocclusion": false,
   "textures": {
-    "rail": "minetorio:block/dark_panel",
+    "rail": "minetorio:block/edr_rail",
     "cap": "minetorio:block/dark",
     "hazard": "minetorio:block/hazard",
     "steel": "minetorio:block/steel",

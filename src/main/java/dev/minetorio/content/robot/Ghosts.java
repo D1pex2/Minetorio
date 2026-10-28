@@ -1,6 +1,10 @@
 package dev.minetorio.content.robot;
 
 import dev.minetorio.content.belt.BeltBlock;
+import dev.minetorio.content.belt.UndergroundBeltBlock;
+import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
+import dev.minetorio.content.nbt.CopyableSettings;
+import net.minecraft.nbt.CompoundTag;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
@@ -56,8 +60,16 @@ public final class Ghosts {
      * replacing a ghost there, and updates the belt ghosts around it.
      */
     public static boolean placePlanned(ServerLevel level, BlockPos pos, BlockState target, Direction facing) {
+        return placePlanned(level, pos, target, facing, null);
+    }
+
+    /**
+     * {@link #placePlanned(ServerLevel, BlockPos, BlockState, Direction)} with {@code settings}
+     * the built block gets ({@link CopyableSettings}, e.g. a blueprint's recipe or filters).
+     */
+    public static boolean placePlanned(ServerLevel level, BlockPos pos, BlockState target, Direction facing, @Nullable CompoundTag settings) {
         if (level.getBlockState(pos).is(ModBlocks.GHOST.get())) level.removeBlock(pos, false);
-        if (!put(level, pos, target, facing, 0)) return false;
+        if (!put(level, pos, target, facing, 0, settings)) return false;
         refreshAround(level, pos);
         return true;
     }
@@ -111,9 +123,10 @@ public final class Ghosts {
         if (be != null && be.isValid() && be.target().getBlock() instanceof BeltBlock) be.retarget(planned(level, pos, be.target()));
     }
 
-    private static boolean put(ServerLevel level, BlockPos pos, BlockState target, Direction facing, long seq) {
+    private static boolean put(ServerLevel level, BlockPos pos, BlockState target, Direction facing, long seq, @Nullable CompoundTag settings) {
         if (!level.setBlock(pos, ModBlocks.GHOST.get().defaultBlockState(), Block.UPDATE_ALL)) return false;
         if (!(level.getBlockEntity(pos) instanceof GhostBlockEntity be)) return false;
+        be.setSettings(settings);
         be.setup(target, facing, seq);
         level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), Block.UPDATE_CLIENTS);
         return true;
@@ -132,12 +145,21 @@ public final class Ghosts {
     }
 
     /**
-     * Whether the ghost at {@code pos} can be built right now (a multiblock's footprint may be blocked).
-     * The ghost itself is replaceable, so it does not block its own placement.
+     * Whether the ghost at {@code pos} can be built right now: a multiblock's footprint may be
+     * blocked (a marked obstacle not yet removed), and a ghost standing on another ghost waits until
+     * that one is built (robots build bottom up). The ghost itself is replaceable, so it does not
+     * block its own placement.
      */
     public static boolean canBuild(ServerLevel level, BlockPos pos) {
         GhostBlockEntity be = GhostBlock.at(level, pos);
         if (be == null || !be.isValid() || !(be.item() instanceof BlockItem bi)) return false;
+        for (BlockPos c : footprint(be.target(), pos)) {
+            if (c.getY() != pos.getY()) continue;
+            BlockPos below = c.below();
+            if (level.getBlockState(below).is(ModBlocks.GHOST.get())) return false;
+            BlockPos owner = GhostReservations.owner(level, below);
+            if (owner != null && !owner.equals(pos) && level.getBlockState(owner).is(ModBlocks.GHOST.get())) return false;
+        }
         return bi.getBlock().getStateForPlacement(context(level, pos, null, new ItemStack(bi), be.facing())) != null;
     }
 
@@ -145,6 +167,11 @@ public final class Ghosts {
      * Builds the ghost at {@code pos} with {@code stack} (one item of the ghost's item; not consumed
      * here) through the item's normal placement, by {@code player} or a robot (null). The ghost is
      * restored if placement fails. True once the real block is placed.
+     *
+     * <p>After placement: an underground belt gets the ghost's entrance/exit type and facing (the
+     * placement rule only makes an exit when its entrance is already built; a blueprint's exit may
+     * be built first), and the ghost's settings ({@link GhostBlockEntity#settings}) are applied to
+     * the new block entity ({@link CopyableSettings}).
      */
     public static boolean build(ServerLevel level, BlockPos pos, @Nullable Player player, ItemStack stack) {
         GhostBlockEntity be = GhostBlock.at(level, pos);
@@ -152,12 +179,33 @@ public final class Ghosts {
         BlockState target = be.target();
         Direction facing = be.facing();
         long seq = be.seq();
+        CompoundTag settings = be.settings();
         level.removeBlock(pos, false);
         BlockPos click = MultiblockBlockItem.targetFor(item, pos, facing);
         boolean placed = item.place(context(level, click, player, stack.copyWithCount(1), facing)).consumesAction();
-        if (!placed && level.getBlockState(pos).canBeReplaced()) put(level, pos, target, facing, seq);
-        if (placed) refreshAround(level, pos);
+        if (!placed && level.getBlockState(pos).canBeReplaced()) put(level, pos, target, facing, seq, settings);
+        if (placed) {
+            matchUnderground(level, pos, target);
+            if (settings != null && level.getBlockEntity(pos) instanceof CopyableSettings copy) copy.loadSettings(settings);
+            refreshAround(level, pos);
+        }
         return placed;
+    }
+
+    /**
+     * An exit ghost built before its entrance would come out as an entrance: it is turned into the
+     * exit the ghost shows (facing included), then links. (The other way round needs nothing: a
+     * hand ghost planned as an entrance becomes an exit by the normal rule once its entrance stands,
+     * and an entrance built behind a standing exit pairs with it on its own.)
+     */
+    private static void matchUnderground(ServerLevel level, BlockPos pos, BlockState target) {
+        BlockState built = level.getBlockState(pos);
+        if (!(built.getBlock() instanceof UndergroundBeltBlock) || !target.is(built.getBlock())) return;
+        UndergroundBeltBlock.Type type = target.getValue(UndergroundBeltBlock.TYPE);
+        Direction f = target.getValue(UndergroundBeltBlock.FACING);
+        if (type != UndergroundBeltBlock.Type.OUTPUT || built.getValue(UndergroundBeltBlock.TYPE) == type) return;
+        level.setBlock(pos, built.setValue(UndergroundBeltBlock.TYPE, type).setValue(UndergroundBeltBlock.FACING, f), Block.UPDATE_ALL);
+        if (level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity u) u.tryLink();
     }
 
     /** A placement at {@code pos} (replacing what is there) looking {@code facing}. */

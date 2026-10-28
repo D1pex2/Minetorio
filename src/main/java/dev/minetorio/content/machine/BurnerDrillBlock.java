@@ -1,10 +1,13 @@
 package dev.minetorio.content.machine;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.content.multiblock.ModelPoint;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.registry.ModBlockEntities;
 import dev.minetorio.core.data.Phase1Data;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -57,5 +60,12 @@ public class BurnerDrillBlock extends MiningDrillBlock {
         if (accepted == 0) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         stack.consume(accepted, player);
         return ItemInteractionResult.CONSUME;
+    }
+
+    /** Client: while it mines, smoke rises from the chimney (model center frame (13, 31, 14)). */
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        if (!(level.getBlockEntity(pos) instanceof MiningDrillBlockEntity be) || !be.isWorking()) return;
+        ModelPoint.puff(level, random, ParticleTypes.SMOKE, 2, pos, be.facing(), shape(), 13, 31, 14, 2, 0.05);
     }
 }

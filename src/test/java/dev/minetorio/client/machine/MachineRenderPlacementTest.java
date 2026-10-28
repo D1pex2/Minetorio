@@ -52,4 +52,25 @@ class MachineRenderPlacementTest {
             }
         }
     }
+
+    /** ModelPoint (smoke and steam origins) maps model pixels like the renderers' pose does. */
+    @Test
+    void modelPointMatchesTheRenderPose() {
+        float[][] points = {{8, 0, 8}, {-10, 31, -1}, {13, 31, 14}, {24, 4, -20}};
+        for (MultiblockShape shape : SHAPES) {
+            for (Direction facing : Direction.Plane.HORIZONTAL) {
+                PoseStack pose = new PoseStack();
+                MachineRender.toCenter(pose, facing, shape);
+                pose.translate(-0.5, 0, -0.5);
+                for (float[] p : points) {
+                    Vector4f r = apply(pose, p[0] / 16, p[1] / 16, p[2] / 16, 1);
+                    var w = dev.minetorio.content.multiblock.ModelPoint.world(BlockPos.ZERO, facing, shape, p[0], p[1], p[2]);
+                    String what = shape + " " + facing + " " + p[0] + "," + p[1] + "," + p[2];
+                    assertEquals(r.x, w.x, EPS, what);
+                    assertEquals(r.y, w.y, EPS, what);
+                    assertEquals(r.z, w.z, EPS, what);
+                }
+            }
+        }
+    }
 }

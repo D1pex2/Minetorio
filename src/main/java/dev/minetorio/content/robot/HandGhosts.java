@@ -48,7 +48,8 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  * placement of the held Minetorio block item ({@link #plan}: the cell, the multiblock's centred or
  * aimed origin and facing, the block's placement state, belts' shape and slope), but a ghost goes
  * there instead and no item is used. The client sends the click ({@link GhostPayloads.Place}); the
- * server re-plans it and checks reach, build rights, the cells and a rate budget. Drag lines of
+ * server re-plans it and checks ghost reach ({@link RemoteView#canReachGhost}: far beyond the
+ * normal reach, Factorio's ghosts anywhere on screen), build rights, the cells and a rate budget. Drag lines of
  * ghosts go through {@code DragPlacement} with the same {@link #planAt}. A {@link GhostItem} in the
  * main hand does the same without the key ({@link #effective}).
  *
@@ -145,7 +146,7 @@ public final class HandGhosts {
         ItemStack stack = effective(player.getMainHandItem());
         BlockPos clicked = hit.getBlockPos();
         if (!canGhost(stack) || !player.mayBuild() || !level.isLoaded(clicked) || !hitInside(hit)
-                || !RemoteView.canReach(player, clicked, REACH_TOLERANCE)) {
+                || !RemoteView.canReachGhost(player, clicked)) {
             return false;
         }
         if (!budget(player)) return false;
@@ -155,11 +156,22 @@ public final class HandGhosts {
 
     /** Places the planned ghost if {@code player} may build in all of its cells (spawn protection, claims). */
     public static boolean commit(ServerPlayer player, ServerLevel level, Plan p) {
-        for (BlockPos c : p.cells()) {
+        return commit(player, level, p, null);
+    }
+
+    /** {@link #commit(ServerPlayer, ServerLevel, Plan)} with settings for the built block (a blueprint's). */
+    public static boolean commit(ServerPlayer player, ServerLevel level, Plan p, @Nullable net.minecraft.nbt.CompoundTag settings) {
+        if (!mayCommit(player, level, p.cells())) return false;
+        return Ghosts.placePlanned(level, p.pos(), p.state(), p.facing(), settings);
+    }
+
+    /** Whether {@code player} may put ghosts in all of {@code cells}: loaded, build rights, and in the remote view's area when remote. */
+    public static boolean mayCommit(ServerPlayer player, ServerLevel level, List<BlockPos> cells) {
+        for (BlockPos c : cells) {
             if (!level.isLoaded(c) || !level.mayInteract(player, c)) return false;
             if (RemoteView.isRemote(player) && !RemoteView.inArea(player, c)) return false;
         }
-        return Ghosts.placePlanned(level, p.pos(), p.state(), p.facing());
+        return true;
     }
 
     /** The hit point lies in (or on) the clicked block, as vanilla checks for a use packet. */

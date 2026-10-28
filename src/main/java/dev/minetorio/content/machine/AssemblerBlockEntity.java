@@ -8,6 +8,7 @@ import dev.minetorio.content.inserter.MachineEndpoint;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.content.nbt.CopyableSettings;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
@@ -65,7 +66,9 @@ import net.neoforged.neoforge.items.IItemHandler;
  * client spins the gear while it is set. It turns on at once and off after {@value #IDLE_GRACE}
  * idle ticks.
  */
-public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider, AltSource {
+public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider, AltSource, CopyableSettings {
+    /** Settings key of the recipe id ({@link #saveSettings}); a blueprint paste drops it when the recipe is locked. */
+    public static final String SETTINGS_RECIPE = "recipe";
     public static final double SPEED_1 = 0.5;
     public static final long POWER_1 = Units.kw(75);
     public static final double SPEED_2 = 0.75;
@@ -161,6 +164,33 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         return returned;
     }
 
+    // --- settings (blueprints) ---------------------------------------------------------------------
+
+    /** The recipe id, if one is set. */
+    @Override
+    public CompoundTag saveSettings() {
+        CompoundTag tag = new CompoundTag();
+        if (machine.recipe() != null) tag.putString(SETTINGS_RECIPE, machine.recipe().id());
+        return tag;
+    }
+
+    /**
+     * Sets the recipe named in {@code tag} (a known CRAFTING recipe; anything else is ignored, as is
+     * a tag without one). What the machine gives up spills at the machine. Unlocks are the caller's
+     * business (a blueprint paste drops locked recipes before the ghost is placed).
+     */
+    @Override
+    public void loadSettings(CompoundTag tag) {
+        if (!tag.contains(SETTINGS_RECIPE, net.minecraft.nbt.Tag.TAG_STRING)) return;
+        Optional<Recipe> recipe = Phase1Data.recipes().get(tag.getString(SETTINGS_RECIPE));
+        if (recipe.isEmpty() || recipe.get().category() != RecipeCategory.CRAFTING) return;
+        Map<String, Integer> returned = setRecipe(recipe.get());
+        if (level != null && !level.isClientSide()) {
+            MachineItems.drop(level, worldPosition, returned);
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+        }
+    }
+
     // --- recipe selection (server) -----------------------------------------------------------------
 
     public enum SelectResult { OK, SPECTATOR, NOT_ASSEMBLER, TOO_FAR, MENU_NOT_OPEN, UNKNOWN_RECIPE, NOT_CRAFTING, LOCKED }
@@ -170,7 +200,8 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
      * spectator and must have this assembler's GUI open (still valid), the assembler must be within
      * {@value #SELECT_DISTANCE} blocks, and the recipe a known, unlocked CRAFTING recipe. On success what the machine gave up goes into the player's inventory (the
      * rest is dropped at the player). From the remote view ({@link RemoteView}) the assembler must be in
-     * the view's area instead of near, and what it gave up spills at the assembler.
+     * the view's area instead of near; what it gave up still goes to the player (the rest dropped at
+     * his body at home): a remote chunk does not tick, so nothing may be left lying there.
      */
     public static SelectResult select(ServerPlayer player, BlockPos pos, String recipeId) {
         if (player.isSpectator()) return SelectResult.SPECTATOR;
@@ -190,9 +221,8 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         if (recipe.get().category() != RecipeCategory.CRAFTING) return SelectResult.NOT_CRAFTING;
         if (!RecipeLocks.isUnlocked(player.server, recipeId)) return SelectResult.LOCKED;
         Map<String, Integer> returned = be.setRecipe(recipe.get());
-        // from the remote view nothing moves between the machine and the player: it spills at the machine
-        if (remote) MachineItems.drop(level, pos, returned);
-        else MachineItems.give(player, returned);
+        // also from the remote view: items left at a remote machine would lie in a chunk that does not tick
+        MachineItems.give(player, returned);
         return SelectResult.OK;
     }
 
