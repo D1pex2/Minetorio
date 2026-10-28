@@ -420,11 +420,16 @@ public class OreFieldGameTest {
     public static void lookupFindsThePatchAtItsEdge(GameTestHelper h) {
         ServerLevel level = h.getLevel();
         PatchGenerator gen = new PatchGenerator(level.getSeed(), 0, 0);
-        OrePatch patch = null;
-        for (int rx = 3000; patch == null; rx++) patch = gen.inRegion(rx, 2990);
-        long key = PatchLedger.key(PatchKind.GENERATED, patch);
         OrePatchLedger ledger = OrePatchLedger.get(level);
-        h.assertTrue(ledger.total(key) == -1, "entry before generation");
+        // The test world persists between runs, so take the first patch an earlier run hasn't stamped yet.
+        OrePatch patch = null;
+        long key = 0;
+        for (int rx = 3000; patch == null; rx++) {
+            OrePatch p = gen.inRegion(rx, 2990);
+            if (p == null) continue;
+            key = PatchLedger.key(PatchKind.GENERATED, p);
+            if (ledger.total(key) == -1) patch = p;
+        }
         runFeature(level, patch);
         int r = patch.radius();
         long planned = 0;
