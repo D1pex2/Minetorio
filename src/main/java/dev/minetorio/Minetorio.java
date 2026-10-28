@@ -63,6 +63,8 @@ public class Minetorio {
         DemoCommand.register();
         ConstructionManager.register();
         HandGhosts.register();
+        dev.minetorio.content.blueprint.BlueprintPaste.register();
+        dev.minetorio.content.robot.DeconstructionMarking.register();
         RobotCommand.register();
     }
 }

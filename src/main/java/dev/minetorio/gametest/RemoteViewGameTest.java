@@ -1,7 +1,12 @@
 package dev.minetorio.gametest;
 
 import com.mojang.authlib.GameProfile;
+import dev.minetorio.content.blueprint.BlueprintData;
+import dev.minetorio.content.blueprint.BlueprintItem;
+import dev.minetorio.content.blueprint.BlueprintPaste;
 import dev.minetorio.content.drag.DragPlacement;
+import dev.minetorio.content.registry.ModDataComponents;
+import java.util.Optional;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity.SelectResult;
 import dev.minetorio.content.machine.AssemblerMenu;
@@ -247,6 +252,37 @@ public class RemoteViewGameTest {
         RemoteView.endForTests(p);
         h.assertTrue(p.containerMenu == p.inventoryMenu, "GUI kept open after the view closed");
         h.assertFalse(menu.stillValid(p), "GUI still valid after the view closed");
+        h.succeed();
+    }
+
+    /**
+     * A blueprint pasted from the remote view over a watched chunk: refused without the view (the
+     * player is far away), placed as ghosts with it; parts outside the view's area are refused.
+     */
+    @GameTest(template = "empty16", batch = BATCH)
+    public static void blueprintPasteOverAWatchedChunk(GameTestHelper h) {
+        floor(h);
+        ServerPlayer p = farPlayer(h, null);
+        BlueprintPaste.resetBudget(p);
+        ItemStack bp = BlueprintItem.empty();
+        bp.set(ModDataComponents.BLUEPRINT.get(), new BlueprintData(List.of(
+                new BlueprintData.Entry("minetorio:transport_belt", 0, 0, 0, DragDir.EAST.id(), 0, Optional.empty()),
+                new BlueprintData.Entry("minetorio:transport_belt", 1, 0, 0, DragDir.EAST.id(), 0, Optional.empty()),
+                new BlueprintData.Entry("minetorio:transport_belt", 2, 0, 0, DragDir.EAST.id(), 0, Optional.empty()))));
+        p.setItemInHand(InteractionHand.MAIN_HAND, bp);
+        ChunkPos a = chunkOf(h, new BlockPos(5, 1, 5));
+        watchOnly(h, a, 1); // the three cells may straddle a chunk border
+        BlockPos anchor = h.absolutePos(new BlockPos(5, 1, 5));
+        h.assertFalse(BlueprintPaste.paste(p, anchor, 0, false).accepted(), "pasted from afar without the remote view");
+        h.assertTrue(RemoteView.enter(p, centerX(a), centerZ(a)) == RemoteView.Result.OK, "remote view refused");
+        BlueprintPaste.resetBudget(p);
+        BlueprintPaste.Result r = BlueprintPaste.paste(p, anchor, 0, false);
+        h.assertTrue(r.accepted() && r.placed() == 3, "remote paste " + r);
+        for (int x = 4; x <= 6; x++) h.assertTrue(h.getBlockState(new BlockPos(x, 1, 5)).is(ModBlocks.GHOST.get()), "no ghost at x " + x);
+        RemoteView.endForTests(p);
+        for (BlockPos rel : BlockPos.betweenClosed(0, 0, 0, 15, 4, 15)) {
+            if (h.getBlockState(rel).is(ModBlocks.GHOST.get())) h.setBlock(rel, Blocks.AIR);
+        }
         h.succeed();
     }
 

@@ -8,6 +8,7 @@ import dev.minetorio.content.inserter.MachineEndpoint;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.content.nbt.CopyableSettings;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
@@ -65,7 +66,9 @@ import net.neoforged.neoforge.items.IItemHandler;
  * client spins the gear while it is set. It turns on at once and off after {@value #IDLE_GRACE}
  * idle ticks.
  */
-public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider, AltSource {
+public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider, AltSource, CopyableSettings {
+    /** Settings key of the recipe id ({@link #saveSettings}); a blueprint paste drops it when the recipe is locked. */
+    public static final String SETTINGS_RECIPE = "recipe";
     public static final double SPEED_1 = 0.5;
     public static final long POWER_1 = Units.kw(75);
     public static final double SPEED_2 = 0.75;
@@ -159,6 +162,33 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         machine.setRecipe(recipe);
         setChanged();
         return returned;
+    }
+
+    // --- settings (blueprints) ---------------------------------------------------------------------
+
+    /** The recipe id, if one is set. */
+    @Override
+    public CompoundTag saveSettings() {
+        CompoundTag tag = new CompoundTag();
+        if (machine.recipe() != null) tag.putString(SETTINGS_RECIPE, machine.recipe().id());
+        return tag;
+    }
+
+    /**
+     * Sets the recipe named in {@code tag} (a known CRAFTING recipe; anything else is ignored, as is
+     * a tag without one). What the machine gives up spills at the machine. Unlocks are the caller's
+     * business (a blueprint paste drops locked recipes before the ghost is placed).
+     */
+    @Override
+    public void loadSettings(CompoundTag tag) {
+        if (!tag.contains(SETTINGS_RECIPE, net.minecraft.nbt.Tag.TAG_STRING)) return;
+        Optional<Recipe> recipe = Phase1Data.recipes().get(tag.getString(SETTINGS_RECIPE));
+        if (recipe.isEmpty() || recipe.get().category() != RecipeCategory.CRAFTING) return;
+        Map<String, Integer> returned = setRecipe(recipe.get());
+        if (level != null && !level.isClientSide()) {
+            MachineItems.drop(level, worldPosition, returned);
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+        }
     }
 
     // --- recipe selection (server) -----------------------------------------------------------------
