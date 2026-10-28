@@ -23,7 +23,7 @@ Order: `python art/gen_blocks.py && python art/gen_models.py && python art/gen_b
 
 ## Notes
 
-- **Palette:** vanilla-like steel, dark steel, brass, copper, rust and stone. Tier colours are yellow, red and blue, with green for the lab's science holders.
+- **Palette:** vanilla-like steel, dark steel, brass, copper, rust and stone. Tier colours are yellow, red and blue, with green for the lab's science holders and the stack inserter, purple for the filter inserter.
 - **Animated textures:**
   - `fire` (8 frames, frametime 2): furnace mouth and boiler door.
   - `lab_glow` (8 frames, pulsing): shown only while researching. Idle, the lab uses `lab_glass`.

@@ -22,6 +22,9 @@ public final class ModMenus {
     public static final DeferredHolder<MenuType<?>, MenuType<dev.minetorio.content.robot.RoboportMenu>> ROBOPORT =
             MENUS.register("roboport", () -> IMenuTypeExtension.create(dev.minetorio.content.robot.RoboportMenu::client));
 
+    public static final DeferredHolder<MenuType<?>, MenuType<dev.minetorio.content.inserter.InserterFilterMenu>> FILTER_INSERTER =
+            MENUS.register("filter_inserter", () -> IMenuTypeExtension.create(dev.minetorio.content.inserter.InserterFilterMenu::client));
+
     private ModMenus() {}
 
     public static void register(IEventBus modBus) {

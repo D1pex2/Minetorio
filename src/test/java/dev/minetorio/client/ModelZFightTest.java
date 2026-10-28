@@ -298,7 +298,7 @@ class ModelZFightTest {
     }
 
     /** Joint, arm and hand boxes of InserterRenderer.render (lines 97-111, claw fingers left out), in pixels, facing north. */
-    static Solid inserterArm(int reach, double arm) {
+    static Solid inserterArm(int reach, double arm, double handHalf) {
         double a = Math.PI * arm;
         double c = -Math.cos(a), s = Math.sin(a);
         double hx = s, hz = -c; // facing north (0, -1), right = east (1, 0)
@@ -312,7 +312,7 @@ class ModelZFightTest {
             {shoulder.add(new V(0, 0.05, 0)), elbow, 0.035},
             {elbow.sub(new V(0, 0.045, 0)), elbow.add(new V(0, 0.045, 0)), 0.045},
             {elbow, hand.add(new V(0, 0.03, 0)), 0.024},
-            {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.03, 0)), 0.05}};
+            {hand.sub(new V(0, 0.06, 0)), hand.add(new V(0, 0.03, 0)), handHalf}};
         for (Object[] box : boxes) {
             V a0 = (V) box[0], b0 = (V) box[1];
             double half = (double) box[2];
@@ -387,9 +387,12 @@ class ModelZFightTest {
                 Part.fixed("middle", "small_electric_pole_middle", Tr.t(0, 16, 0)),
                 Part.fixed("top", "small_electric_pole_top", Tr.t(0, 32, 0)))));
         // InserterRenderer.java:97-111: procedural arm over the base.
-        for (Object[] ins : new Object[][] {{"burner_inserter", 1}, {"inserter", 1}, {"long_handed_inserter", 2}, {"fast_inserter", 1}}) {
+        // the stack inserter's hand is wider (InserterRenderer.STACK_HAND_HALF)
+        for (Object[] ins : new Object[][] {{"burner_inserter", 1, 0.05}, {"inserter", 1, 0.05}, {"long_handed_inserter", 2, 0.05},
+                {"fast_inserter", 1, 0.05}, {"filter_inserter", 1, 0.05}, {"stack_inserter", 1, 0.085}}) {
             int reach = (int) ins[1];
-            Supplier<List<Solid>> arms = () -> Stream.of(0.0, 0.25, 0.5, 0.75, 1.0).map(a -> inserterArm(reach, a)).toList();
+            double handHalf = (double) ins[2];
+            Supplier<List<Solid>> arms = () -> Stream.of(0.0, 0.25, 0.5, 0.75, 1.0).map(a -> inserterArm(reach, a, handHalf)).toList();
             c.add(new Composite(ins[0] + "+arm", List.of(Part.fixed("base", (String) ins[0]), new Part("arm", null, null, null, arms))));
         }
         // blockstates/pipe.json: core + four sides (y 0/90/180/270, clockwise about the block center) + up + down.

@@ -223,5 +223,11 @@
   "minetorio.roboport.energy": "Энергия: %s / %s МДж",
   "minetorio.roboport.area": "Зона строительства: %s×%s",
   "minetorio.drones.built": "Витрина строительных роботов построена: роботы построят призраки из сундука.",
-  "minetorio.drones.failed": "Не удалось построить витрину роботов: %s"
+  "minetorio.drones.failed": "Не удалось построить витрину роботов: %s",
+  "block.minetorio.filter_inserter": "Сортирующий манипулятор",
+  "block.minetorio.stack_inserter": "Пакетный манипулятор",
+  "technology.minetorio.stack_inserter": "Пакетный манипулятор",
+  "minetorio.filter_inserter.whitelist": "Режим: белый список",
+  "minetorio.filter_inserter.blacklist": "Режим: чёрный список",
+  "minetorio.filter_inserter.hint": "Щёлкните слот предметом"
 }

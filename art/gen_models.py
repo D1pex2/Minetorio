@@ -1037,7 +1037,9 @@ item_from("small_electric_pole", sp, spm, spt, offsets=[(0, -15.75, 0), (0, 0.25
 
 # =====================================================================================
 # Inserters: a round low base with a pivot. The arm - Factorio's short riser and long thin arm with a
-# claw, tier coloured - is drawn by InserterRenderer from the pivot top at y 5.5.
+# claw, tier coloured - is drawn by InserterRenderer from the pivot top at y 5.5. Tier colours after
+# Factorio 1.1: burner grey, inserter yellow, long-handed red, fast blue, filter purple, stack green
+# (the stack inserter with a wider hand).
 # =====================================================================================
 ti = Model({"plate": "dark_panel", "steel": "steel", "dark": "dark"}, "#housing")
 ti.parent = "minecraft:block/block"
@@ -1050,7 +1052,8 @@ ti.textures.pop("particle")
 ti.textures["particle"] = "#housing"
 save_block("template_inserter", ti)
 INSERTER_TIERS = (("burner_inserter", "dark_panel", "steel"), ("inserter", "tier_yellow_panel", "tier_yellow"),
-                  ("long_handed_inserter", "tier_red_panel", "tier_red"), ("fast_inserter", "tier_blue_panel", "tier_blue"))
+                  ("long_handed_inserter", "tier_red_panel", "tier_red"), ("fast_inserter", "tier_blue_panel", "tier_blue"),
+                  ("filter_inserter", "tier_purple_panel", "tier_purple"), ("stack_inserter", "tier_green_panel", "tier_green"))
 for name, housing, arm in INSERTER_TIERS:
     save_block(name, Model({"housing": housing}, None, parent="minetorio:block/template_inserter"))
     # item: base + the riser and the long arm reaching over the pickup side
@@ -1065,8 +1068,10 @@ for name, housing, arm in INSERTER_TIERS:
     im.box([7.4, ey - 0.6, ez - fore], [8.6, ey + 0.6, ez - 1.3], "arm", split=False, rot=("x", -22.5, [8, ey, ez]))
     hy = ey - fore * math.sin(math.radians(22.5))
     hz = ez - fore * math.cos(math.radians(22.5))
-    im.cbox(8, hz, 2.6, 2.6, hy - 2, hy + 0.5, "joint", split=False)
-    for x0 in (6.4, 9.1):
+    # the stack inserter's hand is wider, with four fingers (Factorio's big green claw)
+    stack = name.startswith("stack")
+    im.cbox(8, hz, 4.4 if stack else 2.6, 2.6, hy - 2, hy + 0.5, "joint", split=False)
+    for x0 in ((5.9, 7.2, 8.3, 9.6) if stack else (6.4, 9.1)):
         im.box([x0, hy - 4, hz - 0.5], [x0 + 0.5, hy - 2, hz + 0.5], "steel", split=False)
     im.parent = "minecraft:block/block"
     save_item(name, im.json())

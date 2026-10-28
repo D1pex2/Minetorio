@@ -68,6 +68,7 @@ public final class MinetorioClient {
         event.register(ModMenus.STONE_FURNACE.get(), StoneFurnaceScreen::new);
         event.register(ModMenus.ASSEMBLING_MACHINE.get(), AssemblerScreen::new);
         event.register(ModMenus.ROBOPORT.get(), RoboportScreen::new);
+        event.register(ModMenus.FILTER_INSERTER.get(), dev.minetorio.client.inserter.InserterFilterScreen::new);
     }
 
     /** Models drawn by block entity renderers rather than through a blockstate. */

@@ -249,6 +249,8 @@ ENTRIES = [
     ("minetorio:item/inserter", "inserter (item pose)"),
     ("minetorio:item/long_handed_inserter", "long_handed_inserter"),
     ("minetorio:item/fast_inserter", "fast_inserter"),
+    ("minetorio:item/filter_inserter", "filter_inserter"),
+    ("minetorio:item/stack_inserter", "stack_inserter (wide hand)"),
     ("minetorio:block/transport_belt", "transport_belt"),
     ("minetorio:block/fast_transport_belt_curve_left", "fast belt curve_left"),
     ("minetorio:block/express_transport_belt_curve_right", "express belt curve_right"),

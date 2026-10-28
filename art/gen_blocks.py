@@ -36,6 +36,7 @@ YELLOW = P("#ffe27a", "#f2c12e", "#d29f13", "#9c740b", "#5e4506")
 RED = P("#ff9585", "#e8513f", "#c23426", "#8a2018", "#55120c")
 GREEN = P("#a6f08a", "#5fd04a", "#3fa336", "#2a7524", "#174513")
 BLUE = P("#a4d6ff", "#55a2f2", "#3178cc", "#215192", "#132f57")
+PURPLE = P("#d6a8ff", "#a866e8", "#8a3ac8", "#5e2490", "#361257")
 WOOD = P("#b7834f", "#9c6b3c", "#83582f", "#6a4524", "#4d3018")
 BLACK = C("#141414")
 TIERS = {"": YELLOW, "fast_": RED, "express_": BLUE}
@@ -108,6 +109,9 @@ for pre, pal in TIERS.items():
     blocks["tier_" + name] = noisy(pal, 9 + len(pre))
     blocks["tier_" + name + "_panel"] = panel(pal, 10 + len(pre))
 blocks["tier_green"] = noisy(GREEN, 17)
+blocks["tier_green_panel"] = panel(GREEN, 18)  # stack inserter housing
+blocks["tier_purple"] = noisy(PURPLE, 19)  # filter inserter
+blocks["tier_purple_panel"] = panel(PURPLE, 20)
 
 # brass/copper bands look better with a sheen row
 for n, pal in (("brass", BRASS), ("copper", COPPER)):

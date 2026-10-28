@@ -40,6 +40,9 @@ public class ResearchScreen extends Screen {
     private static final int GAP_X = 36;
     private static final int GAP_Y = 10;
     private static final int TOP = 40;
+    private static final int MARGIN = 8;
+    private static final int MIN_NODE_W = 100;
+    private static final int MIN_GAP_X = 14;
 
     private static final int LINE_DONE = 0xFF5FD35F;
     private static final int LINE_OPEN = 0xFF8A8F99;
@@ -68,6 +71,8 @@ public class ResearchScreen extends Screen {
     private final TechTree tree = Phase1Data.techTree();
     private final TechLayout layout = new TechLayout(tree);
     private int originX;
+    private int nodeW = NODE_W;
+    private int gapX = GAP_X;
     private int originY;
 
     public ResearchScreen() {
@@ -76,7 +81,15 @@ public class ResearchScreen extends Screen {
 
     @Override
     protected void init() {
-        int w = layout.columns() * NODE_W + Math.max(0, layout.columns() - 1) * GAP_X;
+        // narrower nodes and gaps when the tree is wider than the screen (names are cut to fit)
+        int cols = layout.columns();
+        nodeW = NODE_W;
+        gapX = GAP_X;
+        if (cols * NODE_W + Math.max(0, cols - 1) * GAP_X > width - 2 * MARGIN) {
+            gapX = MIN_GAP_X;
+            nodeW = Math.max(MIN_NODE_W, (width - 2 * MARGIN - Math.max(0, cols - 1) * gapX) / Math.max(1, cols));
+        }
+        int w = cols * nodeW + Math.max(0, cols - 1) * gapX;
         originX = (width - w) / 2;
         originY = TOP;
     }
@@ -84,7 +97,7 @@ public class ResearchScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; }
 
-    private int nodeX(Technology t) { return originX + layout.cell(t.id()).column() * (NODE_W + GAP_X); }
+    private int nodeX(Technology t) { return originX + layout.cell(t.id()).column() * (nodeW + gapX); }
 
     private int nodeY(Technology t) { return originY + layout.cell(t.id()).row() * (NODE_H + GAP_Y); }
 
@@ -100,7 +113,7 @@ public class ResearchScreen extends Screen {
         for (Technology t : tree.all()) {
             int x = nodeX(t);
             int y = nodeY(t);
-            if (mouseX >= x && mouseX < x + NODE_W && mouseY >= y && mouseY < y + NODE_H) return t;
+            if (mouseX >= x && mouseX < x + nodeW && mouseY >= y && mouseY < y + NODE_H) return t;
         }
         return null;
     }
@@ -144,11 +157,11 @@ public class ResearchScreen extends Screen {
     /** Elbow line from the right edge of {@code from} to the left edge of {@code to}. */
     private void drawLink(GuiGraphics g, Technology from, Technology to, boolean done) {
         int color = done ? LINE_DONE : LINE_OPEN;
-        int x1 = nodeX(from) + NODE_W;
+        int x1 = nodeX(from) + nodeW;
         int y1 = nodeY(from) + NODE_H / 2;
         int x2 = nodeX(to);
         int y2 = nodeY(to) + NODE_H / 2;
-        int mid = x2 - GAP_X / 2;
+        int mid = x2 - gapX / 2;
         g.hLine(x1, mid, y1, color);
         g.vLine(mid, Math.min(y1, y2) - 1, Math.max(y1, y2) + 1, color);
         g.hLine(mid, x2 - 1, y2, color);
@@ -159,11 +172,11 @@ public class ResearchScreen extends Screen {
         int x = nodeX(t);
         int y = nodeY(t);
         int border = hovered && state == NodeState.AVAILABLE ? TEXT : state.border;
-        g.fill(x, y, x + NODE_W, y + NODE_H, border);
-        g.fill(x + 1, y + 1, x + NODE_W - 1, y + NODE_H - 1, state.fill);
+        g.fill(x, y, x + nodeW, y + NODE_H, border);
+        g.fill(x + 1, y + 1, x + nodeW - 1, y + NODE_H - 1, state.fill);
         g.renderItem(icon(t), x + 4, y + 4);
         int textColor = state == NodeState.LOCKED ? TEXT_DIM : TEXT;
-        g.drawString(font, font.plainSubstrByWidth(name(t).getString(), NODE_W - 28), x + 24, y + 5, textColor, false);
+        g.drawString(font, font.plainSubstrByWidth(name(t).getString(), nodeW - 28), x + 24, y + 5, textColor, false);
         // cost: a half-size icon per pack, then "units × seconds"
         int cx = x + 24;
         for (String pack : t.packsPerUnit().keySet()) {
@@ -180,7 +193,7 @@ public class ResearchScreen extends Screen {
         if (done > 0 || state == NodeState.CURRENT) {
             int bx = x + 4;
             int by = y + NODE_H - 9;
-            int bw = NODE_W - 8;
+            int bw = nodeW - 8;
             g.fill(bx, by, bx + bw, by + 5, BAR_BACK);
             g.fill(bx, by, bx + Math.min(bw, bw * done / Math.max(1, t.units())), by + 5, BAR_FILL);
         }

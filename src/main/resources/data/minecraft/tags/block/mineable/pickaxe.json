@@ -14,6 +14,8 @@
     "minetorio:inserter",
     "minetorio:long_handed_inserter",
     "minetorio:fast_inserter",
+    "minetorio:filter_inserter",
+    "minetorio:stack_inserter",
     "minetorio:burner_mining_drill",
     "minetorio:electric_mining_drill",
     "minetorio:offshore_pump",

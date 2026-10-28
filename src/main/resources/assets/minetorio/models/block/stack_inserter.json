@@ -1,0 +1,7 @@
+{
+  "parent": "minetorio:block/template_inserter",
+  "ambientocclusion": false,
+  "textures": {
+    "housing": "minetorio:block/tier_green_panel"
+  }
+}
