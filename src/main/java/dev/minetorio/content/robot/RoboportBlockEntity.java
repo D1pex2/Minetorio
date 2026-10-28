@@ -333,9 +333,22 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         for (Dispatcher.Assignment a : plan) launch(level, m, a);
     }
 
+    /**
+     * Whether robots may put what they took apart ({@code stack}) into the provider at {@code p}: any
+     * chest-like container, but of the logistic chests only storage chests (Factorio), a filtered
+     * one only its filter item; provider and buffer chests are only taken from.
+     */
+    private static boolean storesDeconstructed(ServerLevel level, BlockPos p, ItemStack stack) {
+        if (!(level.getBlockEntity(p) instanceof LogisticChestBlockEntity chest)) return true;
+        if (chest.mode() != dev.minetorio.core.logistics.LogisticMode.STORAGE) return false;
+        String filter = chest.filter();
+        return filter == null || stack.isEmpty() || filter.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+    }
+
     /** Whether one of {@code chests} takes {@code stack} (an empty stack: any chest with an empty slot). */
     private static boolean hasRoom(ServerLevel level, List<BlockPos> chests, ItemStack stack) {
         for (BlockPos p : chests) {
+            if (!storesDeconstructed(level, p, stack)) continue;
             IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, p, null);
             if (h == null) continue;
             if (stack.isEmpty()) {
@@ -350,13 +363,15 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     /**
      * The storage chest in {@code area} a robot at {@code from} puts {@code stack} into: the nearest
      * one already holding that item and taking all of it, else the nearest taking all of it; null
-     * when none has room.
+     * when none has room. Of the logistic chests only storage chests take it (Factorio), a filtered
+     * one only its filter item; provider and buffer chests are only taken from.
      */
     @Nullable
     static BlockPos storageFor(ServerLevel level, ConstructionArea area, ItemStack stack, Vec3 from) {
         BlockPos same = null, any = null;
         double sameD = Double.MAX_VALUE, anyD = Double.MAX_VALUE;
         for (BlockPos p : providers(level, area)) {
+            if (!storesDeconstructed(level, p, stack)) continue;
             IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, p, null);
             if (h == null || !net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(h, stack.copy(), true).isEmpty()) continue;
             double d = p.distToCenterSqr(from);

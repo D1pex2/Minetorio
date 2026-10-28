@@ -325,6 +325,58 @@ public class PlannerGameTest {
         });
     }
 
+    private static dev.minetorio.content.logistics.LogisticChestBlockEntity logisticChest(GameTestHelper h, BlockPos rel,
+            dev.minetorio.core.logistics.LogisticMode mode, ItemStack... items) {
+        h.setBlock(rel, dev.minetorio.content.logistics.LogisticsRegistry.CHESTS.get(mode).get());
+        var c = (dev.minetorio.content.logistics.LogisticChestBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(rel));
+        for (int i = 0; i < items.length; i++) c.container().setItem(i, items[i]);
+        return c;
+    }
+
+    /**
+     * Construction robots and logistic chests (Factorio): what they take apart goes to a storage
+     * chest, never into a provider chest (here one already holding belts, which a plain chest would win with).
+     */
+    @GameTest(template = "empty16", batch = "planner_robots_logistic_storage", timeoutTicks = 1600)
+    public static void robotsDeconstructIntoStorageNotProviderChests(GameTestHelper h) {
+        RoboportBlockEntity port = roboport(h, 2);
+        var provider = logisticChest(h, new BlockPos(8, 1, 7), dev.minetorio.core.logistics.LogisticMode.PASSIVE_PROVIDER,
+                new ItemStack(ModItems.TRANSPORT_BELT.get(), 1));
+        var storage = logisticChest(h, new BlockPos(11, 1, 7), dev.minetorio.core.logistics.LogisticMode.STORAGE);
+        for (int x = 2; x <= 4; x++) BeltGameTest.place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(x, 1, 12), Direction.EAST);
+        Planners.deconstruct(h.getLevel(), markArea(h), false, DeconstructionFilter.MACHINES, p -> true);
+        h.succeedWhen(() -> {
+            for (int x = 2; x <= 4; x++) h.assertTrue(h.getBlockState(new BlockPos(x, 1, 12)).isAir(), "belt " + x + " still there; " + debug(h, new BlockPos(x, 1, 12), port));
+            h.assertTrue(storage.counts().getOrDefault("minetorio:transport_belt", 0) == 3, "belts in storage " + storage.counts());
+            h.assertTrue(provider.counts().getOrDefault("minetorio:transport_belt", 0) == 1, "belts in provider " + provider.counts());
+            h.assertTrue(robotsFlying(h) == 0 && port.availableRobots() == 2, "robots not home");
+            port.robots().clearContent();
+            provider.container().clearContent();
+            storage.container().clearContent();
+        });
+    }
+
+    /** Construction robots take from provider chests, never from requester chests. */
+    @GameTest(template = "empty16", batch = "planner_robots_logistic_supply", timeoutTicks = 1600)
+    public static void robotsBuildFromProvidersNotRequesters(GameTestHelper h) {
+        RoboportBlockEntity port = roboport(h, 2);
+        var requester = logisticChest(h, new BlockPos(8, 1, 7), dev.minetorio.core.logistics.LogisticMode.REQUESTER,
+                new ItemStack(ModItems.TRANSPORT_BELT.get(), 5));
+        var provider = logisticChest(h, new BlockPos(13, 1, 7), dev.minetorio.core.logistics.LogisticMode.PASSIVE_PROVIDER,
+                new ItemStack(ModItems.TRANSPORT_BELT.get(), 5));
+        BlockPos at = new BlockPos(3, 1, 12);
+        h.assertTrue(Ghosts.place(h.getLevel(), h.absolutePos(at), ModItems.TRANSPORT_BELT.get(), Direction.EAST), "no ghost");
+        h.succeedWhen(() -> {
+            h.assertTrue(h.getBlockState(at).is(ModBlocks.TRANSPORT_BELT.get()), "belt not built; " + debug(h, at, port));
+            h.assertTrue(provider.counts().getOrDefault("minetorio:transport_belt", 0) == 4, "provider " + provider.counts());
+            h.assertTrue(requester.counts().getOrDefault("minetorio:transport_belt", 0) == 5, "requester " + requester.counts());
+            h.assertTrue(robotsFlying(h) == 0 && port.availableRobots() == 2, "robots not home");
+            port.robots().clearContent();
+            provider.container().clearContent();
+            requester.container().clearContent();
+        });
+    }
+
     /** Yellow belts upgraded to red by robots: red taken from the chest, yellow brought back; facing kept. */
     @GameTest(template = "empty16", batch = "planner_robots_upgrade_belts", timeoutTicks = 1600)
     public static void robotsUpgradeBelts(GameTestHelper h) {
