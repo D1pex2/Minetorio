@@ -14,26 +14,40 @@ import java.util.function.Predicate;
  * survives reloads). A robot {@link #claim claims} a job while it works on it; only the claimant
  * releases it, and removing the job drops the claim.
  *
- * <p>Deconstruction is only a flag for now (the planner item comes with blueprints): robots do not
- * take deconstruction jobs yet ({@link Dispatcher} skips them).
+ * <p>Three kinds of jobs: {@link Kind#BUILD} (a ghost, needs its item from a provider),
+ * {@link Kind#DECONSTRUCT} (a block marked with the deconstruction planner, needs room in a
+ * storage chest for what comes out) and {@link Kind#UPGRADE} (a block marked with the upgrade
+ * planner, needs {@link Job#count} of its new item). The marks themselves live in
+ * {@link DeconstructionMarks} / {@link UpgradeMarks}; the content side mirrors them into the queue.
  */
 public final class ConstructionQueue {
-    public enum Kind { BUILD, DECONSTRUCT }
+    public enum Kind { BUILD, DECONSTRUCT, UPGRADE }
 
-    /** A job; {@code item} is the item to place (null for deconstruction); {@code claimant} 0 = free. */
+    /**
+     * A job; {@code item} is the item to place (null for deconstruction), {@code count} how many of
+     * it the job takes (1 but for a paired underground belt upgrade); {@code claimant} 0 = free.
+     */
     public static final class Job {
         private final Cell cell;
         private final Kind kind;
         private final String item;
+        private final int count;
         private final long seq;
         private long claimant;
 
         private Job(Cell cell, Kind kind, String item, long seq) {
+            this(cell, kind, item, 1, seq);
+        }
+
+        private Job(Cell cell, Kind kind, String item, int count, long seq) {
             this.cell = cell;
             this.kind = kind;
             this.item = item;
+            this.count = Math.max(1, count);
             this.seq = seq;
         }
+
+        public int count() { return count; }
 
         public Cell cell() { return cell; }
         public Kind kind() { return kind; }
@@ -67,10 +81,10 @@ public final class ConstructionQueue {
     /** The next sequence number {@link #addBuild(Cell, String)} would use. */
     public long nextSeq() { return nextSeq; }
 
-    /** Marks the block at {@code cell} for deconstruction (replaces nothing if a job is there). */
+    /** Marks the block at {@code cell} for deconstruction (replaces an upgrade job, nothing else). */
     public Job markForDeconstruction(Cell cell) {
         Job old = jobs.get(cell);
-        if (old != null) return old;
+        if (old != null && old.kind != Kind.UPGRADE) return old;
         Job job = new Job(cell, Kind.DECONSTRUCT, null, nextSeq++);
         jobs.put(cell, job);
         return job;
@@ -84,6 +98,31 @@ public final class ConstructionQueue {
     /** Removes a deconstruction mark; false if there was none. */
     public boolean unmarkDeconstruction(Cell cell) {
         if (!isMarkedForDeconstruction(cell)) return false;
+        jobs.remove(cell);
+        return true;
+    }
+
+    /**
+     * Marks the block at {@code cell} for an upgrade to {@code count} × {@code item}. A deconstruction
+     * job there wins (nothing changes); an older upgrade job is replaced (its claim dropped).
+     */
+    public Job markForUpgrade(Cell cell, String item, int count) {
+        Job old = jobs.get(cell);
+        if (old != null && old.kind == Kind.UPGRADE && old.item.equals(item) && old.count == count) return old;
+        if (old != null && old.kind != Kind.UPGRADE) return old;
+        Job job = new Job(cell, Kind.UPGRADE, item, count, nextSeq++);
+        jobs.put(cell, job);
+        return job;
+    }
+
+    public boolean isMarkedForUpgrade(Cell cell) {
+        Job j = jobs.get(cell);
+        return j != null && j.kind == Kind.UPGRADE;
+    }
+
+    /** Removes an upgrade job; false if there was none. */
+    public boolean unmarkUpgrade(Cell cell) {
+        if (!isMarkedForUpgrade(cell)) return false;
         jobs.remove(cell);
         return true;
     }

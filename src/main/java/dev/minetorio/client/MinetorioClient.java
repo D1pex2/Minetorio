@@ -63,6 +63,7 @@ public final class MinetorioClient {
         OreFieldHover.register();
         ConstructionAreaOverlay.register();
         RemoteViewClient.register();
+        dev.minetorio.client.robot.PlannerClient.register();
     }
 
     @SubscribeEvent

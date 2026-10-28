@@ -31,10 +31,15 @@ public final class ProviderLedger {
 
     /** The provider nearest to {@code to} holding {@code item} beyond its reservations. */
     public Optional<Cell> pick(List<Cell> providers, Cell to, String item, ToIntBiFunction<Cell, String> stock) {
+        return pick(providers, to, item, 1, stock);
+    }
+
+    /** The provider nearest to {@code to} holding {@code count} × {@code item} beyond its reservations. */
+    public Optional<Cell> pick(List<Cell> providers, Cell to, String item, int count, ToIntBiFunction<Cell, String> stock) {
         Cell best = null;
         long bestD = Long.MAX_VALUE;
         for (Cell p : providers) {
-            if (stock.applyAsInt(p, item) - reserved(p, item) <= 0) continue;
+            if (stock.applyAsInt(p, item) - reserved(p, item) < count) continue;
             long d = p.distSq(to);
             if (d < bestD) {
                 bestD = d;

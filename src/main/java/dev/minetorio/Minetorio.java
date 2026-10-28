@@ -65,6 +65,9 @@ public class Minetorio {
         HandGhosts.register();
         dev.minetorio.content.blueprint.BlueprintPaste.register();
         dev.minetorio.content.robot.DeconstructionMarking.register();
+        dev.minetorio.content.robot.ConstructionMarks.register();
+        dev.minetorio.content.robot.RobotWork.register();
+        dev.minetorio.content.robot.Planners.register();
         RobotCommand.register();
     }
 }

@@ -5,33 +5,41 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Cells marked for deconstruction (Factorio's red cross), one set per level. Minimal on purpose:
- * mark, unmark, query. Blueprint pastes with Shift mark the vanilla blocks in their way here;
- * whoever removes a marked block (a player by hand, construction robots once they deconstruct)
- * unmarks it. The deconstruction planner builds on this.
+ * Blocks marked for deconstruction (Factorio's red X): the cell of the block (a machine's
+ * controller) and the id of the block that was marked there, so a mark whose block changed in the
+ * meantime can be dropped ({@link #stillValid}). An empty id means "whatever stands there".
+ *
+ * <p>Marked by the deconstruction planner and by Shift blueprint pastes (the vanilla blocks in the
+ * way). Construction robots take a deconstruction job for every mark ({@link ConstructionQueue});
+ * whoever removes a marked block unmarks it. The server keeps one instance per level and saves it
+ * (content: {@code ConstructionMarks}).
  */
-public final class DeconstructionMarks {
-    private final Set<Cell> marked = new LinkedHashSet<>();
-
-    /** Marks {@code c}; false if it was marked already. */
-    public boolean mark(Cell c) {
-        return marked.add(c);
+public final class DeconstructionMarks extends CellMarks<String> {
+    /** Marks {@code cell}, whatever block stands there; false if it was marked already. */
+    public boolean mark(Cell cell) {
+        if (isMarked(cell)) return false;
+        return mark(cell, "");
     }
 
-    /** Unmarks {@code c}; false if it was not marked. */
-    public boolean unmark(Cell c) {
-        return marked.remove(c);
+    /** Marks {@code cell} holding block {@code blockId}; false if it was marked already with that id. */
+    public boolean mark(Cell cell, String blockId) {
+        return put(cell, blockId == null ? "" : blockId);
     }
 
-    public boolean isMarked(Cell c) {
-        return marked.contains(c);
+    /** Block id the mark was made for ("" for any). */
+    public String block(Cell cell) {
+        String b = get(cell);
+        return b == null ? "" : b;
     }
 
+    /** Whether the mark on {@code cell} still fits the block now there ({@code currentBlockId}). */
+    public boolean stillValid(Cell cell, String currentBlockId) {
+        String b = get(cell);
+        return b != null && (b.isEmpty() || b.equals(currentBlockId));
+    }
+
+    /** Every marked cell, in marking order (read-only snapshot). */
     public Set<Cell> all() {
-        return Collections.unmodifiableSet(marked);
-    }
-
-    public int size() {
-        return marked.size();
+        return Collections.unmodifiableSet(new LinkedHashSet<>(cells()));
     }
 }

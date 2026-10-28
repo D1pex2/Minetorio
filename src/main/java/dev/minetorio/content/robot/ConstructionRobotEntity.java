@@ -6,6 +6,11 @@ import dev.minetorio.core.robot.Flight;
 import dev.minetorio.core.robot.RobotBattery;
 import dev.minetorio.core.robot.RobotStats;
 import dev.minetorio.core.robot.SmoothFlight;
+import dev.minetorio.core.robot.Cell;
+import dev.minetorio.core.robot.ConstructionQueue;
+import dev.minetorio.core.robot.UpgradeMarks;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -74,6 +79,16 @@ public class ConstructionRobotEntity extends Entity {
     @Nullable private BlockPos job;
     @Nullable private BlockPos provider;
     @Nullable private String item;
+    /** What the job is: build a ghost, deconstruct or upgrade a marked block. */
+    private ConstructionQueue.Kind kind = ConstructionQueue.Kind.BUILD;
+    /** Items the job takes from the provider (2 for a paired underground belt upgrade). */
+    private int count = 1;
+    /**
+     * Everything the robot carries: the item fetched for its job, or what a deconstruction or
+     * upgrade gave (a machine's item and its contents ride along, as in Factorio). The first stack
+     * is shown in its claws ({@link #carried()}).
+     */
+    private final List<ItemStack> cargo = new ArrayList<>();
     private RobotBattery battery = RobotBattery.full();
     /** Job and reservation registered with the manager since the robot was (re)loaded. */
     private boolean registered;
@@ -104,9 +119,21 @@ public class ConstructionRobotEntity extends Entity {
         return id == 0 ? 1 : id;
     }
 
+    /** The stack shown in the robot's claws (the first of its cargo). */
     public ItemStack carried() { return entityData.get(DATA_CARRIED); }
 
-    private void setCarried(ItemStack s) { entityData.set(DATA_CARRIED, s); }
+    /** Everything the robot carries (a copy). */
+    public List<ItemStack> cargo() { return cargo.stream().map(ItemStack::copy).toList(); }
+
+    public ConstructionQueue.Kind jobKind() { return kind; }
+
+    private void setCargo(List<ItemStack> stacks) {
+        cargo.clear();
+        for (ItemStack s : stacks) if (!s.isEmpty()) cargo.add(s.copy());
+        entityData.set(DATA_CARRIED, cargo.isEmpty() ? ItemStack.EMPTY : cargo.get(0).copyWithCount(1));
+    }
+
+    private void setCarried(ItemStack s) { setCargo(s.isEmpty() ? List.of() : List.of(s)); }
 
     public Phase phase() { return phase; }
 
@@ -117,11 +144,22 @@ public class ConstructionRobotEntity extends Entity {
 
     /** Sends a freshly launched robot (job claimed, provider item reserved by the roboport). */
     void startJob(BlockPos home, BlockPos job, BlockPos provider, String item) {
+        startJob(home, job, provider, item, ConstructionQueue.Kind.BUILD, 1);
+    }
+
+    /**
+     * Sends a freshly launched robot on a job of {@code kind} (claimed; for build and upgrade jobs
+     * {@code count} × {@code item} reserved at {@code provider} by the roboport). A deconstruction
+     * job has no provider: the robot flies straight to the block.
+     */
+    void startJob(BlockPos home, BlockPos job, @Nullable BlockPos provider, @Nullable String item, ConstructionQueue.Kind kind, int count) {
         this.home = home.immutable();
         this.job = job.immutable();
-        this.provider = provider.immutable();
+        this.provider = provider == null ? null : provider.immutable();
         this.item = item;
-        this.phase = Phase.TO_PROVIDER;
+        this.kind = kind;
+        this.count = Math.max(1, count);
+        this.phase = kind == ConstructionQueue.Kind.DECONSTRUCT ? Phase.TO_GHOST : Phase.TO_PROVIDER;
         this.registered = true;
     }
 
@@ -139,7 +177,15 @@ public class ConstructionRobotEntity extends Entity {
         if (!registered) reRegister(m);
         switch (phase) {
             case TO_PROVIDER -> { if (fly(hover(provider))) pickUp(server, m); }
-            case TO_GHOST -> { if (fly(hover(job))) buildGhost(server, m); }
+            case TO_GHOST -> {
+                if (fly(hover(job))) {
+                    switch (kind) {
+                        case BUILD -> buildGhost(server, m);
+                        case DECONSTRUCT -> deconstructBlock(server, m);
+                        case UPGRADE -> upgradeBlock(server, m);
+                    }
+                }
+            }
             case TO_STORE -> { if (fly(hover(provider))) putAway(server); }
             case RETURNING -> returning(server);
             case CHARGING -> charging(server);
@@ -187,11 +233,11 @@ public class ConstructionRobotEntity extends Entity {
             if (job == null || !m.queue().claim(ConstructionManager.cell(job), robotId())) {
                 // someone else took it (or it is gone): give up the job
                 job = null;
-                phase = carried().isEmpty() ? Phase.RETURNING : storePhase((ServerLevel) level());
+                phase = cargo.isEmpty() ? Phase.RETURNING : storePhase((ServerLevel) level());
                 return;
             }
             if (phase == Phase.TO_PROVIDER && provider != null && item != null) {
-                m.ledger().reserve(ConstructionManager.cell(provider), item);
+                for (int i = 0; i < count; i++) m.ledger().reserve(ConstructionManager.cell(provider), item);
             }
         }
     }
@@ -229,13 +275,19 @@ public class ConstructionRobotEntity extends Entity {
     }
 
     private void pickUp(ServerLevel level, ConstructionManager m) {
-        m.ledger().release(ConstructionManager.cell(provider), item);
-        ItemStack got = ItemStack.EMPTY;
+        for (int i = 0; i < count; i++) m.ledger().release(ConstructionManager.cell(provider), item);
         Item wanted = BuiltInRegistries.ITEM.get(ResourceLocation.parse(item));
+        int need = count;
+        ItemStack got = ItemStack.EMPTY;
         IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, provider, null);
         if (h != null) {
-            for (int i = 0; i < h.getSlots() && got.isEmpty(); i++) {
-                if (h.getStackInSlot(i).is(wanted)) got = h.extractItem(i, 1, false);
+            for (int i = 0; i < h.getSlots() && need > 0; i++) {
+                if (!h.getStackInSlot(i).is(wanted)) continue;
+                ItemStack s = h.extractItem(i, need, false);
+                if (s.isEmpty()) continue;
+                need -= s.getCount();
+                if (got.isEmpty()) got = s;
+                else got.grow(s.getCount());
             }
         }
         if (got.isEmpty()) {
@@ -248,14 +300,68 @@ public class ConstructionRobotEntity extends Entity {
     }
 
     private void buildGhost(ServerLevel level, ConstructionManager m) {
-        boolean built = Ghosts.build(level, job, null, carried());
+        ItemStack held = cargo.isEmpty() ? ItemStack.EMPTY : cargo.get(0);
+        boolean built = Ghosts.build(level, job, null, held);
         if (built) {
             beam(level, job);
-            setCarried(ItemStack.EMPTY);
+            held.shrink(1);
+            setCargo(new ArrayList<>(cargo));
         }
         releaseJob(m);
         job = null;
-        phase = built ? Phase.RETURNING : storePhase(level);
+        phase = cargo.isEmpty() ? Phase.RETURNING : storePhase(level);
+    }
+
+    /**
+     * At a block marked for deconstruction: breaks it (a machine whole) and takes everything it
+     * gave as cargo to a storage chest. Nothing happens if the mark is gone meanwhile.
+     */
+    private void deconstructBlock(ServerLevel level, ConstructionManager m) {
+        Cell cell = ConstructionManager.cell(job);
+        ConstructionMarks marks = ConstructionMarks.get(level);
+        BlockPos at = job;
+        releaseJob(m);
+        job = null;
+        if (!marks.deconstruction().isMarked(cell) || !marks.deconstruction().stillValid(cell,
+                ConstructionMarks.blockId(level.getBlockState(at)))) {
+            marks.deconstruction().unmark(cell);
+            phase = Phase.RETURNING;
+            return;
+        }
+        List<ItemStack> got = RobotWork.deconstruct(level, at);
+        marks.deconstruction().unmark(cell);
+        if (got != null) beam(level, at);
+        setCargo(got == null ? List.of() : got);
+        phase = cargo.isEmpty() ? Phase.RETURNING : storePhase(level);
+    }
+
+    /**
+     * At a block marked for upgrade, with the new item(s): swaps the block (fast-replace semantics)
+     * and takes the old item(s) to a storage chest. If the order changed or the swap fails, the new
+     * items go back to storage instead.
+     */
+    private void upgradeBlock(ServerLevel level, ConstructionManager m) {
+        Cell cell = ConstructionManager.cell(job);
+        ConstructionMarks marks = ConstructionMarks.get(level);
+        BlockPos at = job;
+        releaseJob(m);
+        job = null;
+        UpgradeMarks.Order order = marks.upgrades().get(cell);
+        ItemStack held = cargo.isEmpty() ? ItemStack.EMPTY : cargo.get(0).copy();
+        RobotWork.Upgraded done = null;
+        if (order != null && item != null && order.toItem().equals(item) && !held.isEmpty()
+                && marks.upgrades().stillValid(cell, ConstructionMarks.blockId(level.getBlockState(at)))) {
+            done = RobotWork.upgrade(level, at, held.getItem(), held.getCount());
+        }
+        if (done != null) {
+            marks.upgrades().unmark(cell);
+            beam(level, at);
+            held.shrink(done.used());
+            List<ItemStack> next = new ArrayList<>(done.old());
+            if (!held.isEmpty()) next.add(held);
+            setCargo(next);
+        }
+        phase = cargo.isEmpty() ? Phase.RETURNING : storePhase(level);
     }
 
     /** Short spark beam from the robot down to the built block. */
@@ -269,38 +375,38 @@ public class ConstructionRobotEntity extends Entity {
         level.sendParticles(ParticleTypes.ELECTRIC_SPARK, to.x, to.y, to.z, 10, 0.4, 0.4, 0.4, 0.05);
     }
 
-    /** {@link Phase#TO_STORE} with the nearest provider in the home area that takes the item; else drops it and returns. */
+    /**
+     * {@link Phase#TO_STORE} with a chest in the home area that takes the first cargo stack: the
+     * nearest one already holding that item, else the nearest with room (Factorio's storage
+     * preference). No such chest: the cargo is dropped where the robot is and it returns.
+     */
     private Phase storePhase(ServerLevel level) {
-        ItemStack c = carried();
+        if (cargo.isEmpty()) return Phase.RETURNING;
+        ItemStack c = cargo.get(0);
         RoboportBlockEntity port = roboport(level, home);
+        if (port == null) port = nearestRoboport(level);
         if (port != null) {
-            BlockPos best = null;
-            double bestD = Double.MAX_VALUE;
-            for (BlockPos p : RoboportBlockEntity.providers(level, port.area())) {
-                IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, p, null);
-                if (h == null || !ItemHandlerHelper.insertItemStacked(h, c.copy(), true).isEmpty()) continue;
-                double d = p.distToCenterSqr(position());
-                if (d < bestD) {
-                    bestD = d;
-                    best = p;
-                }
-            }
+            BlockPos best = RoboportBlockEntity.storageFor(level, port.area(), c, position());
             if (best != null) {
                 provider = best;
                 return Phase.TO_STORE;
             }
         }
-        drop(level, c);
-        setCarried(ItemStack.EMPTY);
+        for (ItemStack s : cargo) drop(level, s);
+        setCargo(List.of());
         return Phase.RETURNING;
     }
 
+    /** At the chest: puts in all the cargo it takes; what is left goes to another chest (or is dropped). */
     private void putAway(ServerLevel level) {
         IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, provider, null);
-        ItemStack rest = h == null ? carried() : ItemHandlerHelper.insertItemStacked(h, carried(), false);
-        if (!rest.isEmpty()) drop(level, rest);
-        setCarried(ItemStack.EMPTY);
-        phase = Phase.RETURNING;
+        List<ItemStack> rest = new ArrayList<>();
+        for (ItemStack s : cargo) {
+            ItemStack left = h == null ? s.copy() : ItemHandlerHelper.insertItemStacked(h, s.copy(), false);
+            if (!left.isEmpty()) rest.add(left);
+        }
+        setCargo(rest);
+        phase = rest.isEmpty() ? Phase.RETURNING : storePhase(level);
     }
 
     private void returning(ServerLevel level) {
@@ -338,8 +444,8 @@ public class ConstructionRobotEntity extends Entity {
 
     /** No roboport to go to: drops as an item (and what it carries). */
     private void lose(ServerLevel level) {
-        if (!carried().isEmpty()) drop(level, carried());
-        setCarried(ItemStack.EMPTY);
+        for (ItemStack s : cargo) drop(level, s);
+        setCargo(List.of());
         drop(level, new ItemStack(ModItems.CONSTRUCTION_ROBOT.get()));
         discard();
     }
@@ -383,7 +489,7 @@ public class ConstructionRobotEntity extends Entity {
             if (m != null) {
                 releaseJob(m);
                 if (phase == Phase.TO_PROVIDER && provider != null && item != null) {
-                    m.ledger().release(ConstructionManager.cell(provider), item);
+                    for (int i = 0; i < count; i++) m.ledger().release(ConstructionManager.cell(provider), item);
                 }
             }
             if (reason == RemovalReason.KILLED) {
@@ -416,7 +522,11 @@ public class ConstructionRobotEntity extends Entity {
         if (provider != null) tag.put("provider", NbtUtils.writeBlockPos(provider));
         if (item != null) tag.putString("item", item);
         tag.putLong("energy", battery.energy());
-        if (!carried().isEmpty()) tag.put("carried", carried().save(registryAccess()));
+        tag.putString("kind", kind.name());
+        tag.putInt("count", count);
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        for (ItemStack s : cargo) list.add(s.save(registryAccess()));
+        if (!list.isEmpty()) tag.put("cargo", list);
     }
 
     @Override
@@ -431,7 +541,18 @@ public class ConstructionRobotEntity extends Entity {
         provider = NbtUtils.readBlockPos(tag, "provider").orElse(null);
         item = tag.contains("item") ? tag.getString("item") : null;
         battery = new RobotBattery(tag.contains("energy") ? tag.getLong("energy") : RobotStats.BATTERY_J);
-        setCarried(tag.contains("carried") ? ItemStack.parseOptional(registryAccess(), tag.getCompound("carried")) : ItemStack.EMPTY);
+        try {
+            kind = tag.contains("kind") ? ConstructionQueue.Kind.valueOf(tag.getString("kind")) : ConstructionQueue.Kind.BUILD;
+        } catch (IllegalArgumentException e) {
+            kind = ConstructionQueue.Kind.BUILD;
+        }
+        count = Math.max(1, tag.contains("count") ? tag.getInt("count") : 1);
+        List<ItemStack> loaded = new ArrayList<>();
+        if (tag.contains("carried")) loaded.add(ItemStack.parseOptional(registryAccess(), tag.getCompound("carried"))); // older saves
+        for (net.minecraft.nbt.Tag t : tag.getList("cargo", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            loaded.add(ItemStack.parseOptional(registryAccess(), (CompoundTag) t));
+        }
+        setCargo(loaded);
         if ((phase == Phase.TO_PROVIDER && (provider == null || item == null)) || (phase == Phase.TO_GHOST && job == null)
                 || (phase == Phase.TO_STORE && provider == null)) {
             phase = Phase.RETURNING;

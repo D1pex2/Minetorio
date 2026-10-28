@@ -23,21 +23,22 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
 /**
- * Per-level deconstruction marks ({@link DeconstructionMarks}, saved with the level) and the
- * ghosts waiting for a marked block to go. A Shift blueprint paste marks the vanilla blocks in its
- * way ({@link #markable}: plain terrain and plants, no block entity, no fluid, breakable); a ghost
- * whose own cell is such a block waits here ({@link #addPending}) and is placed once the block is
- * gone. Marks of blocks that are gone are dropped.
+ * The blueprint side of deconstruction: what a Shift paste may mark ({@link #markable}: plain
+ * terrain and plants, no block entity, no fluid, breakable) and the ghosts waiting for a marked
+ * block in their own cell to go ({@link #addPending}; placed once the block is gone, checked every
+ * {@value #CHECK_INTERVAL} ticks, saved with the level).
  *
- * <p>Deliberately minimal (mark / unmark / isMarked, saved): the deconstruction planner and the
- * robots' deconstruction build on it and own how marks are shown and worked off. Until robots
- * deconstruct, marked blocks are removed by hand (normal breaking).
+ * <p>The marks themselves are {@link ConstructionMarks}' (one persisted, synced store shared with
+ * the deconstruction planner; robots work them off, the red X shows them): {@link #mark},
+ * {@link #unmark} and {@link #isMarked} delegate there. Marks this class saved itself in older
+ * worlds are moved over on the first check.
  */
 public final class DeconstructionMarking extends SavedData {
     private static final String NAME = Minetorio.MODID + "_deconstruction";
     private static final int CHECK_INTERVAL = 10;
 
-    private final DeconstructionMarks marks = new DeconstructionMarks();
+    /** Marks from saves made before {@link ConstructionMarks} existed; moved there on the first check. */
+    private final DeconstructionMarks legacy = new DeconstructionMarks();
     private final Map<Cell, Pending> pending = new LinkedHashMap<>();
 
     /** A ghost to place at a cell once its marked block is gone. */
@@ -81,22 +82,15 @@ public final class DeconstructionMarking extends SavedData {
     }
 
     public static boolean isMarked(ServerLevel level, BlockPos pos) {
-        DeconstructionMarking d = getIfLoaded(level);
-        return d != null && d.marks.isMarked(ConstructionManager.cell(pos));
+        return ConstructionMarks.get(level).isMarked(level, pos);
     }
 
     public static boolean mark(ServerLevel level, BlockPos pos) {
-        DeconstructionMarking d = get(level);
-        boolean added = d.marks.mark(ConstructionManager.cell(pos));
-        if (added) d.setDirty();
-        return added;
+        return ConstructionMarks.get(level).mark(level, pos);
     }
 
     public static boolean unmark(ServerLevel level, BlockPos pos) {
-        DeconstructionMarking d = get(level);
-        boolean removed = d.marks.unmark(ConstructionManager.cell(pos));
-        if (removed) d.setDirty();
-        return removed;
+        return ConstructionMarks.get(level).unmark(level, pos);
     }
 
     /** Places a ghost of {@code target} at {@code pos} as soon as the (marked) block there is gone. */
@@ -111,14 +105,14 @@ public final class DeconstructionMarking extends SavedData {
         return d != null && d.pending.containsKey(ConstructionManager.cell(pos));
     }
 
-    /** Drops marks of blocks that are gone; places waiting ghosts whose cell is free, forgets those whose mark went. */
+    /** Moves legacy marks over; places waiting ghosts whose cell is free, forgets those whose mark went. */
     void check(ServerLevel level) {
-        for (Cell c : new ArrayList<>(marks.all())) {
+        ConstructionMarks marks = ConstructionMarks.get(level);
+        for (Cell c : legacy.cells()) {
             BlockPos p = ConstructionManager.pos(c);
-            if (level.isLoaded(p) && level.getBlockState(p).canBeReplaced()) {
-                marks.unmark(c);
-                setDirty();
-            }
+            if (!level.getBlockState(p).canBeReplaced()) marks.mark(level, p);
+            legacy.unmark(c);
+            setDirty();
         }
         for (Map.Entry<Cell, Pending> e : new ArrayList<>(pending.entrySet())) {
             BlockPos p = ConstructionManager.pos(e.getKey());
@@ -130,7 +124,7 @@ public final class DeconstructionMarking extends SavedData {
                 if (Ghosts.fits(level, p, target)) Ghosts.placePlanned(level, p, target, g.facing(), g.settings());
                 pending.remove(e.getKey());
                 setDirty();
-            } else if (!marks.isMarked(e.getKey())) {
+            } else if (!marks.isMarked(level, p)) {
                 pending.remove(e.getKey()); // unmarked: the block stays, so does the obstacle
                 setDirty();
             }
@@ -141,7 +135,7 @@ public final class DeconstructionMarking extends SavedData {
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.putLongArray("marks", marks.all().stream().mapToLong(c -> ConstructionManager.pos(c).asLong()).toArray());
+        tag.putLongArray("marks", legacy.all().stream().mapToLong(c -> ConstructionManager.pos(c).asLong()).toArray());
         ListTag list = new ListTag();
         for (Map.Entry<Cell, Pending> e : pending.entrySet()) {
             CompoundTag t = new CompoundTag();
@@ -157,7 +151,7 @@ public final class DeconstructionMarking extends SavedData {
 
     private static DeconstructionMarking load(CompoundTag tag, HolderLookup.Provider registries) {
         DeconstructionMarking d = new DeconstructionMarking();
-        for (long l : tag.getLongArray("marks")) d.marks.mark(ConstructionManager.cell(BlockPos.of(l)));
+        for (long l : tag.getLongArray("marks")) d.legacy.mark(ConstructionManager.cell(BlockPos.of(l)));
         for (Tag raw : tag.getList("pending", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) raw;
             BlockState target = NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), t.getCompound("target"));

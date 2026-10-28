@@ -73,6 +73,13 @@ public final class ModItems {
     /** Factorio's blueprint (see {@link BlueprintItem}); free from the blueprint key. */
     public static final DeferredItem<Item> BLUEPRINT = ITEMS.registerItem("blueprint", p -> new BlueprintItem(p.stacksTo(1)));
 
+    /** Factorio's deconstruction planner: free from the shortcut key, never crafted. */
+    public static final DeferredItem<Item> DECONSTRUCTION_PLANNER = ITEMS.registerItem("deconstruction_planner",
+            p -> new dev.minetorio.content.robot.PlannerItems.DeconstructionPlanner(p.stacksTo(1)));
+    /** Factorio's upgrade planner: free from the shortcut key, never crafted. */
+    public static final DeferredItem<Item> UPGRADE_PLANNER = ITEMS.registerItem("upgrade_planner",
+            p -> new dev.minetorio.content.robot.PlannerItems.UpgradePlanner(p.stacksTo(1)));
+
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
     public static final List<String> IDS = List.of(
             "iron_ore", "copper_ore", "iron_plate", "copper_plate", "stone_brick", "iron_gear_wheel", "copper_cable",
@@ -84,7 +91,7 @@ public final class ModItems {
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
-            "roboport", "construction_robot", "ghost_item", "blueprint");
+            "roboport", "construction_robot", "ghost_item", "blueprint", "deconstruction_planner", "upgrade_planner");
 
     private ModItems() {}
 

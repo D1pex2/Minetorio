@@ -58,7 +58,17 @@ public final class ModPayloads {
                 .playToServer(BlueprintPayloads.Capture.TYPE, BlueprintPayloads.Capture.STREAM_CODEC, BlueprintPayloads.Capture::handle)
                 .playToServer(BlueprintPayloads.Paste.TYPE, BlueprintPayloads.Paste.STREAM_CODEC, BlueprintPayloads.Paste::handle)
                 .playToServer(BlueprintPayloads.Give.TYPE, BlueprintPayloads.Give.STREAM_CODEC, BlueprintPayloads.Give::handle)
-                .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle);
+                .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.Select.TYPE, dev.minetorio.content.robot.PlannerPayloads.Select.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.Select::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.SetFilter.TYPE, dev.minetorio.content.robot.PlannerPayloads.SetFilter.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.SetFilter::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.SetRules.TYPE, dev.minetorio.content.robot.PlannerPayloads.SetRules.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.SetRules::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.Give.TYPE, dev.minetorio.content.robot.PlannerPayloads.Give.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.Give::handle)
+                .playToClient(dev.minetorio.content.robot.MarkPayloads.Chunk.TYPE, dev.minetorio.content.robot.MarkPayloads.Chunk.STREAM_CODEC,
+                        dev.minetorio.content.robot.MarkPayloads.Chunk::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */
