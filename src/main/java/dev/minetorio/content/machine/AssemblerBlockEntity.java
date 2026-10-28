@@ -1,5 +1,9 @@
 package dev.minetorio.content.machine;
 
+import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.core.alt.AltInfo;
+import dev.minetorio.core.alt.AltRules;
+import dev.minetorio.core.alt.AltSync;
 import dev.minetorio.content.inserter.MachineEndpoint;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
@@ -56,11 +60,11 @@ import net.neoforged.neoforge.items.IItemHandler;
  * automated access (inserters, the {@link #itemHandler()} capability) inserts inputs up to 2
  * crafts and extracts only the output; the player may insert up to a stack and take from every slot.
  *
- * <p><b>Client sync.</b> Only {@link #isWorking()} (crafted with power recently) is synced; the
+ * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} (crafted with power recently) is synced; the
  * client spins the gear while it is set. It turns on at once and off after {@value #IDLE_GRACE}
  * idle ticks.
  */
-public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider {
+public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider, AltSource {
     public static final double SPEED_1 = 0.5;
     public static final long POWER_1 = Units.kw(75);
     public static final double SPEED_2 = 0.75;
@@ -106,6 +110,8 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         @Override
         public int getCount() { return DATA_COUNT; }
     };
+    private final AltSync altSync = new AltSync();
+    private AltInfo clientAlt = AltInfo.NONE;
     private boolean working;
     private int idleTicks;
     // client animation
@@ -192,7 +198,19 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
             working = now;
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
+        AltSource.tickAlt(this, altSync);
     }
+
+    /** Alt mode: the recipe's product; no recipe, no or low power, output full. */
+    @Override
+    public AltInfo computeAlt() {
+        Recipe r = machine.recipe();
+        String product = r == null || r.outputs().isEmpty() ? null : r.outputs().get(0).item();
+        return AltRules.assembler(product, machine.isOutputFull(), AltRules.electric(power.satisfaction()));
+    }
+
+    @Override
+    public AltInfo altInfo() { return clientAlt; }
 
     void tickClient() {
         prevGearAngle = gearAngle;
@@ -372,13 +390,15 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_MACHINE)) CoreNbt.loadMachineInto(machine, tag.getCompound(KEY_MACHINE), Phase1Data.recipes());
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
+        clientAlt = AltSource.read(tag, clientAlt);
     }
 
-    /** Only the working flag (see class doc). */
+    /** The working flag and the alt-mode info. */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(KEY_WORKING, working);
+        AltSource.write(tag, this, altSync);
         return tag;
     }
 

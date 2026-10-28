@@ -161,6 +161,9 @@ public final class CraftingMachine {
         return true;
     }
 
+    /** Whether the machine stands idle because the output has no room for another craft. */
+    public boolean isOutputFull() { return recipe != null && !crafting && !outputHasRoom(); }
+
     private boolean canStart() { return recipe != null && hasInputs() && outputHasRoom(); }
 
     /** Power demand this tick: full while a craft runs or can start, otherwise 0. */

@@ -35,6 +35,11 @@ public class ElectricDrillBlockEntity extends MiningDrillBlockEntity {
     @Override
     protected String noEnergyKey() { return "minetorio.drill.no_power"; }
 
+    @Override
+    protected dev.minetorio.core.alt.AltStatus energyStatus() {
+        return dev.minetorio.core.alt.AltRules.electric(power.satisfaction());
+    }
+
     /** 90 kW while the drill can mine (buffer empty, ore left), else nothing. */
     public long demand() { return isActive() ? POWER : 0; }
 

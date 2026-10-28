@@ -49,6 +49,11 @@ public class BurnerDrillBlockEntity extends MiningDrillBlockEntity implements Ma
     @Override
     protected String noEnergyKey() { return "minetorio.drill.no_fuel"; }
 
+    @Override
+    protected dev.minetorio.core.alt.AltStatus energyStatus() {
+        return dev.minetorio.core.alt.AltRules.burner(dev.minetorio.core.alt.AltRules.hasFuel(burner.fuel(), burner.remainingJ()));
+    }
+
     /** Puts fuel into the slot by hand; returns the amount accepted. */
     public int addFuel(String item, int count) {
         int accepted = burner.insertFuel(item, count, false);

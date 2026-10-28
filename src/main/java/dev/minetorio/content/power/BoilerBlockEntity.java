@@ -26,7 +26,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * engine drawing) burns nothing. Working (fire glow) = made steam recently. As a
  * {@link MachineEndpoint} it accepts fuel from inserters up to the automated limit and offers nothing.
  */
-public class BoilerBlockEntity extends SteamMachineBlockEntity implements MachineEndpoint {
+public class BoilerBlockEntity extends SteamMachineBlockEntity implements MachineEndpoint, dev.minetorio.content.alt.AltSource {
     private static final String KEY_WATER = "water";
     private static final String KEY_STEAM = "steam";
     private static final String KEY_BURNER = "burner";
@@ -62,6 +62,17 @@ public class BoilerBlockEntity extends SteamMachineBlockEntity implements Machin
         if (made) setChanged();
         setActive(level, made);
     }
+
+    /** Alt mode: the fuel it burns, or no fuel. */
+    @Override
+    public dev.minetorio.core.alt.AltInfo computeAlt() {
+        java.util.Map<String, Integer> fuel = burner.fuel();
+        String item = fuel.isEmpty() ? null : fuel.keySet().iterator().next();
+        return dev.minetorio.core.alt.AltRules.boiler(item, dev.minetorio.core.alt.AltRules.hasFuel(fuel, burner.remainingJ()));
+    }
+
+    @Override
+    public dev.minetorio.core.alt.AltInfo altInfo() { return clientAlt; }
 
     @Override
     public Component status() {

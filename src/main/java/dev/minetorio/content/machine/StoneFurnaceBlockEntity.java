@@ -1,5 +1,9 @@
 package dev.minetorio.content.machine;
 
+import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.core.alt.AltInfo;
+import dev.minetorio.core.alt.AltRules;
+import dev.minetorio.core.alt.AltSync;
 import dev.minetorio.content.inserter.MachineEndpoint;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.nbt.CoreNbt;
@@ -46,7 +50,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * <p><b>Client sync.</b> The block state's {@link StoneFurnaceBlock#LIT} is the working flag (lit
  * front, light); it turns on at once and off after {@value #IDLE_GRACE} idle ticks.
  */
-public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider {
+public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, MenuProvider, AltSource {
     public static final long POWER = Units.kw(90);
     public static final double SPEED = 1.0;
     public static final int FUEL_SLOT = 0;
@@ -63,6 +67,8 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
 
     private final Burner burner = new Burner(POWER, Phase1Data.fuelValues());
     private final CraftingMachine machine = CraftingMachine.smelter(SPEED, POWER, Phase1Data.recipes());
+    private final AltSync altSync = new AltSync();
+    private AltInfo clientAlt = AltInfo.NONE;
     private final Slots slots = new Slots();
     private final IItemHandler itemHandler = new MachineItemHandler(slots);
     private final ContainerData data = new ContainerData() {
@@ -110,7 +116,20 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
         if (demand == 0 || satisfaction > 0) machine.tick(satisfaction);
         if (satisfaction > 0) setChanged();
         setLit(level, satisfaction > 0);
+        AltSource.tickAlt(this, altSync);
     }
+
+    /** Alt mode: the product of the smelt (or what waits in the output); no fuel, output full. */
+    @Override
+    public AltInfo computeAlt() {
+        dev.minetorio.core.recipe.Recipe r = machine.recipe();
+        String product = r == null || r.outputs().isEmpty() ? null : r.outputs().get(0).item();
+        return AltRules.furnace(product, first(machine.outputs()), machine.isOutputFull(),
+                AltRules.burner(AltRules.hasFuel(burner.fuel(), burner.remainingJ())));
+    }
+
+    @Override
+    public AltInfo altInfo() { return clientAlt; }
 
     private void setLit(Level level, boolean active) {
         idleTicks = active ? 0 : Math.min(idleTicks + 1, IDLE_GRACE);
@@ -289,5 +308,19 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_BURNER)) CoreNbt.loadBurnerInto(burner, tag.getCompound(KEY_BURNER));
         if (tag.contains(KEY_MACHINE)) CoreNbt.loadMachineInto(machine, tag.getCompound(KEY_MACHINE), Phase1Data.recipes());
+        clientAlt = AltSource.read(tag, clientAlt); // client update
+    }
+
+    /** Only the alt-mode info (the working flag is the block state's LIT). */
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        AltSource.write(tag, this, altSync);
+        return tag;
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
 }

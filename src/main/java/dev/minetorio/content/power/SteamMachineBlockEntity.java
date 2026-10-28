@@ -3,6 +3,8 @@ package dev.minetorio.content.power;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import dev.minetorio.core.alt.AltInfo;
+import dev.minetorio.core.alt.AltSync;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -20,7 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * Block entity shared by the steam-power machines: flows its ports with touching machine ports
  * each tick ({@link FluidPorts#flowToMachines}; pipes flow on their own), then runs the machine.
  *
- * <p><b>Client sync.</b> Only {@link #isWorking()} is synced, when it changes; the client advances
+ * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} is synced, when it changes; the client advances
  * an animation angle while it is set (engine flywheel; the boiler shows its fire).
  */
 public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockEntity implements FluidPorts.Box {
@@ -31,6 +33,9 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
 
     private boolean working;
     private int idleTicks;
+    /** Alt-mode throttle and last received info (used by machines implementing {@link dev.minetorio.content.alt.AltSource}). */
+    protected final AltSync altSync = new AltSync();
+    protected AltInfo clientAlt = AltInfo.NONE;
     // client animation
     private float angle;
     private float prevAngle;
@@ -60,6 +65,7 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
             FluidPorts.flowToMachines(level, worldPosition, facing(), machine, this);
         }
         tickMachine(level);
+        if (this instanceof dev.minetorio.content.alt.AltSource) dev.minetorio.content.alt.AltSource.tickAlt(this, altSync);
     }
 
     final void tickClient() {
@@ -93,6 +99,7 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
+        if (this instanceof dev.minetorio.content.alt.AltSource) clientAlt = dev.minetorio.content.alt.AltSource.read(tag, clientAlt);
     }
 
     /** Only the working flag (see class doc). */
@@ -100,6 +107,7 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(KEY_WORKING, working);
+        if (this instanceof dev.minetorio.content.alt.AltSource source) dev.minetorio.content.alt.AltSource.write(tag, source, altSync);
         return tag;
     }
 
