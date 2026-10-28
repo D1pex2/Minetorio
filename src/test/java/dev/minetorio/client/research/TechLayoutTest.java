@@ -26,7 +26,7 @@ class TechLayoutTest {
         assertEquals(new TechLayout.Cell(0, 0), layout.cell("automation"));
         assertEquals(1, layout.cell("automation_2").column());
         assertEquals(2, layout.columns());
-        assertEquals(3, layout.rows());
+        assertEquals(4, layout.rows());
     }
 
     @Test

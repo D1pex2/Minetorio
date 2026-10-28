@@ -19,6 +19,9 @@ public final class ModMenus {
     public static final DeferredHolder<MenuType<?>, MenuType<AssemblerMenu>> ASSEMBLING_MACHINE =
             MENUS.register("assembling_machine", () -> IMenuTypeExtension.create(AssemblerMenu::client));
 
+    public static final DeferredHolder<MenuType<?>, MenuType<dev.minetorio.content.robot.RoboportMenu>> ROBOPORT =
+            MENUS.register("roboport", () -> IMenuTypeExtension.create(dev.minetorio.content.robot.RoboportMenu::client));
+
     private ModMenus() {}
 
     public static void register(IEventBus modBus) {

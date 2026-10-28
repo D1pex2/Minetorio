@@ -198,5 +198,15 @@
   "minetorio.demo.sign.ore_fields.1": "Рудные поля:",
   "minetorio.demo.sign.ore_fields.2": "копай рукой или",
   "minetorio.demo.sign.ore_fields.3": "поставь бур",
-  "minetorio.demo.sign.ore_fields.4": "(уголь — на СВ)"
+  "minetorio.demo.sign.ore_fields.4": "(уголь — на СВ)",
+  "block.minetorio.roboport": "Робопорт",
+  "block.minetorio.ghost": "Призрак",
+  "item.minetorio.construction_robot": "Строительный робот",
+  "entity.minetorio.construction_robot": "Строительный робот",
+  "technology.minetorio.construction_robotics": "Строительная робототехника",
+  "minetorio.roboport.robots": "Роботы: %s свободно, %s в работе",
+  "minetorio.roboport.energy": "Энергия: %s / %s МДж",
+  "minetorio.roboport.area": "Зона строительства: %s×%s",
+  "minetorio.drones.built": "Витрина строительных роботов построена: роботы построят призраки из сундука.",
+  "minetorio.drones.failed": "Не удалось построить витрину роботов: %s"
 }

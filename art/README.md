@@ -13,6 +13,7 @@ downscaled diffusion output at 16×16.
 | `gen_belt_slopes.py` | Belt ramps (R25): `template_belt_{ascending,descending}` and the per-tier `*transport_belt_{ascending,descending}` models (the belt plate and rails turned 45°), plus the three `*transport_belt` blockstates (facing × shape × slope). |
 | `render_models.py` | `models-preview.png`: an offline isometric render of every model (two views each) for checking shapes without the game, plus the multi-part machines (steam engine, mining drills) assembled as their block entity renderers draw them. |
 | `gen_radar.py` | The radar (after the Factorio 1.1 radar): its own `radar_*` textures, `radar`, `radar_base`, `radar_dish` block models, the item model and `radar-preview.png`. Self-contained; the dish turns in `RadarRenderer`. |
+| `gen_robots.py` | Construction robots (after the Factorio 1.1 roboport and construction robot): `roboport_*` and `construction_robot_*` textures, the roboport cut into eight `roboport_IJK` piece models (it is bigger than one block model may be; `RoboportRenderer` puts them back together), the robot model, the item models, the ghost's particle model, the `roboport`/`ghost` blockstates and `robots-preview.png`. Self-contained. |
 
 | `render_compare.py REF_DIR OUT.png` | Side-by-side sheet: each machine's Factorio wiki reference image next to a render of the machine as its renderer assembles it, seen from Factorio's angle. Every machine model is made from its reference and checked on this sheet. The references are Factorio's art: keep them and the sheet outside the repository. |
 

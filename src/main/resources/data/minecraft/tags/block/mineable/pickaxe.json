@@ -26,6 +26,7 @@
     "minetorio:iron_ore_field",
     "minetorio:copper_ore_field",
     "minetorio:coal_ore_field",
-    "minetorio:stone_ore_field"
+    "minetorio:stone_ore_field",
+    "minetorio:roboport"
   ]
 }

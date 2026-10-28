@@ -198,5 +198,15 @@
   "minetorio.demo.sign.ore_fields.1": "Ore fields: mine",
   "minetorio.demo.sign.ore_fields.2": "a block by hand",
   "minetorio.demo.sign.ore_fields.3": "or put a drill",
-  "minetorio.demo.sign.ore_fields.4": "on it (coal: NE)"
+  "minetorio.demo.sign.ore_fields.4": "on it (coal: NE)",
+  "block.minetorio.roboport": "Roboport",
+  "block.minetorio.ghost": "Ghost",
+  "item.minetorio.construction_robot": "Construction Robot",
+  "entity.minetorio.construction_robot": "Construction Robot",
+  "technology.minetorio.construction_robotics": "Construction Robotics",
+  "minetorio.roboport.robots": "Robots: %s available, %s out",
+  "minetorio.roboport.energy": "Energy: %s / %s MJ",
+  "minetorio.roboport.area": "Construction area: %s×%s",
+  "minetorio.drones.built": "Construction robots showcase built: the robots will build the ghosts from the chest.",
+  "minetorio.drones.failed": "Could not build the robots showcase: %s"
 }

@@ -44,7 +44,10 @@ public final class Phase1Data {
                 tech("automation_2", "automation,logistic_science_pack", "automation,logistic", 40, 15,
                         "assembling_machine_2"),
                 tech("logistics_2", "logistics,logistic_science_pack", "automation,logistic", 200, 30,
-                        "fast_transport_belt,fast_underground_belt,fast_splitter")));
+                        "fast_transport_belt,fast_underground_belt,fast_splitter"),
+                // TEMP: red + green until the oil stage; Factorio's construction robotics needs more
+                tech("construction_robotics", "automation,logistic_science_pack", "automation,logistic", 100, 30,
+                        "roboport,construction_robot")));
     }
 
     private static Ingredient ing(String spec) {
@@ -102,6 +105,10 @@ public final class Phase1Data {
         r.add(craft("boiler", "1 stone_furnace, 4 pipe", 1, 0.5));
         r.add(craft("steam_engine", "8 iron_gear_wheel, 5 pipe, 10 iron_plate", 1, 0.5));
         r.add(craft("small_electric_pole", "1 minecraft:stick, 2 copper_cable", 2, 0.5));
+        // TEMP recipes from phase 1 intermediates until the oil stage (Factorio: 45 steel, 45 gears,
+        // 45 advanced circuits; and 1 flying robot frame + 2 circuits)
+        r.add(craft("roboport", "45 electronic_circuit, 45 iron_gear_wheel, 45 iron_plate", 1, 5));
+        r.add(craft("construction_robot", "3 electronic_circuit, 2 iron_gear_wheel, 2 iron_plate", 1, 0.5));
         r.add(craft("automation_science_pack", "1 copper_plate, 1 iron_gear_wheel", 1, 5));
         r.add(craft("logistic_science_pack", "1 inserter, 1 transport_belt", 1, 6));
         return new RecipeBook(r);
@@ -123,7 +130,7 @@ public final class Phase1Data {
 
     private static Set<String> buildStart() {
         Set<String> locked = Set.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
-                "fast_inserter", "underground_belt", "splitter", "logistic_science_pack");
+                "fast_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot");
         Set<String> s = new LinkedHashSet<>();
         for (Recipe r : BOOK.all()) {
             if (r.category() == RecipeCategory.CRAFTING

@@ -1,0 +1,19 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "base": "minetorio:block/roboport_base",
+    "body": "minetorio:block/roboport_body",
+    "roof": "minetorio:block/roboport_roof",
+    "iris": "minetorio:block/roboport_iris",
+    "bronze": "minetorio:block/roboport_bronze",
+    "pylon": "minetorio:block/roboport_pylon",
+    "cable": "minetorio:block/roboport_cable",
+    "mach": "minetorio:block/roboport_machinery",
+    "drum": "minetorio:block/roboport_drum",
+    "yellow": "minetorio:block/roboport_yellow",
+    "particle": "minetorio:block/roboport_body"
+  },
+  "elements": [
+    {"from": [24, 4, -16], "to": [32, 8, -8], "rotation": {"angle": 45, "axis": "y", "origin": [28, 4, -12]}, "faces": {"north": {"uv": [4, 6, 12, 10], "texture": "#pylon"}, "south": {"uv": [4, 6, 12, 10], "texture": "#pylon"}, "east": {"uv": [4, 6, 12, 10], "texture": "#pylon"}, "west": {"uv": [4, 6, 12, 10], "texture": "#pylon"}, "up": {"uv": [4, 4, 12, 12], "texture": "#pylon"}, "down": {"uv": [4, 4, 12, 12], "texture": "#pylon"}}}
+  ]
+}

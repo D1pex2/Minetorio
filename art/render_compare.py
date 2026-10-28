@@ -87,6 +87,10 @@ MACHINES = [
     ("small_electric_pole.png", "small electric pole (3 high)",
      lambda: placed(B + "small_electric_pole") + placed(B + "small_electric_pole_middle", dy=16)
      + placed(B + "small_electric_pole_top", dy=32), 180),
+    ("roboport.png", "roboport (machinery front)",
+     lambda: [e for i in (0, 1) for j in (0, 1) for k in (0, 1)
+              for e in placed(B + f"roboport_{i}{j}{k}", -8 + 16 * i, 0 if k == 0 else 24, -8 + 16 * j)], 0),
+    ("construction_robot_crop.png", "construction robot", lambda: placed(B + "construction_robot"), 20),
 ]
 
 if __name__ == "__main__":
