@@ -9,6 +9,8 @@ import static dev.minetorio.gametest.InserterGameTest.handler;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
 import dev.minetorio.content.machine.ElectricDrillBlockEntity;
 import dev.minetorio.content.orefield.OreFields;
+import dev.minetorio.content.orefield.OrePatchLedger;
+import dev.minetorio.core.orefield.OrePatch;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.orefield.OreType;
 import java.util.ArrayList;
@@ -246,6 +248,26 @@ public class DrillGameTest {
             h.assertTrue(count(h, ELECTRIC_OUT, Items.COBBLESTONE) == 4, "mined " + count(h, ELECTRIC_OUT, Items.COBBLESTONE));
             for (BlockPos c : corners) h.assertTrue(h.getBlockState(c).is(Blocks.DIRT), "corner not mined: " + c);
             for (BlockPos c : outside) h.assertTrue(isField(h, c), "mined outside the area: " + c);
+            h.succeed();
+        });
+    }
+
+    /** Ore a drill mines leaves its patch's total, one by one. */
+    @GameTest(template = "empty16", timeoutTicks = 420)
+    public static void drillMiningLowersThePatchTotal(GameTestHelper h) {
+        BlockPos c = h.absolutePos(new BlockPos(2, 0, 2));
+        OrePatch disk = new OrePatch(OreType.IRON, c.getX(), c.getZ(), 1); // (2,2) and its four neighbours
+        long key = OreFieldGameTest.testPatch(h.getLevel(), disk, c.getY(), 1000);
+        OrePatchLedger ledger = OrePatchLedger.get(h.getLevel());
+        h.assertTrue(ledger.total(key) == 5000, "stamped " + ledger.total(key));
+        h.setBlock(BURNER_OUT, Blocks.CHEST);
+        BurnerDrillBlockEntity be = burnerDrill(h, 1);
+        h.runAtTickTime(400, () -> {
+            int ore = count(h, BURNER_OUT, ModItems.IRON_ORE.get());
+            int held = be.output().held() == null ? 0 : 1;
+            h.assertTrue(ore > 0, "mined nothing");
+            h.assertTrue(ledger.total(key) == 5000 - ore - held, "total " + ledger.total(key) + " after " + ore + "+" + held);
+            ledger.remove(key);
             h.succeed();
         });
     }

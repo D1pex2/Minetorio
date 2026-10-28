@@ -7,6 +7,7 @@ import dev.minetorio.content.orefield.OreFieldBlock;
 import dev.minetorio.content.orefield.OreFieldData;
 import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.orefield.OreFields;
+import dev.minetorio.content.orefield.OrePatchLedger;
 import dev.minetorio.content.orefield.StartingFields;
 import dev.minetorio.content.registry.ModAttachments;
 import dev.minetorio.content.registry.ModItems;
@@ -15,6 +16,10 @@ import dev.minetorio.core.orefield.FieldStamp;
 import dev.minetorio.core.orefield.OrePatch;
 import dev.minetorio.core.orefield.OreType;
 import dev.minetorio.core.orefield.PatchGenerator;
+import dev.minetorio.core.orefield.PatchKind;
+import dev.minetorio.core.orefield.PatchLedger;
+import dev.minetorio.core.orefield.PatchLookup;
+import dev.minetorio.core.orefield.PatchShape;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
@@ -341,6 +346,104 @@ public class OreFieldGameTest {
         StartingFields data = StartingFields.get(overworld);
         h.assertTrue(data.stamped(), "starting fields not stamped");
         h.assertTrue(PatchGenerator.startingPatches(data.spawnX(), data.spawnZ()).size() == 4, "starting patches");
+        h.succeed();
+    }
+
+    // --- patch totals ------------------------------------------------------------------------------
+
+    /** Stamps a recorded test patch ({@code disk}, at height y) with {@code amount} per cell; returns its key. */
+    static long testPatch(ServerLevel level, OrePatch disk, int y, long amount) {
+        long key = OrePatchLedger.get(level).register(PatchKind.DEMO, disk, 0, 0);
+        for (PatchShape.Run r : PatchShape.of(disk).runs()) {
+            for (int x = r.x0(); x <= r.x1(); x++) OreFields.placeOwned(level, new BlockPos(x, y, r.z()), disk.type(), amount, key);
+        }
+        return key;
+    }
+
+    /**
+     * Mining a patch block by hand takes one ore off the whole patch's total, a block broken in
+     * creative takes all it had; the hover answer for any of its blocks names the patch and its total.
+     */
+    @GameTest(template = "empty16")
+    public static void patchTotalDropsWhenMinedByHand(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        BlockPos center = h.absolutePos(new BlockPos(4, 1, 4));
+        OrePatch disk = new OrePatch(OreType.IRON, center.getX(), center.getZ(), 1); // 5 cells
+        long key = testPatch(level, disk, center.getY(), 100);
+        OrePatchLedger ledger = OrePatchLedger.get(level);
+        h.assertTrue(ledger.total(key) == 500, "stamped total " + ledger.total(key));
+        ServerPlayer player = miner(h, new ItemStack(Items.IRON_PICKAXE));
+        h.assertTrue(player.gameMode.destroyBlock(center), "break refused");
+        h.assertTrue(ledger.total(key) == 499, "after one ore " + ledger.total(key));
+        OreFieldPayloads.Info info = OreFieldPayloads.lookup(level, center.getX() + 1, center.getZ());
+        h.assertTrue(info.patch() == key && info.total() == 499 && info.radius() == 1 && info.centerX() == center.getX(), "hover: " + info);
+        OreFields.exhaust(level, center.east());
+        h.assertTrue(ledger.total(key) == 399, "after removing a block " + ledger.total(key));
+        ledger.remove(key);
+        h.succeed();
+    }
+
+    /** The ledger survives a save and reload: remainders, stamped chunks (so pending formula amounts) and the recorded order. */
+    @GameTest(template = "empty16")
+    public static void patchLedgerSurvivesSaveAndLoad(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        PatchGenerator gen = new PatchGenerator(level.getSeed(), 0, 0);
+        OrePatch generated = null;
+        for (int rx = -3000; generated == null; rx--) generated = gen.inRegion(rx, 3000);
+        int cx = generated.centerX() >> 4, cz = generated.centerZ() >> 4;
+        OrePatchLedger.chunkStamped(level, generated, cx, cz, 123);
+        OrePatch demo = new OrePatch(OreType.COAL, -9_000_000, 9_000_000, 3);
+        OrePatchLedger ledger = OrePatchLedger.get(level);
+        long demoKey = ledger.register(PatchKind.DEMO, demo, 0, 0);
+        ledger.add(demoKey, 4242);
+        long genKey = PatchLedger.key(PatchKind.GENERATED, generated);
+        long genTotal = ledger.total(genKey);
+        h.assertTrue(genTotal == 123 + PatchLedger.pending(generated, 1L << PatchLedger.chunkBit(generated, cx, cz), 0, 0),
+                "generated total " + genTotal);
+        h.assertTrue(genTotal < 123 + PatchLedger.formulaTotal(generated, 0, 0), "the stamped chunk still counts its formula");
+        OrePatchLedger loaded = OrePatchLedger.reload(ledger, level.registryAccess());
+        h.assertTrue(loaded.total(genKey) == genTotal, "generated after load " + loaded.total(genKey) + " vs " + genTotal);
+        h.assertTrue(loaded.total(demoKey) == 4242, "demo after load " + loaded.total(demoKey));
+        h.assertTrue(loaded.ledger().recorded().equals(ledger.ledger().recorded()), "recorded order");
+        h.assertTrue(loaded.ledger().size() == ledger.ledger().size(), "entries " + loaded.ledger().size() + " vs " + ledger.ledger().size());
+        ledger.remove(demoKey);
+        ledger.remove(genKey);
+        h.succeed();
+    }
+
+    /**
+     * A generated patch: before its chunks generate it has no entry (the hover would show its formula
+     * total); once stamped, a block at its very edge belongs to it, the total is every stamped amount,
+     * the next column out is no field, and mining the edge block lowers the total.
+     */
+    @GameTest(template = "empty16")
+    public static void lookupFindsThePatchAtItsEdge(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        PatchGenerator gen = new PatchGenerator(level.getSeed(), 0, 0);
+        OrePatch patch = null;
+        for (int rx = 3000; patch == null; rx++) patch = gen.inRegion(rx, 2990);
+        long key = PatchLedger.key(PatchKind.GENERATED, patch);
+        OrePatchLedger ledger = OrePatchLedger.get(level);
+        h.assertTrue(ledger.total(key) == -1, "entry before generation");
+        runFeature(level, patch);
+        int r = patch.radius();
+        long planned = 0;
+        for (FieldStamp.Cell c : FieldStamp.plan(List.of(patch), patch.centerX() - r, patch.centerZ() - r, patch.centerX() + r,
+                patch.centerZ() + r, 0, 0)) {
+            planned += c.amount();
+        }
+        h.assertTrue(planned == PatchLedger.formulaTotal(patch, 0, 0), "formula");
+        int ex = patch.centerX() + r, ez = patch.centerZ();
+        PatchLookup.Ref ref = OrePatchLedger.get(level).lookup(level, ex, ez, patch.type());
+        h.assertTrue(ref != null && ref.patch().equals(patch), "lookup at the edge: " + ref);
+        OreFieldPayloads.Info info = OreFieldPayloads.lookup(level, ex, ez);
+        h.assertTrue(info.oreType() == patch.type() && info.patch() == key && info.centerX() == patch.centerX()
+                && info.centerZ() == patch.centerZ() && info.radius() == r, "edge: " + info);
+        h.assertTrue(info.total() == planned, "total " + info.total() + " vs " + planned);
+        h.assertTrue(OreFieldPayloads.lookup(level, ex + 1, ez).ore() == OreFieldPayloads.NONE, "outside the edge");
+        BlockPos edge = OreFields.surfaceField(level, ex, ez);
+        OreFields.mineOne(level, edge);
+        h.assertTrue(ledger.total(key) == planned - 1, "after mining " + ledger.total(key));
         h.succeed();
     }
 }

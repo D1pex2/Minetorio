@@ -3,6 +3,7 @@ package dev.minetorio.content.orefield;
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.registry.ModAttachments;
 import dev.minetorio.content.registry.ModBlocks;
+import dev.minetorio.core.orefield.AmountFormat;
 import dev.minetorio.core.orefield.FieldStamp;
 import dev.minetorio.core.orefield.OreAmounts;
 import dev.minetorio.core.orefield.OrePatch;
@@ -106,11 +107,37 @@ public final class OreFields {
      * and world generation alike: the amount goes to the chunk {@code level} hands out for {@code pos}).
      */
     public static void place(LevelAccessor level, BlockPos pos, OreType type, long amount) {
+        place(level, pos, type, amount, 0);
+    }
+
+    /**
+     * {@link #place} for the patch with key {@code patchKey} (0: no patch). Does not add the amount to
+     * the patch's total (stamping does that, see {@link #placeOwned}); a field block it replaces is
+     * subtracted from its own patch, on a live level.
+     */
+    public static void place(LevelAccessor level, BlockPos pos, OreType type, long amount, long patchKey) {
         level.setBlock(pos, block(type).defaultBlockState().setValue(OreFieldBlock.DEPLETED, OreAmounts.isDepleted(amount, amount)),
                 Block.UPDATE_CLIENTS);
         ChunkAccess chunk = level.getChunk(pos);
-        chunk.getData(ModAttachments.ORE_FIELD.get()).set(pos, amount, amount);
+        OreFieldData data = chunk.getData(ModAttachments.ORE_FIELD.get());
+        // a field block of the same type was there (no removal happened): its ore leaves its patch
+        if (level instanceof ServerLevel server && data.has(pos)) release(server, data, pos);
+        data.set(pos, amount, amount);
+        data.setOwner(pos, patchKey);
         chunk.setUnsaved(true);
+    }
+
+    /** {@link #place} for the patch with key {@code patchKey}, adding {@code amount} to its total. */
+    public static void placeOwned(ServerLevel level, BlockPos pos, OreType type, long amount, long patchKey) {
+        place(level, pos, type, amount, patchKey);
+        OrePatchLedger.get(level).add(patchKey, amount);
+    }
+
+    /** The ore left in the block at {@code pos} leaves its patch's total (the block is going away). */
+    private static void release(ServerLevel level, OreFieldData data, BlockPos pos) {
+        long owner = data.owner(pos);
+        long left = data.remaining(pos);
+        if (owner != 0 && left > 0) OrePatchLedger.get(level).add(owner, -left);
     }
 
     /**
@@ -129,6 +156,8 @@ public final class OreFields {
         if (left < 0) {
             init = type.baseAmount();
             left = init;
+        } else {
+            OrePatchLedger.get(level).add(data.owner(pos), -1);
         }
         left--;
         if (left <= 0) {
@@ -164,7 +193,10 @@ public final class OreFields {
         if (level.isClientSide()) return;
         ChunkAccess chunk = level.getChunkAt(pos);
         OreFieldData data = chunk.getExistingDataOrNull(ModAttachments.ORE_FIELD.get());
-        if (data != null && data.remove(pos)) chunk.setUnsaved(true);
+        if (data == null || !data.has(pos)) return;
+        if (level instanceof ServerLevel server) release(server, data, pos);
+        data.remove(pos);
+        chunk.setUnsaved(true);
     }
 
     // --- stamping ----------------------------------------------------------------------------------------
@@ -177,13 +209,18 @@ public final class OreFields {
      * anything else (buildings, paths) is skipped. Returns whether a block was stamped.
      */
     public static boolean stampColumn(LevelAccessor level, int x, int z, int topY, int minY, OreType type, long amount) {
+        return stampColumn(level, x, z, topY, minY, type, amount, 0);
+    }
+
+    /** {@link #stampColumn} for the patch with key {@code patchKey} (0: none); the caller adds the amount to the patch. */
+    public static boolean stampColumn(LevelAccessor level, int x, int z, int topY, int minY, OreType type, long amount, long patchKey) {
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int y = topY; y >= Math.max(minY, topY - MAX_SCAN); y--) {
             BlockState state = level.getBlockState(p.set(x, y, z));
             if (state.isAir()) continue;
             if (!state.getFluidState().isEmpty() || state.is(BlockTags.LEAVES) || state.is(BlockTags.LOGS)) return false;
             if (state.is(REPLACEABLE) || typeOf(state) != null) {
-                place(level, p.immutable(), type, amount);
+                place(level, p.immutable(), type, amount, patchKey);
                 return true;
             }
             if (state.canBeReplaced() || !state.blocksMotion()) continue;
@@ -194,12 +231,25 @@ public final class OreFields {
 
     /** Stamps {@code cells} into a live level, each on its column's surface; returns how many blocks were stamped. */
     public static int stamp(ServerLevel level, List<FieldStamp.Cell> cells) {
+        return stamp(level, cells, 0);
+    }
+
+    /**
+     * {@link #stamp} for the patch with key {@code patchKey} (0: none), adding the stamped blocks'
+     * amounts to its total ({@link OrePatchLedger}).
+     */
+    public static int stamp(ServerLevel level, List<FieldStamp.Cell> cells, long patchKey) {
         int n = 0;
+        long sum = 0;
         for (FieldStamp.Cell c : cells) {
             level.getChunk(c.x() >> 4, c.z() >> 4); // load (or generate) before reading the height
             int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, c.x(), c.z()) - 1;
-            if (stampColumn(level, c.x(), c.z(), top, level.getMinBuildHeight(), c.type(), c.amount())) n++;
+            if (stampColumn(level, c.x(), c.z(), top, level.getMinBuildHeight(), c.type(), c.amount(), patchKey)) {
+                n++;
+                sum += c.amount();
+            }
         }
+        OrePatchLedger.get(level).add(patchKey, sum);
         return n;
     }
 
@@ -262,6 +312,16 @@ public final class OreFields {
     }
 
     // --- messages ------------------------------------------------------------------------------------------
+
+    /** "Iron ore field: 190k left": the remaining ore of a whole patch ({@link AmountFormat#compact}). */
+    public static Component patchMessage(OreType type, long total) {
+        return Component.translatable("minetorio.ore_field.patch", patchName(type), AmountFormat.compact(total));
+    }
+
+    /** Capitalized patch name ("Iron ore field") for the start of a line. */
+    public static Component patchName(OreType type) {
+        return Component.translatable("minetorio.ore_patch." + type.name().toLowerCase(Locale.ROOT));
+    }
 
     /** "Iron ore field: 1 234 left" for the block at {@code pos} (or "no ore" if it is not a field block). */
     public static Component amountMessage(Level level, BlockPos pos) {

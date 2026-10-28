@@ -4,6 +4,7 @@ import dev.minetorio.content.belt.BeltTicker;
 import dev.minetorio.content.demo.DemoCommand;
 import dev.minetorio.content.demo.DemoSavedData;
 import dev.minetorio.content.orefield.OreFieldPayloads;
+import dev.minetorio.content.orefield.OrePatchLedger;
 import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.orefield.StartingFields;
 import dev.minetorio.content.power.PowerGridManager;
@@ -41,6 +42,7 @@ public class Minetorio {
         PowerGridManager.register();
         OreFields.register();
         StartingFields.register();
+        OrePatchLedger.register();
         OreFieldPayloads.register();
         ResearchSavedData.register();
         HandcraftTicker.register();

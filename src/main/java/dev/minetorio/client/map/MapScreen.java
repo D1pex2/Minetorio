@@ -59,18 +59,22 @@ public class MapScreen extends Screen {
             return;
         }
         MapTextures.draw(g, cx, cz, scale, 0, 0, width, height);
-        MapOverlay.drawPlayers(g, cx, cz, scale, 0, 0, width, height, partialTick);
-        g.drawCenteredString(font, Component.translatable("minetorio.map.help", MapKeys.MAP.getTranslatedKeyMessage()),
-                width / 2, 6, 0xFFB0B0B0);
         int bx = Mth.floor(cx + (mouseX - width / 2.0) / scale), bz = Mth.floor(cz + (mouseY - height / 2.0) / scale);
+        int color = ClientMapData.colorAt(bx, bz);
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("minetorio.map.coords", bx, bz));
-        int color = ClientMapData.colorAt(bx, bz);
         if (color < 0) {
             lines.add(Component.translatable("minetorio.map.unexplored"));
         } else {
             for (MapHoverInfo p : MapHoverInfo.PROVIDERS) p.appendLines(bx, bz, color, lines);
+            MapHoverInfo.MapView view = new MapHoverInfo.MapView(cx, cz, scale, 0, 0, width, height);
+            g.enableScissor(0, 0, width, height);
+            for (MapHoverInfo p : MapHoverInfo.PROVIDERS) p.drawOverlay(g, view, bx, bz, color);
+            g.disableScissor();
         }
+        MapOverlay.drawPlayers(g, cx, cz, scale, 0, 0, width, height, partialTick);
+        g.drawCenteredString(font, Component.translatable("minetorio.map.help", MapKeys.MAP.getTranslatedKeyMessage()),
+                width / 2, 6, 0xFFB0B0B0);
         int y = height - 6 - lines.size() * 10;
         for (Component line : lines) {
             g.drawString(font, line, 6, y, 0xFFFFFFFF, true);
