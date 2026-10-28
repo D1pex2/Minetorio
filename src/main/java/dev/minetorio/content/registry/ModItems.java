@@ -4,6 +4,7 @@ import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltItem;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.content.player.RawFishItem;
 import dev.minetorio.content.robot.GhostItem;
 import java.util.List;
 import net.minecraft.world.item.BlockItem;
@@ -70,6 +71,10 @@ public final class ModItems {
     /** Factorio's ghost cursor as an item (see {@link GhostItem}); not in the creative tab. */
     public static final DeferredItem<Item> GHOST_ITEM = ITEMS.registerItem("ghost_item", p -> new GhostItem(p.stacksTo(1)));
 
+    // Character
+    /** Factorio's raw fish: caught from a fish in water, eaten to heal (see RawFishItem). */
+    public static final DeferredItem<Item> RAW_FISH = ITEMS.registerItem("raw_fish", p -> new RawFishItem(p));
+
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
     public static final List<String> IDS = List.of(
             "iron_ore", "copper_ore", "iron_plate", "copper_plate", "stone_brick", "iron_gear_wheel", "copper_cable",
@@ -81,7 +86,8 @@ public final class ModItems {
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
-            "roboport", "construction_robot", "ghost_item");
+            "roboport", "construction_robot", "ghost_item",
+            "raw_fish");
 
     private ModItems() {}
 

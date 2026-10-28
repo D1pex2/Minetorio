@@ -236,5 +236,15 @@
   "technology.minetorio.stack_inserter": "Stack Inserter",
   "minetorio.filter_inserter.whitelist": "Mode: whitelist",
   "minetorio.filter_inserter.blacklist": "Mode: blacklist",
-  "minetorio.filter_inserter.hint": "Click a slot with an item to set it"
+  "minetorio.filter_inserter.hint": "Click a slot with an item to set it",
+  "item.minetorio.raw_fish": "Raw Fish",
+  "entity.minetorio.fish": "Fish",
+  "entity.minetorio.character_corpse": "Character Corpse",
+  "entity.minetorio.character_corpse.of": "Character corpse: %s",
+  "gamerule.minetorio:vanillaRecipes": "Vanilla recipes",
+  "gamerule.minetorio:vanillaRecipes.description": "Keep Minecraft's own recipes (crafting table, furnace, stonecutter...). Off: only Minetorio crafting.",
+  "gamerule.minetorio:daySeconds": "Day length (seconds)",
+  "gamerule.minetorio:daySeconds.description": "Real seconds in a full day-night cycle (Factorio: 416). 0 = vanilla 20 minutes.",
+  "gamerule.minetorio:corpseMinutes": "Character corpse lifetime (minutes)",
+  "gamerule.minetorio:corpseMinutes.description": "Minutes of world time before a character corpse disappears with what is left in it. 0 = forever."
 }
