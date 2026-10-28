@@ -1,10 +1,13 @@
 package dev.minetorio.content.blueprint;
 
+import dev.minetorio.content.fluid.PipeBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.robot.GhostBlock;
 import dev.minetorio.content.robot.HandGhosts;
+import dev.minetorio.core.blueprint.BlueprintTransform;
 import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.core.drag.DragDir;
 import dev.minetorio.core.recipe.Recipe;
 import dev.minetorio.core.recipe.RecipeCategory;
 import java.util.ArrayList;
@@ -13,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -73,5 +77,24 @@ public final class BlueprintRules {
         String key = AssemblerBlockEntity.SETTINGS_RECIPE;
         if (out.contains(key, Tag.TAG_STRING) && !recipeUnlocked.test(out.getString(key))) out.remove(key);
         return out.isEmpty() ? null : out;
+    }
+
+    /**
+     * {@code settings} turned with the blueprint: a pipe's closed sides ({@link PipeBlockEntity#KEY_CLOSED},
+     * a mask by world direction) follow the transform; up and down stay. Other settings do not
+     * depend on direction.
+     */
+    @Nullable
+    public static CompoundTag transformed(@Nullable CompoundTag settings, BlueprintTransform t) {
+        if (settings == null || !settings.contains(PipeBlockEntity.KEY_CLOSED) || t.equals(BlueprintTransform.IDENTITY)) return settings;
+        int mask = settings.getByte(PipeBlockEntity.KEY_CLOSED) & 63, out = 0;
+        for (Direction d : Direction.values()) {
+            if ((mask & (1 << d.ordinal())) == 0) continue;
+            Direction to = d.getAxis().isVertical() ? d : Direction.valueOf(t.apply(DragDir.valueOf(d.name())).name());
+            out |= 1 << to.ordinal();
+        }
+        CompoundTag copy = settings.copy();
+        copy.putByte(PipeBlockEntity.KEY_CLOSED, (byte) out);
+        return copy;
     }
 }

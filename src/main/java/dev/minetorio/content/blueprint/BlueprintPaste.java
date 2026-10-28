@@ -132,7 +132,8 @@ public final class BlueprintPaste {
         List<PartPlan> out = new ArrayList<>(parts.size());
         for (int i : Blueprints.pasteOrder(parts)) {
             BlueprintPart p = parts.get(i);
-            CompoundTag settings = BlueprintRules.sanitize(data.entries().get(i).settings().orElse(null), ctx::recipeUnlocked);
+            CompoundTag settings = BlueprintRules.transformed(
+                    BlueprintRules.sanitize(data.entries().get(i).settings().orElse(null), ctx::recipeUnlocked), t);
             PartPlan plan = planPart(level, player, i, p, base, force, claimed, settings, ctx);
             if (plan.placeable() && !ctx.commit(plan)) {
                 plan = new PartPlan(i, Status.BLOCKED, plan.origin(), plan.facing(), plan.block(), plan.cells(), null, List.of(), settings);
@@ -170,7 +171,7 @@ public final class BlueprintPaste {
         }
         HandGhosts.Plan hand = HandGhosts.planAt(level, player, stack, MultiblockBlockItem.targetFor(item, origin, facing), facing);
         if (hand != null && hand.pos().equals(origin)) {
-            return new PartPlan(i, Status.OK, origin, facing, block, cells, withVariant(hand.state(), p.variant()), List.of(), settings);
+            return new PartPlan(i, Status.OK, origin, facing, block, cells, withVariant(hand.state(), facing, p.variant()), List.of(), settings);
         }
         if (!force) return red(i, Status.BLOCKED, origin, facing, block, cells, settings);
         // Shift: fits once the vanilla blocks in the way are gone?
@@ -186,7 +187,7 @@ public final class BlueprintPaste {
             obstacles.add(c.immutable());
         }
         if (obstacles.isEmpty()) return red(i, Status.BLOCKED, origin, facing, block, cells, settings); // refused for another reason
-        BlockState target = withVariant(Ghosts.planned(level, origin, defaultState(block, facing)), p.variant());
+        BlockState target = withVariant(Ghosts.planned(level, origin, defaultState(block, facing)), facing, p.variant());
         return new PartPlan(i, Status.FORCED, origin, facing, block, cells, target, obstacles, settings);
     }
 
@@ -208,11 +209,27 @@ public final class BlueprintPaste {
         return s.hasProperty(BlockStateProperties.HORIZONTAL_FACING) ? s.setValue(BlockStateProperties.HORIZONTAL_FACING, facing) : s;
     }
 
-    /** An underground belt's entrance/exit as captured (placement alone cannot tell before its partner is built). */
-    private static BlockState withVariant(BlockState s, int variant) {
+    /** Variant of a six-way block ({@link BlockStateProperties#FACING}, e.g. an underground pipe) facing up or down. */
+    public static final int VARIANT_UP = 2, VARIANT_DOWN = 3;
+
+    static int verticalVariant(Direction d) {
+        return d == Direction.UP ? VARIANT_UP : VARIANT_DOWN;
+    }
+
+    /** The six-way facing a part of {@code variant} and horizontal {@code facing} gets. */
+    static Direction sixWayFacing(Direction facing, int variant) {
+        return variant == VARIANT_UP ? Direction.UP : variant == VARIANT_DOWN ? Direction.DOWN : facing;
+    }
+
+    /**
+     * An underground belt's entrance/exit as captured (placement alone cannot tell before its partner
+     * is built); a six-way block's (underground pipe's) facing as captured, not the placement guess.
+     */
+    private static BlockState withVariant(BlockState s, Direction facing, int variant) {
         if (s.getBlock() instanceof UndergroundBeltBlock) {
             return s.setValue(UndergroundBeltBlock.TYPE, variant == 1 ? UndergroundBeltBlock.Type.OUTPUT : UndergroundBeltBlock.Type.INPUT);
         }
+        if (s.hasProperty(BlockStateProperties.FACING)) return s.setValue(BlockStateProperties.FACING, sixWayFacing(facing, variant));
         return s;
     }
 
@@ -245,6 +262,7 @@ public final class BlueprintPaste {
         if (s.hasProperty(UndergroundBeltBlock.TYPE) && (s.getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.OUTPUT) != (variant == 1)) {
             return false;
         }
+        if (s.hasProperty(BlockStateProperties.FACING) && s.getValue(BlockStateProperties.FACING) != sixWayFacing(facing, variant)) return false;
         return !s.hasProperty(ElectricPoleBlock.PART) || s.getValue(ElectricPoleBlock.PART) == 0;
     }
 

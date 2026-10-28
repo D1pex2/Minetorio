@@ -224,6 +224,12 @@ public final class BlueprintCapture {
         if (!BlueprintRules.capturable(s.getBlock())) return null;
         if (facing == null && s.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) facing = s.getValue(BlockStateProperties.HORIZONTAL_FACING);
         int variant = s.hasProperty(UndergroundBeltBlock.TYPE) && s.getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.OUTPUT ? 1 : 0;
+        if (facing == null && s.hasProperty(BlockStateProperties.FACING)) {
+            // six-way blocks (underground pipes): a horizontal facing as usual, up/down as a variant
+            Direction f = s.getValue(BlockStateProperties.FACING);
+            if (f.getAxis().isHorizontal()) facing = f;
+            else variant = BlueprintPaste.verticalVariant(f);
+        }
         Optional<CompoundTag> st = settings == null || settings.isEmpty() || settings.sizeInBytes() > Blueprints.MAX_SETTINGS_BYTES
                 ? Optional.empty() : Optional.of(settings);
         return new BlueprintData.Entry(BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString(), o.getX(), o.getY(), o.getZ(),

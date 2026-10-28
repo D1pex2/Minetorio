@@ -201,6 +201,49 @@ public class BlueprintGameTest {
     }
 
     /**
+     * Pipes keep their closed sides through a blueprint, turned with it; underground pipes keep their
+     * six-way facing (a horizontal one turns, an upward one stays up). Source: a pipe (2,1,2) with its
+     * east side closed, underground pipes (3,1,2) facing east and (2,2,2)... (2,1,4) facing up.
+     */
+    @GameTest(template = "empty16", batch = BATCH, timeoutTicks = 200)
+    public static void pipeSidesAndUndergroundFacingsCopied(GameTestHelper h) {
+        research(h);
+        floor(h);
+        var level = h.getLevel();
+        BlockPos pipe = new BlockPos(2, 1, 2);
+        h.setBlock(pipe, ModBlocks.PIPE.get());
+        h.setBlock(new BlockPos(3, 1, 2), ModBlocks.PIPE_TO_GROUND.get().defaultBlockState()
+                .setValue(dev.minetorio.content.fluid.UndergroundPipeBlock.FACING, Direction.EAST));
+        h.setBlock(new BlockPos(2, 1, 4), ModBlocks.PIPE_TO_GROUND.get().defaultBlockState()
+                .setValue(dev.minetorio.content.fluid.UndergroundPipeBlock.FACING, Direction.UP));
+        int eastMask = 1 << Direction.EAST.ordinal();
+        level.setBlock(h.absolutePos(pipe), dev.minetorio.content.fluid.PipeBlock.withClosedMask(
+                h.getBlockState(pipe), eastMask, level, h.absolutePos(pipe)), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        h.assertTrue(dev.minetorio.content.fluid.PipeBlock.closedMask(h.getBlockState(pipe)) == eastMask, "setup: side not closed");
+        ServerPlayer p = player(h, new BlockPos(8, 1, 8));
+        BlueprintData data = capture(h, p, new BlockPos(2, 1, 2), new BlockPos(3, 1, 4));
+        h.assertTrue(data.entries().size() == 3, "copied " + data.entries().size() + " parts: " + data.counts());
+        // the box (x 2..3, z 2..4) is 2 x 3, turned 3 x 2: base (9,1,9), cursor on its anchor cell
+        int[] off = dev.minetorio.core.blueprint.Blueprints.anchorOffset(new int[] {3, 1, 2});
+        BlockPos base = new BlockPos(9, 1, 9);
+        BlueprintPaste.Result r = paste(h, p, base.offset(-off[0], 0, -off[1]), BlueprintTransform.IDENTITY.rotated(), false);
+        h.assertTrue(r.accepted() && r.placed() == 3 && r.blocked() == 0, "paste " + r);
+        // turned a quarter clockwise: (x, z) -> (-z, x), normalized; pipe (0,0) -> (2,0), east pipe (1,0) -> (2,1), up (0,2) -> (0,0)
+        BlockPos newPipe = base.offset(2, 0, 0), newEast = base.offset(2, 0, 1), newUp = base;
+        h.assertTrue(ghostAt(h, newEast).target().getValue(dev.minetorio.content.fluid.UndergroundPipeBlock.FACING) == Direction.SOUTH,
+                "turned underground pipe " + ghostAt(h, newEast).target());
+        h.assertTrue(ghostAt(h, newUp).target().getValue(dev.minetorio.content.fluid.UndergroundPipeBlock.FACING) == Direction.UP,
+                "upward underground pipe " + ghostAt(h, newUp).target());
+        for (BlockPos g : List.of(newPipe, newEast, newUp)) {
+            Item item = ghostAt(h, g).item();
+            h.assertTrue(Ghosts.build(h.getLevel(), h.absolutePos(g), null, new ItemStack(item)), "not built at " + g);
+        }
+        int mask = dev.minetorio.content.fluid.PipeBlock.closedMask(h.getBlockState(newPipe));
+        h.assertTrue(mask == 1 << Direction.SOUTH.ordinal(), "pasted pipe's closed sides " + mask + ": " + h.getBlockState(newPipe));
+        done(h);
+    }
+
+    /**
      * Pasting onto itself skips every part (same thing); a stone in a part's cell turns it red
      * (refused, the rest placed); over a drop the unsupported part is refused; Shift pastes through
      * the stone by marking it, and its ghost comes once the stone is broken.
