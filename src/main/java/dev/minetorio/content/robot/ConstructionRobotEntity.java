@@ -4,6 +4,7 @@ import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.robot.ConstructionArea;
 import dev.minetorio.core.robot.Flight;
 import dev.minetorio.core.robot.RobotBattery;
+import dev.minetorio.core.robot.RobotReach;
 import dev.minetorio.core.robot.RobotStats;
 import dev.minetorio.core.robot.SmoothFlight;
 import dev.minetorio.core.robot.Cell;
@@ -52,6 +53,11 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
  * </ol>
  * The job and the reserved provider item are saved and re-claimed when the robot loads; losing the
  * robot (killed, unloaded) frees them.
+ *
+ * <p>Robots only work where they tick ({@link RobotReach}): a robot whose job, provider or next step
+ * lies in a chunk that is not entity-ticking, or that is outside its home area, drops the job and
+ * heads home; one whose own chunk stops ticking has its job dropped by
+ * {@link ConstructionManager#sweep} and heads home once it ticks again.
  *
  * <p>Clients do not get a position every tick: the server syncs only the current flight target and
  * speed (re-sent when they change), each client flies the same straight lines itself with
@@ -175,6 +181,11 @@ public class ConstructionRobotEntity extends Entity {
         if (!(level() instanceof ServerLevel server)) return;
         ConstructionManager m = ConstructionManager.get(server);
         if (!registered) reRegister(m);
+        if ((phase == Phase.TO_PROVIDER || phase == Phase.TO_GHOST) && !jobReachable(server)) {
+            dropJob(m);
+        }
+        if (phase == Phase.TO_STORE && (provider == null || !server.isPositionEntityTicking(provider))) phase = storePhase(server);
+        if (phase == Phase.RETURNING && !cargo.isEmpty()) phase = storePhase(server); // job dropped while carrying
         switch (phase) {
             case TO_PROVIDER -> { if (fly(hover(provider))) pickUp(server, m); }
             case TO_GHOST -> {
@@ -230,16 +241,57 @@ public class ConstructionRobotEntity extends Entity {
     private void reRegister(ConstructionManager m) {
         registered = true;
         if (phase == Phase.TO_PROVIDER || phase == Phase.TO_GHOST) {
-            if (job == null || !m.queue().claim(ConstructionManager.cell(job), robotId())) {
+            if (job == null || !jobReachable((ServerLevel) level()) || !m.queue().claim(ConstructionManager.cell(job), robotId())) {
                 // someone else took it (or it is gone): give up the job
                 job = null;
                 phase = cargo.isEmpty() ? Phase.RETURNING : storePhase((ServerLevel) level());
                 return;
             }
+            m.working(this);
             if (phase == Phase.TO_PROVIDER && provider != null && item != null) {
                 for (int i = 0; i < count; i++) m.ledger().reserve(ConstructionManager.cell(provider), item);
             }
         }
+    }
+
+    /**
+     * Whether this robot can go on with its job ({@link RobotReach}): what is left of its way (the
+     * provider, then the job) lies in entity-ticking chunks, so does its next step, and it and its
+     * target are inside the area of its (loaded) home roboport.
+     */
+    private boolean jobReachable(ServerLevel level) {
+        if (job == null) return false;
+        Vec3 target = hover(phase == Phase.TO_PROVIDER ? provider : job);
+        boolean targets = level.isPositionEntityTicking(job)
+                && (phase != Phase.TO_PROVIDER || (provider != null && level.isPositionEntityTicking(provider)));
+        Flight.Vec next = Flight.step(new Flight.Vec(getX(), getY(), getZ()), new Flight.Vec(target.x, target.y, target.z),
+                RobotStats.SPEED_BLOCKS_PER_TICK * battery.speedFactor());
+        boolean nextTicking = level.isPositionEntityTicking(BlockPos.containing(next.x(), next.y(), next.z()));
+        RoboportBlockEntity port = roboport(level, home);
+        boolean inside = port != null && RobotReach.insideHorizontally(port.area(), getX(), getZ())
+                && RobotReach.insideHorizontally(port.area(), job.getX() + 0.5, job.getZ() + 0.5);
+        return RobotReach.keepJob(targets, nextTicking, inside);
+    }
+
+    /**
+     * Gives up the job: the claim and any provider reservation are released (the queue hands the
+     * job out again) and the robot heads home, putting away what it carries first. Called by the
+     * robot itself when the job became unreachable, and by {@link ConstructionManager#sweep} for a
+     * robot whose chunk stopped ticking (it resumes from here once it ticks again; the dropped job is
+     * what gets saved).
+     */
+    void dropJob(ConstructionManager m) {
+        releaseJob(m);
+        if (phase == Phase.TO_PROVIDER && provider != null && item != null) {
+            for (int i = 0; i < count; i++) m.ledger().release(ConstructionManager.cell(provider), item);
+        }
+        job = null;
+        if (phase == Phase.TO_PROVIDER || phase == Phase.TO_GHOST) phase = Phase.RETURNING;
+    }
+
+    /** Whether the robot holds a job claim (flying to its provider or to the job). */
+    public boolean holdsJob() {
+        return job != null && (phase == Phase.TO_PROVIDER || phase == Phase.TO_GHOST);
     }
 
     private static Vec3 hover(@Nullable BlockPos p) {
@@ -480,6 +532,7 @@ public class ConstructionRobotEntity extends Entity {
 
     private void releaseJob(ConstructionManager m) {
         if (job != null) m.queue().release(ConstructionManager.cell(job), robotId());
+        m.idle(this);
     }
 
     @Override

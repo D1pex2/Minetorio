@@ -150,6 +150,18 @@ public final class ConstructionQueue {
         return true;
     }
 
+    /** Frees every job {@code robot} holds (a robot that cannot go on); returns how many. */
+    public int releaseAll(long robot) {
+        int n = 0;
+        for (Job j : jobs.values()) {
+            if (robot != 0 && j.claimant == robot) {
+                j.claimant = 0;
+                n++;
+            }
+        }
+        return n;
+    }
+
     /** Free jobs whose cell passes {@code where}, in queue order. */
     public List<Job> pending(Predicate<Cell> where) {
         return pending(null, where);

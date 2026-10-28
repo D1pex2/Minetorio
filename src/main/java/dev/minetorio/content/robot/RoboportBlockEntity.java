@@ -15,6 +15,7 @@ import dev.minetorio.core.robot.ConstructionArea;
 import dev.minetorio.core.robot.ConstructionQueue;
 import dev.minetorio.core.robot.Dispatcher;
 import dev.minetorio.core.robot.RobotBattery;
+import dev.minetorio.core.robot.RobotReach;
 import dev.minetorio.core.robot.RoboportAnimation;
 import dev.minetorio.core.robot.RobotStats;
 import java.util.ArrayList;
@@ -309,13 +310,15 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     private void dispatch(ServerLevel level) {
         int free = availableRobots();
         if (free <= 0 || buffer <= 0) return;
+        // robots launch at the dock: a roboport at the edge of the loaded area (block-ticking only)
+        // would launch them frozen
+        if (!level.isPositionEntityTicking(BlockPos.containing(dock()))) return;
         ConstructionManager m = ConstructionManager.get(level);
         ConstructionArea area = area();
         ConstructionMarks marks = ConstructionMarks.get(level);
         List<ConstructionQueue.Job> pending = new ArrayList<>();
-        for (ConstructionQueue.Job j : m.queue().pending(area::contains)) {
+        for (ConstructionQueue.Job j : RobotReach.dispatchable(m.queue().pending(area::contains), ticking(level))) {
             BlockPos p = ConstructionManager.pos(j.cell());
-            if (!level.isLoaded(p)) continue;
             boolean ok = switch (j.kind()) {
                 case BUILD -> Ghosts.canBuild(level, p);
                 case DECONSTRUCT -> marks.deconstruction().stillValid(j.cell(), ConstructionMarks.blockId(level.getBlockState(p)));
@@ -404,6 +407,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
             releaseItems(m, a);
             return;
         }
+        m.working(robot);
         robots.removeItemType(ModItems.CONSTRUCTION_ROBOT.get(), 1);
         out++;
         doorHold = RoboportAnimation.DOOR_HOLD_TICKS;
@@ -431,19 +435,27 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         return out;
     }
 
-    /** Provider positions in the area, in loaded chunks. */
+    /**
+     * Provider positions in the area that robots can reach: in entity-ticking chunks (a robot flying
+     * into any other chunk would freeze there, {@link RobotReach}).
+     */
     static List<BlockPos> providers(ServerLevel level, ConstructionArea area) {
-        List<BlockPos> out = new ArrayList<>();
+        List<Cell> cells = new ArrayList<>();
         for (int cx = area.minX() >> 4; cx <= area.maxX() >> 4; cx++) {
             for (int cz = area.minZ() >> 4; cz <= area.maxZ() >> 4; cz++) {
                 if (!level.hasChunk(cx, cz)) continue;
                 LevelChunk chunk = level.getChunk(cx, cz);
                 for (BlockPos p : chunk.getBlockEntities().keySet()) {
-                    if (area.contains(ConstructionManager.cell(p)) && isProvider(level, p)) out.add(p.immutable());
+                    if (area.contains(ConstructionManager.cell(p)) && isProvider(level, p)) cells.add(ConstructionManager.cell(p));
                 }
             }
         }
-        return out;
+        return RobotReach.reachable(cells, ticking(level)).stream().map(ConstructionManager::pos).toList();
+    }
+
+    /** Whether a cell is in an entity-ticking chunk (where robots keep ticking). */
+    static java.util.function.Predicate<Cell> ticking(ServerLevel level) {
+        return c -> level.isPositionEntityTicking(ConstructionManager.pos(c));
     }
 
     /**

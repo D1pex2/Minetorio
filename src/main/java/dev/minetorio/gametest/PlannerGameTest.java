@@ -63,27 +63,15 @@ public class PlannerGameTest {
 
     /**
      * Roboports of earlier tests stay in the world and their areas reach into this one: they would
-     * take this test's jobs (deconstruction only needs a chest with room) with robots that freeze
-     * outside the ticking test area. Their robots are taken away (every tick: their chunks may load
-     * again later), and robots of theirs flying here are removed.
+     * take this test's jobs (deconstruction only needs a chest with room). Their robots are taken
+     * away (every tick: their chunks may load again later). Robots never go where they would not tick
+     * (outside the test area), so nothing else needs clearing.
      */
     private static void isolate(GameTestHelper h, RoboportBlockEntity mine) {
         for (BlockPos p : ConstructionManager.get(h.getLevel()).roboports()) {
             if (!p.equals(mine.getBlockPos()) && h.getLevel().getBlockEntity(p) instanceof RoboportBlockEntity other) {
                 other.robots().clearContent();
             }
-        }
-        for (ConstructionRobotEntity r : h.getLevel().getEntitiesOfClass(ConstructionRobotEntity.class,
-                new AABB(h.absolutePos(BlockPos.ZERO)).inflate(60))) {
-            if (!mine.getBlockPos().equals(r.home())) r.discard();
-        }
-        // ghosts of earlier tests inside this roboport's area would draw its robots out of the ticking test area
-        AABB bounds = h.getBounds();
-        var area = mine.area();
-        for (var job : ConstructionManager.get(h.getLevel()).queue().pending(c -> area.contains(c)
-                && !bounds.contains(c.x() + 0.5, c.y() + 0.5, c.z() + 0.5))) {
-            BlockPos p = ConstructionManager.pos(job.cell());
-            if (h.getLevel().isLoaded(p) && h.getLevel().getBlockState(p).is(ModBlocks.GHOST.get())) h.getLevel().removeBlock(p, false);
         }
     }
 
