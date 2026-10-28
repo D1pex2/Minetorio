@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.minetorio.Minetorio;
 import dev.minetorio.client.ModKeys;
 import dev.minetorio.content.map.ClientMapData;
+import dev.minetorio.content.map.ClientWatchedChunks;
 import dev.minetorio.content.orefield.ClientOreInfo;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -54,6 +55,7 @@ public final class MapKeys {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientMapData.reset();
+        ClientWatchedChunks.reset();
         ClientOreInfo.reset();
     }
 }
