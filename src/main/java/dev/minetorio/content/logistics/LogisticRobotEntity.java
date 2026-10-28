@@ -260,7 +260,7 @@ public class LogisticRobotEntity extends Entity {
 
     private void returning(ServerLevel level) {
         if (kind() == Kind.PERSONAL_CONSTRUCTION) {
-            Player p = homePlayer == null ? null : level.getPlayerByUUID(homePlayer);
+            Player p = LogisticsManager.player(level, homePlayer);
             if (p == null || !p.isAlive()) {
                 lose(level);
                 return;
@@ -319,7 +319,7 @@ public class LogisticRobotEntity extends Entity {
 
     @Nullable
     private static Player player(ServerLevel level, Endpoint e) {
-        Player p = level.getPlayerByUUID(e.player());
+        Player p = LogisticsManager.player(level, e.player());
         return p != null && p.isAlive() && !p.isSpectator() ? p : null;
     }
 

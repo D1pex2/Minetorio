@@ -89,6 +89,31 @@ public final class LogisticsManager {
     /** Loaded robots of this level (logistic and personal construction). */
     public List<LogisticRobotEntity> robots() { return new ArrayList<>(robots); }
 
+    /** Players served besides the level's own (GameTests: FakePlayers are not in the player list). */
+    private static final Set<Player> EXTRA_PLAYERS = Collections.newSetFromMap(new WeakHashMap<>());
+
+    /** GameTests: robots serve {@code p} like a player of its level until {@link #removeExtraPlayer}. */
+    public static void addExtraPlayer(Player p) { EXTRA_PLAYERS.add(p); }
+
+    public static void removeExtraPlayer(Player p) { EXTRA_PLAYERS.remove(p); }
+
+    /** The level's players and the extra ones in it. */
+    static List<Player> players(ServerLevel level) {
+        List<Player> out = new ArrayList<>(level.players());
+        for (Player p : EXTRA_PLAYERS) if (p.level() == level && !p.isRemoved()) out.add(p);
+        return out;
+    }
+
+    /** A player of the level by id (extra players included), or null. */
+    @Nullable
+    static Player player(ServerLevel level, @Nullable UUID id) {
+        if (id == null) return null;
+        Player p = level.getPlayerByUUID(id);
+        if (p != null) return p;
+        for (Player e : EXTRA_PLAYERS) if (e.level() == level && e.getUUID().equals(id)) return e;
+        return null;
+    }
+
     public static String chestId(BlockPos p) { return "c:" + p.asLong(); }
 
     public static String playerId(UUID id) { return "p:" + id; }
@@ -152,7 +177,7 @@ public final class LogisticsManager {
 
     /** Whether the player is inside the network of roboport {@code home} (any network if home is null). */
     boolean inNetwork(ServerLevel level, @Nullable UUID player, @Nullable BlockPos home) {
-        Player p = player == null ? null : level.getPlayerByUUID(player);
+        Player p = player(level, player);
         if (p == null) return false;
         for (Network n : networks(level)) {
             if ((home == null || n.hasPort(home)) && n.contains(p.getX(), p.getY(), p.getZ())) return true;
@@ -205,7 +230,7 @@ public final class LogisticsManager {
     /** Players with active personal requests standing in {@code n}. */
     private static List<Player> players(ServerLevel level, Network n) {
         List<Player> out = new ArrayList<>();
-        for (ServerPlayer p : level.players()) {
+        for (Player p : players(level)) {
             if (!p.isAlive() || p.isSpectator()) continue;
             PersonalLogistics pl = PersonalLogistics.of(p);
             if (pl.enabled() && !pl.requests().isEmpty() && n.contains(p.getX(), p.getY(), p.getZ())) out.add(p);
