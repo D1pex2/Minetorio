@@ -21,6 +21,9 @@ Outputs (in src/main/resources/assets/minetorio/):
                                        piece px = machine px - offset (see RoboportRenderer.offset):
                                        offset = (-16 + 16 I, 40 K, -16 + 16 J); the machine (64 px tall)
                                        is authored around the footprint center at the bottom, north = front
+  models/block/roboport_blade.json, roboport_antenna.json, roboport_charge_glow.json, roboport_lamp_{green,red}.json
+                                       the moving and lit parts RoboportRenderer draws over the pieces (see the
+                                       Roboport section: iris blades, antenna head, lit charging points and lamps)
   models/block/construction_robot.json the robot, ~8 px, centered on x = z = 8, y 0..10, north = front
   models/block/ghost.json              particle only (GhostRenderer draws the target)
   models/item/roboport.json            the whole roboport scaled into one block
@@ -87,69 +90,258 @@ def bevel(im, pal, light=0, dark=4):
         im.putpixel((i, 15), pal[dark]); im.putpixel((15, i), pal[dark])
 
 
-def textures():
-    t = {}
-    # plinth: concrete slabs with a seam cross
-    im = noisy(CONCRETE, 201); bevel(im, CONCRETE, 0, 5)
+GLOW = P("#ffffff", "#e6f6ff", "#b4e4ff", "#6cc4ff", "#2f8fe6", "#1b5aa8")
+GREEN = P("#d8ffb0", "#7cf05a", "#35b52a", "#1d6a1c", "#1b2a1c")
+WELL = P("#2a2b2e", "#1e1f22", "#151618", "#0d0e10", "#080809")
+
+
+def wear(im, pal, seed, n=10):
+    """Scattered scuffs: a few pixels one shade darker (dirt) or lighter (worn paint)."""
+    rnd = random.Random(seed)
+    for _ in range(n):
+        x, y = rnd.randrange(16), rnd.randrange(16)
+        c = im.getpixel((x, y))
+        if c in pal:
+            i = pal.index(c)
+            i = min(len(pal) - 1, i + 1) if rnd.random() < 0.65 else max(0, i - 1)
+            im.putpixel((x, y), pal[i])
+
+
+def rivet(im, pal, x, y):
+    """A rivet head: a light pixel with its shadow below right."""
+    im.putpixel((x, y), pal[0])
+    if x + 1 < 16 and y + 1 < 16:
+        im.putpixel((x + 1, y + 1), pal[-1])
+
+
+def streak(im, pal, x, y0, y1):
+    """A grime run down from a seam or rivet: one shade darker."""
+    for y in range(y0, y1):
+        c = im.getpixel((x, y))
+        if c in pal:
+            im.putpixel((x, y), pal[min(len(pal) - 1, pal.index(c) + 1)])
+
+
+def gradient(im, pal, top, bottom):
+    """Light from above: the top rows a shade lighter (top < 0), the bottom rows darker."""
+    for y in range(16):
+        d = top if y < 4 else bottom if y > 11 else 0
+        if not d:
+            continue
+        for x in range(16):
+            c = im.getpixel((x, y))
+            if c in pal:
+                im.putpixel((x, y), pal[max(0, min(len(pal) - 1, pal.index(c) + d))])
+
+
+def roboport_textures(t):
+    """The roboport's 16x16 textures, after the Factorio 1.1 roboport: stone-grey plating with seams,
+    rivets and grime, a brass collar, blue-steel pylons with white edges and red cables, dark machinery,
+    the iris blades and the dark hatch well, and the glowing charging points and status lamps."""
+    # plinth: concrete slabs with a seam cross, cracks and scuffs
+    im = noisy(CONCRETE, 201); bevel(im, CONCRETE, 1, 5)
     for i in range(1, 15):
         im.putpixel((i, 8), CONCRETE[4]); im.putpixel((8, i), CONCRETE[4])
+    for (x, y) in ((3, 3), (4, 4), (4, 5), (12, 11), (11, 12), (13, 3)):
+        im.putpixel((x, y), CONCRETE[4])
+    wear(im, CONCRETE, 301, 14)
     t["roboport_base"] = im
-    # body: stone-grey panels, horizontal seams and rivets
+    # body: stone-grey armour plates in a staggered bond, seams with a lit lower lip, rivets along the
+    # seams and grime running down from them
     im = noisy(STONE, 202); bevel(im, STONE, 0, 5)
     for x in range(1, 15):
-        im.putpixel((x, 5), STONE[5]); im.putpixel((x, 6), STONE[1])
-        im.putpixel((x, 11), STONE[5]); im.putpixel((x, 12), STONE[1])
-    for (x, y) in ((2, 2), (13, 2), (2, 13), (13, 13)):
-        im.putpixel((x, y), STONE[0])
+        for y in (5, 11):
+            im.putpixel((x, y), STONE[5]); im.putpixel((x, y + 1), STONE[1])
+    for y in range(1, 5):
+        im.putpixel((6, y), STONE[5]); im.putpixel((7, y), STONE[1])
+    for y in range(7, 11):
+        im.putpixel((11, y), STONE[5]); im.putpixel((12, y), STONE[1])
+    for y in range(13, 15):
+        im.putpixel((4, y), STONE[5]); im.putpixel((5, y), STONE[1])
+    for (x, y) in ((2, 3), (10, 3), (13, 2), (3, 8), (8, 8), (14, 8), (2, 13), (9, 13)):
+        rivet(im, STONE, x, y)
+    streak(im, STONE, 3, 10, 11); streak(im, STONE, 9, 14, 15); streak(im, STONE, 8, 1, 4)
+    wear(im, STONE, 302, 12)
     t["roboport_body"] = im
-    # roof: plain stone with a dark rim line
-    im = noisy(STONE, 203, 1, 3)
+    # roof: tread plate (short raised bars) inside a darker border
+    im = noisy(STONE, 203, 2, 3); bevel(im, STONE, 1, 5)
+    for y in range(1, 15):
+        for x in range(1, 14):
+            if (x + 2 * y) % 6 == 0 and (x // 3 + y // 3) % 2 == 0:
+                im.putpixel((x, y), STONE[1]); im.putpixel((x + 1, y), STONE[4])
+    wear(im, STONE, 303, 10)
     t["roboport_roof"] = im
-    # hatch iris: four curved blades meeting in the middle (Factorio's iris door)
+    # hatch iris (the item's closed door): eight curved blades meeting in the middle
     im = Image.new("RGBA", (16, 16))
     for y in range(16):
         for x in range(16):
             dx, dy = x - 7.5, y - 7.5
             r = math.hypot(dx, dy)
-            a = (math.degrees(math.atan2(dy, dx)) + 360 + r * 9) % 90
-            shade = 1 + int(a / 30)
-            if a < 6:
+            a = (math.degrees(math.atan2(dy, dx)) + 360 + r * 11) % 45
+            shade = 1 + int(a / 15)
+            if a < 4:
                 shade = 5
             im.putpixel((x, y), IRIS[min(shade, 5)])
     t["roboport_iris"] = im
-    t["roboport_bronze"] = noisy(BRONZE, 204)
-    # pylon: blue-grey steel with a white highlight edge and a lattice notch
+    # one iris blade (u along the blade, v across): pale grey plate with a curved shading band, its
+    # leading edge dark (the seam the reference shows between closed blades), its trailing edge lit
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        for x in range(16):
+            band = (y + x * 0.35) % 16
+            im.putpixel((x, y), IRIS[2] if 5 <= band < 11 else IRIS[1])
+    for x in range(16):
+        im.putpixel((x, 0), IRIS[5]); im.putpixel((x, 1), IRIS[4]); im.putpixel((x, 15), IRIS[0])
+    wear(im, IRIS, 304, 8)
+    t["roboport_blade"] = im
+    # the hatch well under the iris: dark, a cross-shaped robot cradle and four red lamps
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(x - 7.5, y - 7.5)
+            im.putpixel((x, y), WELL[min(4, int(r / 2.2))] if r < 9 else WELL[0])
+    for i in range(4, 12):
+        for (x, y) in ((i, 7), (i, 8), (7, i), (8, i)):
+            im.putpixel((x, y), IRIS[3])
+    for (x, y) in ((7, 7), (8, 8)):
+        im.putpixel((x, y), IRIS[1])
+    for (x, y) in ((3, 3), (11, 3), (3, 12), (11, 12)):
+        im.putpixel((x, y), RED[0]); im.putpixel((x + 1, y), RED[2])
+    t["roboport_well"] = im
+    # brass collar: brushed diagonally, a row of bolt heads, a dark lower seam and grime
+    rnd = random.Random(204)
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        for x in range(16):
+            im.putpixel((x, y), BRONZE[2] if rnd.random() < 0.3 else BRONZE[1])
+            if (x - y) % 9 == 0 and y < 10:
+                im.putpixel((x, y), BRONZE[0])
+    for x in range(16):
+        im.putpixel((x, 0), BRONZE[0]); im.putpixel((x, 14), BRONZE[3]); im.putpixel((x, 15), BRONZE[4])
+    for x in (1, 5, 9, 13):
+        rivet(im, BRONZE, x, 11)
+    wear(im, BRONZE, 305, 14)
+    t["roboport_bronze"] = im
+    # silver hatch lip: bright steel lit from above, a groove and a row of bolts
+    im = noisy(STEEL, 214, 0, 2)
+    gradient(im, STEEL, -1, 1)
+    for x in range(16):
+        im.putpixel((x, 4), STEEL[4]); im.putpixel((x, 5), STEEL[0])
+    for x in (2, 6, 10, 14):
+        rivet(im, STEEL, x, 9)
+    t["roboport_rim"] = im
+    # pylon: blue-grey steel lattice: a white lit edge, a dark shadow edge, cross bracing and rivets
     im = noisy(PYLON, 205, 2, 4)
     for y in range(16):
-        im.putpixel((1, y), PYLON[0]); im.putpixel((2, y), PYLON[1]); im.putpixel((14, y), PYLON[5])
-    for y in (4, 11):
-        for x in range(3, 14):
-            im.putpixel((x, y), PYLON[5])
+        for x in (y, 15 - y):
+            if 2 <= x <= 13:
+                im.putpixel((x, y), PYLON[5])
+    for y in (0, 8):
+        for x in range(2, 14):
+            im.putpixel((x, y), PYLON[1])
+    for y in range(16):
+        im.putpixel((0, y), PYLON[0]); im.putpixel((1, y), PYLON[1])
+        im.putpixel((14, y), PYLON[4]); im.putpixel((15, y), PYLON[5])
+    for (x, y) in ((3, 2), (11, 2), (3, 10), (11, 10)):
+        rivet(im, PYLON, x, y)
     t["roboport_pylon"] = im
-    im = noisy(RED, 206, 1, 2)
-    for y in range(0, 16, 4):
+    # white painted steel (pylon tips and edges), scuffed
+    im = noisy(CREAM, 215, 0, 2)
+    gradient(im, CREAM, -1, 1)
+    for y in range(16):
+        im.putpixel((15, y), CREAM[3])
+    wear(im, CREAM, 306, 10)
+    t["roboport_white"] = im
+    # red cable: a twisted pair (diagonal bands), darker at the edges
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
         for x in range(16):
-            im.putpixel((x, y), RED[3])
+            im.putpixel((x, y), RED[(x + y) // 2 % 2 + (2 if x in (0, 15) else 0)])
     t["roboport_cable"] = im
-    # machinery: dark plates with vent slots
+    # machinery: dark plates with rivets, a pair of vent slots and grime
     im = noisy(DARK, 207); bevel(im, DARK, 0, 5)
-    for y in (4, 7, 10):
+    for y in (6, 9):
         for x in range(3, 13):
             im.putpixel((x, y), DARK[5]); im.putpixel((x, y + 1), DARK[1])
+    for (x, y) in ((2, 2), (12, 2), (2, 12), (12, 12)):
+        rivet(im, DARK, x, y)
+    streak(im, DARK, 5, 11, 15)
+    wear(im, DARK, 307, 10)
     t["roboport_machinery"] = im
-    # drum: dark ribs
+    # vent grille: framed horizontal louvres
+    im = Image.new("RGBA", (16, 16), DARK[2])
+    bevel(im, DARK, 1, 5)
+    for y in range(2, 14, 3):
+        for x in range(2, 14):
+            im.putpixel((x, y), DARK[0]); im.putpixel((x, y + 1), DARK[4]); im.putpixel((x, y + 2), DARK[5])
+    t["roboport_vent"] = im
+    # drum: dark ribbed tank with a highlight down one side
     im = noisy(DARK, 208, 1, 3)
-    for x in range(0, 16, 3):
-        for y in range(16):
-            im.putpixel((x, y), DARK[0])
+    for y in range(16):
+        im.putpixel((3, y), DARK[0]); im.putpixel((4, y), DARK[1])
+    for y in (2, 7, 12):
+        for x in range(16):
+            im.putpixel((x, y), DARK[4]); im.putpixel((x, y + 1), DARK[1])
     t["roboport_drum"] = im
-    # yellow trim with dark hazard stripes
+    # yellow housing: hazard stripes, lit top edge, dark bottom edge
     im = noisy(YELLOW, 209, 0, 2)
     for y in range(16):
         for x in range(16):
             if (x + y) % 8 < 2:
                 im.putpixel((x, y), DARK[4])
+    for i in range(16):
+        im.putpixel((i, 0), YELLOW[0]); im.putpixel((i, 15), YELLOW[3])
     t["roboport_yellow"] = im
+    # silver pipe with flange bands
+    im = noisy(STEEL, 216, 1, 3)
+    for y in range(16):
+        im.putpixel((4, y), STEEL[0]); im.putpixel((5, y), STEEL[0]); im.putpixel((12, y), STEEL[4])
+    for y in (0, 1, 8, 9):
+        for x in range(16):
+            im.putpixel((x, y), STEEL[3] if y % 2 else STEEL[1])
+    t["roboport_pipe"] = im
+    # charging point, idle: dark blue glass in a white rim
+    im = Image.new("RGBA", (16, 16), GLOW[5])
+    bevel(im, CREAM, 0, 3)
+    for y in range(4, 12):
+        for x in range(4, 12):
+            im.putpixel((x, y), C("#24426a"))
+    im.putpixel((5, 5), GLOW[3])
+    t["roboport_charge_off"] = im
+    # charging point, lit: white-hot core, cyan and blue halo
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        for x in range(16):
+            im.putpixel((x, y), GLOW[min(5, int(math.hypot(x - 7.5, y - 7.5) / 1.7))])
+    t["roboport_charge_glow"] = im
+    # status lamps: dark lens, lit green, lit red
+    for name, pal in (("roboport_lamp_off", P("#2c3a2c", "#1f291f", "#141a14", "#0c100c")),
+                      ("roboport_lamp_green", GREEN), ("roboport_lamp_red", RED)):
+        im = Image.new("RGBA", (16, 16))
+        for y in range(16):
+            for x in range(16):
+                im.putpixel((x, y), pal[min(len(pal) - 1, int(math.hypot(x - 6, y - 6) / 3))])
+        t[name] = im
+    # antenna prong: white and dark spiral bands (the reference's drill-like striped rods)
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        for x in range(16):
+            im.putpixel((x, y), CREAM[1] if (x + y) % 4 < 2 else DARK[3])
+    t["roboport_antenna"] = im
+    # antenna head: grey housing with a round lens (the reference's eye)
+    im = noisy(STEEL, 217, 1, 3); bevel(im, STEEL, 0, 4)
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(x - 7.5, y - 7.5)
+            if r < 5:
+                im.putpixel((x, y), DARK[5] if r < 2.5 else DARK[2] if r < 4 else STEEL[0])
+    im.putpixel((6, 6), GLOW[2])
+    t["roboport_antenna_head"] = im
+
+
+def textures():
+    t = {}
+    roboport_textures(t)
 
     # robot
     im = noisy(CREAM, 211, 1, 3)
@@ -320,71 +512,201 @@ def dump(obj, path):
 
 # =====================================================================================
 # Roboport (machine px: x, z in -32..32 around the footprint center, y 0..64 up from the floor;
-# north = front). A 4x4x4 machine: a massive stone-grey body filling most of the height, the round
-# iris hatch on its roof (robots leave and enter there, RoboportBlockEntity.DOCK_HEIGHT), a charging
-# pylon at each corner and the machinery bay across the front.
+# north = front). A 4x4x4 machine after the Factorio 1.1 roboport: a massive stone-grey body, on its
+# roof a brass collar round the iris hatch (robots leave and enter there, RoboportBlockEntity.DOCK_HEIGHT),
+# a blue-steel charging pylon at each corner with a charging point on top, the machinery bay across the
+# front, side cabinets and pipes, and a turning antenna at the back.
+#
+# Static parts go into the eight pieces; the moving and lit parts are their own small models that
+# RoboportRenderer draws over them (each authored around a pivot at model (8, 0, 8)):
+#   roboport_blade        one iris blade, drawn 8 times: blade k at BLADE_Y + k * BLADE_STEP, turned
+#                         k * 45 + door * BLADE_TWIST degrees about the hatch axis and slid door * BLADE_SLIDE
+#                         px out along its own +x (door 0 closed .. 1 open); open, it is hidden under the lip
+#                         and the collar
+#   roboport_antenna      the antenna head, turning about the mast (pivot ANTENNA)
+#   roboport_charge_glow  a lit charging point, drawn over the idle one at CHARGE[i] while robots charge
+#   roboport_lamp_green / _red   a lit status lamp, drawn over the dark lens at LAMPS[i] when it blinks on
+# All must match RoboportRenderer and the roboport composite in check_zfight.py / ModelZFightTest.
 # =====================================================================================
-HATCH = (0, 0)          # roof hatch center (x, z)
+HATCH = (0, 1)          # roof hatch center (x, z)
 ROOF_Y = 50             # top of the body shoulder
-HATCH_TOP = 55.6       # top of the iris door
+HOLE_R = 8.5            # apothem of the hatch opening in the collar
+COLLAR_R = 18.5         # apothem of the brass collar
+COLLAR_TOP = 55.5
+LIP = (8, 11.5)         # the silver lip on the collar's inner edge (apothems)
+LIP_TOP = 56.5
+WELL_TOP = 52           # floor of the hatch well
+BLADE_Y, BLADE_STEP, BLADE_T = 52.2, 0.1, 0.3
+BLADE_X = (-0.5, 9.5)   # blade along its own x from the hatch axis, closed
+BLADE_HALF = 3.6
+BLADE_TWIST, BLADE_SLIDE = 60, 8.3
+ANTENNA = (14, 58, 21)  # antenna pivot: top of the mast
+PYLON_C = 27.5
+CORNERS = ((-1, -1), (1, -1), (-1, 1), (1, 1))
+CHARGE = [(PYLON_C * sx, 60, PYLON_C * sz) for sx, sz in CORNERS]  # charging point pivots (bottom center)
+LAMPS = ([(-16, 17, -28.5), (-6, 17, -28.5), (24.5, 17, -9), (-24.5, 17, 9)]
+         + [(PYLON_C * sx + 3.75 * sx, 7, PYLON_C * sz + 3.75 * sz) for sx, sz in CORNERS])
+LAMP_HALF, LAMP_H = 0.7, 1.4
+EPS8 = [EPS * i for i in range(8)]
+
+
+def ring_y(m, cx, cz, r_in, r_out, y0, y1, tex, inner):
+    """A hollow 16-gon ring about a vertical axis: 16 boxes, one per side, each turned to its side.
+    Neighbours overlap at the inner edge, so the 8 orientations stand at 8 heights EPS apart (opposite
+    sides share one). inner is the texture of the faces toward the axis."""
+    half = r_out * math.tan(math.pi / 16) + 0.05
+    rc = (r_in + r_out) / 2
+    depth = r_out - r_in
+    for i in range(16):
+        theta = 22.5 * i
+        n = round(theta / 90)
+        phi = theta - 90 * n
+        if phi == -45:
+            n, phi = n - 1, 45
+        x = cx + rc * math.cos(math.radians(theta))
+        z = cz + rc * math.sin(math.radians(theta))
+        radial_x = n % 2 == 0
+        w, d = (depth, 2 * half) if radial_x else (2 * half, depth)
+        # the face toward the axis: radial direction n * 90 degrees (x toward +x, z toward +z)
+        inward = {0: "west", 1: "north", 2: "east", 3: "south"}[n % 4]
+        faces = {f: (inner if f == inward else tex) for f in FACES}
+        e = EPS8[i % 8]
+        rot = ("y", -phi, [x, y0, z]) if phi else None
+        m.box([x - w / 2, y0 + e, z - d / 2], [x + w / 2, y1 - e, z + d / 2], faces, rot=rot)
+    return m
 
 
 def roboport():
-    m = Model({"base": "roboport_base", "body": "roboport_body", "roof": "roboport_roof", "iris": "roboport_iris",
-               "bronze": "roboport_bronze", "pylon": "roboport_pylon", "cable": "roboport_cable",
-               "mach": "roboport_machinery", "drum": "roboport_drum", "yellow": "roboport_yellow"}, "roboport_body")
-    side ={"north": "body", "south": "body", "east": "body", "west": "body", "up": "roof", "down": "body"}
+    m = Model({"base": "roboport_base", "body": "roboport_body", "roof": "roboport_roof", "bronze": "roboport_bronze",
+               "rim": "roboport_rim", "well": "roboport_well", "pylon": "roboport_pylon", "white": "roboport_white",
+               "cable": "roboport_cable", "mach": "roboport_machinery", "vent": "roboport_vent",
+               "drum": "roboport_drum", "yellow": "roboport_yellow", "pipe": "roboport_pipe",
+               "charge": "roboport_charge_off", "lamp": "roboport_lamp_off"}, "roboport_body")
+    side = {"north": "body", "south": "body", "east": "body", "west": "body", "up": "roof", "down": "body"}
+    band = {"north": "mach", "south": "mach", "east": "mach", "west": "mach", "up": "roof", "down": "mach"}
     # plinth: nearly the whole 4x4, chamfered corners
     m.chamfer(-31, -31, 31, 31, 0, 3, "base", c=6)
-    # body: a massive stone-grey block in two storeys (the rotated corner columns must each fit one piece)
-    # parted by a ledge, then a shoulder carrying the roof
+    # body: a massive stone-grey block in two storeys parted by a dark ledge (the rotated corner columns must
+    # each fit one piece), then a shoulder carrying the roof
     m.chamfer(-23, -21, 23, 24, 3, 26, side, c=7, top=False)
-    m.chamfer(-24.5, -22.5, 24.5, 25.5, 26, 29.5, side, c=7.5)
+    m.chamfer(-24.5, -22.5, 24.5, 25.5, 26, 29.5, band, c=7.5)
     m.chamfer(-23, -21, 23, 24, 29.5, 46, side, c=7, bottom=False)
-    m.chamfer(-21, -19, 21, 22, 46, ROOF_Y, {f: "roof" for f in FACES}, c=6)
-    # roof hatch: raised bronze rim and the iris door in it
+    m.chamfer(-22, -20.5, 22, 23.5, 46, ROOF_Y, {f: "roof" for f in FACES}, c=6)
+    # roof hatch: the brass collar, the silver lip and the dark well under the iris (the blades are drawn by
+    # RoboportRenderer)
     hx, hz = HATCH
-    m.prism16_y(hx, hz, 15.75, ROOF_Y - 0.5, 55, "bronze")  # apothem <= 16: each strip must fit one piece
-    m.prism16_y(hx, hz, 13, 54.9, HATCH_TOP, {"north": "bronze", "south": "bronze", "east": "bronze",
-                                                "west": "bronze", "up": "iris", "down": "bronze"})
-    # machinery boxes on the roof behind the hatch
-    m.box([-14, ROOF_Y, 16.5], [-4.5, 55, 21.5], "mach")
-    m.box([-3, ROOF_Y, 17.5], [5, 53.5, 21.5], {f: ("yellow" if f == "up" else "mach") for f in FACES})
-    # front machinery bay (north): dark housing under a yellow trim band, a big upright drum and two pipes on
-    # the east half (the reference's left as it faces the camera), dark vent panels above it on the body face
+    ring_y(m, hx, hz, HOLE_R, COLLAR_R, ROOF_Y, COLLAR_TOP, "bronze", "mach")
+    ring_y(m, hx, hz, LIP[0], LIP[1], COLLAR_TOP, LIP_TOP, "rim", "rim")
+    m.box([hx - 8.6, ROOF_Y, hz - 8.6], [hx + 8.6, WELL_TOP, hz + 8.6],
+          {f: ("well" if f == "up" else "mach") for f in FACES}, only=("up",), fit=("up",))
+    # roof machinery behind the collar: a dark block and a smaller yellow-topped one, a pipe between them
+    m.box([-10, ROOF_Y, 19.6], [-2.5, 54.5, 23], "mach")
+    m.box([4.5, ROOF_Y, 20], [9.5, 53, 23], {f: ("yellow" if f == "up" else "mach") for f in FACES})
+    m.box([-2.5, 51, 21], [4.5, 52.4, 22.4], "pipe", only=("north", "south", "up", "down"))
+    # antenna: a dark base block and the mast; the head turns (roboport_antenna)
+    ax, ay, az = ANTENNA
+    m.cbox(ax, az, 4, 3, ROOF_Y, 53, "mach")
+    m.cbox(ax, az, 2.2, 2.2, 53, ay, "pylon")
+    m.cbox(ax, az, 3.4, 3.4, 55, 56, "mach")
+    # front machinery bay (north): dark housing under a yellow trim band, a control box with two status lamps,
+    # a big upright drum and two pipes on the east half (the reference's left as it faces the camera), two
+    # U-pipes on the housing, dark vent panels above it on the body face
     m.box([-20, 3, -27.5], [20, 21, -21], {"north": "mach", "south": "mach", "east": "mach", "west": "mach",
                                            "up": "roof"}, only=("north", "south", "east", "west", "up"))
     m.box([-20.5, 20, -28], [20.5, 22.5, -20.7], "yellow")
-    m.box([-18.5, 3, -29.5], [-3.5, 17, -27.5], "mach", only=("north", "east", "west", "up"), fit=("north",))
+    m.box([-18.5, 3, -29.5], [-3.5, 17, -27.5], {f: ("vent" if f == "north" else "mach") for f in FACES},
+          only=("north", "east", "west", "up"), fit=("north",))
     m.octagon_y(10, -26.5, 9, 3.05, 25, {"north": "drum", "south": "drum", "east": "drum", "west": "drum",
                                        "up": "mach", "down": "mach"})
     for px in (1.5, 4.3):
-        m.cbox(px, -29.4, 1.8, 1.8, 3, 33, "pylon")
+        m.cbox(px, -29.4, 1.8, 1.8, 3, 33, "pipe")
+    for ux in (-13, -8):
+        for dx in (-1.6, 1.6):
+            m.cbox(ux + dx, -25, 1.2, 1.2, 22.5, 26.5, "pipe")
+        m.box([ux - 2.3, 26.5, -25.6], [ux + 2.3, 27.7, -24.4], "pipe")
     for px in (-12.5, 12.5):
-        m.box([px - 8, 28, -22.4], [px + 8, 42, -21], "mach", fit=("north",))
-    # four corner charging pylons: foot, a tall blue-grey post with an inner rail and a red cable, braces to
-    # the body, a cap, and three bracket fingers on top (one leaning out along x, one along z, one upright)
-    for sx, sz in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-        cx, cz = 27.5 * sx, 27.5 * sz
+        m.box([px - 8, 30, -22.4], [px + 8, 42, -21], {f: ("vent" if f == "north" else "mach") for f in FACES},
+              fit=("north",))
+    # side cabinets (vent faces out) with a pipe running along each side wall above them
+    for sx, z0, z1 in ((1, -12, 4), (-1, -4, 12)):
+        x0, x1 = sorted((23 * sx, 26 * sx))
+        out = "east" if sx > 0 else "west"
+        m.box([x0, 3, z0], [x1, 17, z1], {f: ("vent" if f == out else "mach") for f in FACES},
+              only=(out, "north", "south", "up"), fit=(out,))
+        px0, px1 = sorted((23 * sx, 24.6 * sx))
+        m.box([px0, 21.4, -13], [px1, 23, 16], "pipe", only=(out, "up", "down", "north", "south"))
+    # status lamps (dark lenses; RoboportRenderer lights them)
+    for (lx, ly, lz) in LAMPS:
+        m.cbox(lx, lz, 2 * LAMP_HALF, 2 * LAMP_HALF, ly, ly + LAMP_H, "lamp")
+    # four corner charging pylons: foot, a tall blue-steel post with a white lit edge, an inner rail and a red
+    # cable, braces and a cable to the body, a cap, two white bracket fingers leaning out and, between them, a
+    # white stem carrying the charging point
+    for sx, sz in CORNERS:
+        cx, cz = PYLON_C * sx, PYLON_C * sz
         m.cbox(cx, cz, 9, 9, 3, 7, "mach")
         m.cbox(cx, cz, 6, 6, 7, 50, "pylon")
+        m.cbox(cx + 3 * sx, cz + 3 * sz, 0.8, 0.8, 8, 49.5, "white")
         ix, iz = cx - 4.6 * sx, cz - 4.6 * sz
         m.cbox(ix, iz, 2.4, 2.4, 7, 47, "pylon")
         m.cbox(cx - 3.2 * sx, cz - 3.2 * sz, 1.1, 1.1, 9, 49, "cable")
         for y in (14, 36):
             bx, bz = cx - 5 * sx, cz - 5 * sz
             m.cbox(bx, bz, 9, 2.4, y, y + 2.4, "pylon", rot=("y", -45 * sx * sz, [bx, y, bz]))
+        bx, bz = cx - 6 * sx, cz - 6 * sz
+        m.cbox(bx, bz, 8, 1, 31, 32, "cable", rot=("y", -45 * sx * sz, [bx, 31, bz]))
         m.cbox(cx, cz, 8, 8, 50, 53, "pylon", rot=("y", 45, [cx, 50, cz]))
-        m.box([cx - 1.3, 52, cz - 1.3], [cx + 1.3, 64, cz + 1.3], "pylon", rot=("z", -22.5 * sx, [cx, 52, cz]))
-        m.box([cx - 1.3, 52.2, cz - 1.3], [cx + 1.3, 63.8, cz + 1.3], "pylon", rot=("x", 22.5 * sz, [cx, 52, cz]))
-        m.cbox(cx, cz, 2, 2, 53, 63, "cable")
-    # antenna mast with a dish at the back corner of the roof (the reference's back left)
-    ax, az = 15, 17
-    m.cbox(ax, az, 3, 3, ROOF_Y, 60, "pylon")
-    m.cbox(ax, az, 6, 6, 56, 58, "mach")
-    m.box([ax - 5, 58, az - 0.75], [ax + 5, 64, az + 0.75], {f: ("iris" if f in ("north", "south") else "pylon")
-                                                             for f in FACES}, rot=("x", 22.5, [ax, 58, az]))
+        m.box([cx - 1.3, 52, cz - 1.3], [cx + 1.3, 62, cz + 1.3], "white", rot=("z", -22.5 * sx, [cx, 52, cz]))
+        m.box([cx - 1.3, 52.2, cz - 1.3], [cx + 1.3, 61.8, cz + 1.3], "white", rot=("x", 22.5 * sz, [cx, 52, cz]))
+        m.cbox(cx, cz, 1.6, 1.6, 53, 60, "white")
+        m.cbox(cx, cz, 3, 3, 60, 63, "charge")
     return m
+
+
+def blade():
+    """One iris blade around the hatch-axis pivot (8, 0, 8), closed, pointing along +x."""
+    m = Model({"blade": "roboport_blade"}, "roboport_blade")
+    m.box([8 + BLADE_X[0], 0, 8 - BLADE_HALF], [8 + BLADE_X[1], BLADE_T, 8 + BLADE_HALF], "blade")
+    return m
+
+
+def antenna():
+    """The antenna head around the mast-top pivot (8, 0, 8): a housing with the lens (the reference's
+    eye) facing north, a cap and four striped prongs, each tilted 22.5 degrees up, with spiked tips."""
+    m = Model({"head": "roboport_antenna_head", "rod": "roboport_antenna", "mach": "roboport_machinery",
+               "white": "roboport_white"}, "roboport_antenna_head")
+    m.box([6, 0, 6.5], [10, 3.5, 9.5], "head", fit=("north", "south"))
+    m.box([7, 3.5, 7], [9, 4.3, 9], "mach")
+    m.box([10, 1.4, 7.5], [16, 2.4, 8.5], "rod", rot=("z", 22.5, [10, 1.9, 8]))
+    m.box([15, 1.1, 7.2], [16.6, 2.7, 8.8], "white", rot=("z", 22.5, [10, 1.9, 8]))
+    m.box([0, 1.4, 7.5], [6, 2.4, 8.5], "rod", rot=("z", -22.5, [6, 1.9, 8]))
+    m.box([-0.6, 1.1, 7.2], [1, 2.7, 8.8], "white", rot=("z", -22.5, [6, 1.9, 8]))
+    m.box([7.5, 1.4, 9.5], [8.5, 2.4, 15.5], "rod", rot=("x", -22.5, [8, 1.9, 9.5]))
+    m.box([7.2, 1.1, 14.5], [8.8, 2.7, 16.1], "white", rot=("x", -22.5, [8, 1.9, 9.5]))
+    m.box([7.5, 1.4, 0.5], [8.5, 2.4, 6.5], "rod", rot=("x", 22.5, [8, 1.9, 6.5]))
+    m.box([7.2, 1.1, -0.1], [8.8, 2.7, 1.5], "white", rot=("x", 22.5, [8, 1.9, 6.5]))
+    return m
+
+
+def glow(tex, half, y0, y1):
+    """A lit cap around a pivot (8, 0, 8), drawn over the idle part (slightly bigger, so no face is shared)."""
+    m = Model({"glow": tex}, tex)
+    m.box([8 - half, y0, 8 - half], [8 + half, y1, 8 + half], "glow", fit=FACES)
+    return m
+
+
+ANIMATED = {
+    "roboport_blade": blade,
+    "roboport_antenna": antenna,
+    "roboport_charge_glow": lambda: glow("roboport_charge_glow", 1.9, -0.4, 3.4),
+    "roboport_lamp_green": lambda: glow("roboport_lamp_green", LAMP_HALF + 0.1, -0.1, LAMP_H + 0.1),
+    "roboport_lamp_red": lambda: glow("roboport_lamp_red", LAMP_HALF + 0.1, -0.1, LAMP_H + 0.1),
+}
+
+
+def blade_pose(k, door):
+    """(yaw degrees, slide px, pivot) of blade k at door 0..1 (RoboportRenderer.blade)."""
+    hx, hz = HATCH
+    return 45 * k + door * BLADE_TWIST, door * BLADE_SLIDE, (hx, BLADE_Y + k * BLADE_STEP, hz)
 
 
 CUT_Y = 28  # lower pieces hold y < CUT_Y, upper pieces the rest
@@ -456,13 +778,24 @@ def write_roboport(m):
                 if not boxes:
                     obj.pop("elements")
                 dump(obj, os.path.join(MB, f"roboport_{i}{j}{k}.json"))
+    animated = {name: make() for name, make in ANIMATED.items()}
+    for name, am in animated.items():
+        dump(am.json(), os.path.join(MB, name + ".json"))
     dump({"textures": {"particle": NS + "roboport_body"}}, os.path.join(MB, "roboport.json"))
-    # item: the whole machine scaled 1/4 into one block (64 px -> 16 px), centered; a full cube now, so the
-    # display transforms are vanilla block's (minecraft:block/block)
-    item = Model(dict(m.textures), "roboport_body")
-    item.textures = m.textures
+    # item: the whole machine at rest scaled 1/4 into one block (64 px -> 16 px), centered: the static parts,
+    # the closed iris as one disc and the antenna head; a full cube now, so the display transforms are vanilla
+    # block's (minecraft:block/block)
+    ant = animated["roboport_antenna"]
+    item = Model(dict(m.textures, iris="roboport_iris", **ant.textures), "roboport_body")
+    item.textures.pop("particle")
+    item.textures["particle"] = NS + "roboport_body"
+    hx, hz = HATCH
+    disc = Box([hx - HOLE_R - 0.6, BLADE_Y, hz - HOLE_R - 0.6], [hx + HOLE_R + 0.6, BLADE_Y + 0.5, hz + HOLE_R + 0.6],
+               "iris", only=("up",), fit=("up",))
+    ax, ay, az = ANTENNA
+    machine = m.boxes + [disc] + [b.shifted((8 - ax, -ay, 8 - az)) for b in ant.boxes]
     k = 0.25
-    item.boxes = [b.shifted((-8 / k, 0, -8 / k)).scaled(k, (0, 0, 0)) for b in m.boxes]
+    item.boxes = [b.shifted((-8 / k, 0, -8 / k)).scaled(k, (0, 0, 0)) for b in machine]
     obj = item.json()
     obj["display"] = {
         "gui": {"rotation": [30, 225, 0], "translation": [0, 0, 0], "scale": [0.625, 0.625, 0.625]},
@@ -473,6 +806,34 @@ def write_roboport(m):
         "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]},
     }
     dump(obj, os.path.join(MI, "roboport.json"))
+
+
+def roboport_elements(door=0.0, charging=0, lamps=()):
+    """The roboport as RoboportRenderer draws it, as element dicts in machine px (for previews and
+    render_compare.py): the pieces, the 8 iris blades at door 0..1, the antenna head (unturned),
+    the first `charging` charging points lit and the lamps whose indices are in `lamps` lit green."""
+    from render_models import placed
+    B = "minetorio:block/"
+    els = []
+    for i in range(2):
+        for j in range(2):
+            for k in range(2):
+                d = offset(i, j, k)
+                els += placed(f"{B}roboport_{i}{j}{k}", d[0], d[1], d[2])
+    for k in range(8):
+        yaw, slide, (px, py, pz) = blade_pose(k, door)
+        for e in placed(B + "roboport_blade", px - 8 + slide, py, pz - 8):
+            e["rotation"] = {"axis": "y", "angle": yaw, "origin": [px, py, pz]}
+            els.append(e)
+    ax, ay, az = ANTENNA
+    head = placed(B + "roboport_antenna", ax - 8, ay, az - 8)
+    els += head
+    for i, (cx, cy, cz) in enumerate(CHARGE[:charging]):
+        els += placed(B + "roboport_charge_glow", cx - 8, cy, cz - 8)
+    for i in lamps:
+        lx, ly, lz = LAMPS[i]
+        els += placed(B + "roboport_lamp_green", lx - 8, ly, lz - 8)
+    return els
 
 
 # =====================================================================================
@@ -522,22 +883,17 @@ def write_blockstates():
 
 def main():
     textures()
-    rp = roboport()
-    write_roboport(rp)
+    write_roboport(roboport())
     write_robot(robot())
     write_blockstates()
     try:
         sys.path.insert(0, HERE)
         from render_models import bounds, placed, render
-        els = []
-        for i in range(2):
-            for j in range(2):
-                for k in range(2):
-                    d = offset(i, j, k)
-                    els += placed(f"minetorio:block/roboport_{i}{j}{k}", d[0] + 8, d[1], d[2] + 8)
+        els = roboport_elements()
         sheet = Image.new("RGB", (3 * 256, 256), (40, 42, 48))
         sheet.paste(render(els, {}, yaw=180, pitch=-45, size=256, extent=bounds(els)), (0, 0))
-        sheet.paste(render(els, {}, yaw=0, pitch=-30, size=256, extent=bounds(els)), (256, 0))
+        busy = roboport_elements(door=1, charging=4, lamps=range(len(LAMPS)))
+        sheet.paste(render(busy, {}, yaw=0, pitch=-45, size=256, extent=bounds(busy)), (256, 0))
         r = placed("minetorio:block/construction_robot")
         sheet.paste(render(r, {}, yaw=25, pitch=-35, size=256, extent=bounds(r)), (512, 0))
         sheet.save(os.path.join(HERE, "robots-preview.png"))

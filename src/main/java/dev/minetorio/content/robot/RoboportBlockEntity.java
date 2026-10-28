@@ -12,6 +12,7 @@ import dev.minetorio.core.robot.ConstructionArea;
 import dev.minetorio.core.robot.ConstructionQueue;
 import dev.minetorio.core.robot.Dispatcher;
 import dev.minetorio.core.robot.RobotBattery;
+import dev.minetorio.core.robot.RoboportAnimation;
 import dev.minetorio.core.robot.RobotStats;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +25,9 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.ContainerHelper;
@@ -36,6 +40,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -150,7 +155,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
 
     /**
      * Height of the dock above the floor, in blocks: just above the iris hatch in the middle of the
-     * roof (its top is at 55.6 px in art/gen_robots.py), below the pylon tops.
+     * roof (its silver lip tops out at 56.5 px in art/gen_robots.py), below the pylon tops.
      */
     public static final double DOCK_HEIGHT = 58 / 16.0;
 
@@ -192,6 +197,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     // --- ticking ---------------------------------------------------------------------------------
 
     void tickServer() {
+        int charged = chargingThisTick; // robots that charged here since the last tick (entities tick first)
         chargingThisTick = 0;
         if (creativePower) {
             buffer = RobotStats.ROBOPORT_BUFFER_J;
@@ -204,6 +210,64 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
             }
         }
         if (++timer % DISPATCH_INTERVAL == 0 && level instanceof ServerLevel server) dispatch(server);
+        if (level instanceof ServerLevel server) tickAnimation(server, charged);
+    }
+
+    // --- animation state (RoboportAnimation; synced to clients only when it changes) -------------
+
+    private static final String KEY_ANIM_DOOR = "anim_door";
+    private static final String KEY_ANIM_CHARGING = "anim_charging";
+    private static final String KEY_ANIM_POWERED = "anim_powered";
+    private int doorHold;
+    private boolean doorOpen;
+    private int charging;
+    private boolean powered;
+    // client
+    private float door, prevDoor, antenna, prevAntenna;
+
+    private void tickAnimation(ServerLevel level, int charged) {
+        boolean near = charged > 0;
+        if (!near && timer % 4 == 0) {
+            near = !level.getEntitiesOfClass(ConstructionRobotEntity.class,
+                    new AABB(dock(), dock()).inflate(RoboportAnimation.DOOR_REACH)).isEmpty();
+        }
+        doorHold = RoboportAnimation.nextHold(doorHold, near);
+        boolean open = doorHold > 0;
+        int c = Math.min(charged, RobotStats.CHARGING_STATIONS);
+        boolean p = buffer > 0;
+        if (open != doorOpen || c != charging || p != powered) {
+            doorOpen = open;
+            charging = c;
+            powered = p;
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+        }
+    }
+
+    void tickClient() {
+        prevDoor = door;
+        door = RoboportAnimation.stepDoor(door, doorOpen);
+        prevAntenna = antenna;
+        antenna = RoboportAnimation.stepAntenna(antenna, powered);
+        if (antenna < prevAntenna) prevAntenna -= 360f; // keep interpolation monotonic across the wrap
+    }
+
+    /** Whether the roof iris is (to be) open: a robot launched or is at the dock lately. */
+    public boolean doorOpen() { return doorOpen; }
+
+    /** Robots charging here (0..{@value RobotStats#CHARGING_STATIONS}). */
+    public int chargingRobots() { return charging; }
+
+    /** Whether the buffer holds energy (antenna turns, lamps blink green). */
+    public boolean isPowered() { return powered; }
+
+    /** Client: the iris opening, 0 closed .. 1 open, eased and interpolated between ticks. */
+    public float renderDoor(float partialTick) {
+        return RoboportAnimation.ease(prevDoor + (door - prevDoor) * partialTick);
+    }
+
+    /** Client: the antenna angle in degrees, interpolated between ticks. */
+    public float renderAntenna(float partialTick) {
+        return prevAntenna + (antenna - prevAntenna) * partialTick;
     }
 
     private void dispatch(ServerLevel level) {
@@ -240,6 +304,7 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         }
         robots.removeItemType(ModItems.CONSTRUCTION_ROBOT.get(), 1);
         out++;
+        doorHold = RoboportAnimation.DOOR_HOLD_TICKS;
         setChanged();
     }
 
@@ -342,12 +407,33 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        if (tag.contains(KEY_ANIM_DOOR)) { // client update: only the animation state (getUpdateTag)
+            doorOpen = tag.getBoolean(KEY_ANIM_DOOR);
+            charging = tag.getInt(KEY_ANIM_CHARGING);
+            powered = tag.getBoolean(KEY_ANIM_POWERED);
+            return;
+        }
         buffer = tag.getLong(KEY_BUFFER);
         out = tag.getInt(KEY_OUT);
         creativePower = tag.getBoolean(KEY_CREATIVE);
         NonNullList<ItemStack> items = NonNullList.withSize(RobotStats.ROBOT_SLOTS, ItemStack.EMPTY);
         ContainerHelper.loadAllItems(tag.getCompound(KEY_ROBOTS), items, registries);
         for (int i = 0; i < items.size(); i++) robots.setItem(i, items.get(i));
+    }
+
+    /** Only the animation state (door, charging robots, power); the GUI syncs the rest through its menu. */
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        tag.putBoolean(KEY_ANIM_DOOR, doorOpen);
+        tag.putInt(KEY_ANIM_CHARGING, charging);
+        tag.putBoolean(KEY_ANIM_POWERED, powered);
+        return tag;
+    }
+
+    @Override
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override

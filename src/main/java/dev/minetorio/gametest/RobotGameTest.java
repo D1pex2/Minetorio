@@ -177,7 +177,13 @@ public class RobotGameTest {
         ghost(h, new BlockPos(6, 1, 12), ModItems.INSERTER.get(), Direction.SOUTH);
         ghost(h, new BlockPos(11, 1, 11), ModItems.STONE_FURNACE.get(), Direction.SOUTH);
         boolean[] launched = {false};
-        h.onEachTick(() -> { if (robotsFlying(h) > 0) launched[0] = true; });
+        boolean[] opened = {false};
+        boolean[] charged = {false};
+        h.onEachTick(() -> {
+            if (robotsFlying(h) > 0) launched[0] = true;
+            if (port.doorOpen()) opened[0] = true;
+            if (port.chargingRobots() > 0) charged[0] = true;
+        });
         h.succeedWhen(() -> {
             for (int x = 2; x <= 6; x++) h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(x, 1, 10));
             h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(6, 1, 11));
@@ -190,6 +196,9 @@ public class RobotGameTest {
             h.assertTrue(launched[0], "never saw a robot fly");
             h.assertTrue(robotsFlying(h) == 0 && port.availableRobots() == 4 && port.robotsOut() == 0,
                     "robots not home: " + port.availableRobots() + " stored, " + robotsFlying(h) + " flying");
+            h.assertTrue(opened[0], "the roof iris never opened");
+            h.assertTrue(charged[0], "never saw a robot charging");
+            h.assertTrue(!port.doorOpen() && port.chargingRobots() == 0, "the iris did not close after the robots came home");
             c.clearContent(); // passed: the chest stays in the world, its leftovers must not feed later roboport tests
         });
     }

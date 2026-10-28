@@ -94,6 +94,7 @@ public final class MinetorioClient {
         event.register(RadarRenderer.BASE);
         event.register(RadarRenderer.DISH);
         RoboportRenderer.PIECES.forEach(event::register);
+        RoboportRenderer.ANIMATED.forEach(event::register);
         event.register(ConstructionRobotRenderer.MODEL);
     }
 }

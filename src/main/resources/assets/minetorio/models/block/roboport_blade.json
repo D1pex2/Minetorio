@@ -1,0 +1,10 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "blade": "minetorio:block/roboport_blade",
+    "particle": "minetorio:block/roboport_blade"
+  },
+  "elements": [
+    {"from": [7.5, 0, 4.4], "to": [17.5, 0.3, 11.6], "faces": {"north": {"uv": [3, 7.85, 13, 8.15], "texture": "#blade"}, "south": {"uv": [3, 7.85, 13, 8.15], "texture": "#blade"}, "east": {"uv": [4.4, 7.85, 11.6, 8.15], "texture": "#blade"}, "west": {"uv": [4.4, 7.85, 11.6, 8.15], "texture": "#blade"}, "up": {"uv": [3, 4.4, 13, 11.6], "texture": "#blade"}, "down": {"uv": [3, 4.4, 13, 11.6], "texture": "#blade"}}}
+  ]
+}
