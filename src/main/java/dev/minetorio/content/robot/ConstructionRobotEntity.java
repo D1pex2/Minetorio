@@ -5,6 +5,7 @@ import dev.minetorio.core.robot.ConstructionArea;
 import dev.minetorio.core.robot.Flight;
 import dev.minetorio.core.robot.RobotBattery;
 import dev.minetorio.core.robot.RobotStats;
+import dev.minetorio.core.robot.SmoothFlight;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -26,6 +27,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
@@ -45,12 +47,26 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
  * </ol>
  * The job and the reserved provider item are saved and re-claimed when the robot loads; losing the
  * robot (killed, unloaded) frees them.
+ *
+ * <p>Clients do not get a position every tick: the server syncs only the current flight target and
+ * speed (re-sent when they change), each client flies the same straight lines itself with
+ * {@link SmoothFlight} (smooth heading and banking included), and the server's periodic position
+ * packets only correct real drift. Vanilla's base {@link Entity#lerpTo} would instead snap the robot
+ * to each packet whenever it arrives, which is what made the flight choppy.
  */
 public class ConstructionRobotEntity extends Entity {
     public enum Phase { TO_PROVIDER, TO_GHOST, TO_STORE, RETURNING, CHARGING }
 
     private static final EntityDataAccessor<ItemStack> DATA_CARRIED =
             SynchedEntityData.defineId(ConstructionRobotEntity.class, EntityDataSerializers.ITEM_STACK);
+    /** Flight target, split into a block and a float offset inside it so it stays exact far from 0,0. */
+    private static final EntityDataAccessor<BlockPos> DATA_TARGET_CELL =
+            SynchedEntityData.defineId(ConstructionRobotEntity.class, EntityDataSerializers.BLOCK_POS);
+    private static final EntityDataAccessor<Vector3f> DATA_TARGET_OFFSET =
+            SynchedEntityData.defineId(ConstructionRobotEntity.class, EntityDataSerializers.VECTOR3);
+    /** Blocks per tick toward the target; 0 = hold position. */
+    private static final EntityDataAccessor<Float> DATA_SPEED =
+            SynchedEntityData.defineId(ConstructionRobotEntity.class, EntityDataSerializers.FLOAT);
     private static final double ARRIVED = 1e-3;
 
     private Phase phase = Phase.RETURNING;
@@ -62,6 +78,11 @@ public class ConstructionRobotEntity extends Entity {
     /** Job and reservation registered with the manager since the robot was (re)loaded. */
     private boolean registered;
 
+    /** Client only: the locally simulated flight, and the bank angle (degrees) last tick and now. */
+    @Nullable private SmoothFlight clientFlight;
+    private float bankO;
+    private float bank;
+
     public ConstructionRobotEntity(EntityType<? extends ConstructionRobotEntity> type, Level level) {
         super(type, level);
         noPhysics = true;
@@ -71,6 +92,9 @@ public class ConstructionRobotEntity extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_CARRIED, ItemStack.EMPTY);
+        builder.define(DATA_TARGET_CELL, BlockPos.ZERO);
+        builder.define(DATA_TARGET_OFFSET, new Vector3f());
+        builder.define(DATA_SPEED, 0f);
     }
 
     /** Non-zero id used for job claims. */
@@ -106,6 +130,10 @@ public class ConstructionRobotEntity extends Entity {
     @Override
     public void tick() {
         super.tick();
+        if (level().isClientSide) {
+            clientFlightTick();
+            return;
+        }
         if (!(level() instanceof ServerLevel server)) return;
         ConstructionManager m = ConstructionManager.get(server);
         if (!registered) reRegister(m);
@@ -116,6 +144,41 @@ public class ConstructionRobotEntity extends Entity {
             case RETURNING -> returning(server);
             case CHARGING -> charging(server);
         }
+    }
+
+    // --- client flight ----------------------------------------------------------------------------
+
+    private void clientFlightTick() {
+        if (clientFlight == null) clientFlight = new SmoothFlight(new Flight.Vec(getX(), getY(), getZ()), getYRot());
+        BlockPos cell = entityData.get(DATA_TARGET_CELL);
+        Vector3f off = entityData.get(DATA_TARGET_OFFSET);
+        clientFlight.setTarget(new Flight.Vec(cell.getX() + (double) off.x(), cell.getY() + (double) off.y(), cell.getZ() + (double) off.z()),
+                entityData.get(DATA_SPEED));
+        clientFlight.tick();
+        Flight.Vec p = clientFlight.pos();
+        setPos(p.x(), p.y(), p.z());
+        setYRot(clientFlight.yaw());
+        bankO = bank;
+        bank = clientFlight.bank();
+    }
+
+    /**
+     * Server position packets land here on the client. The base entity snaps to them the moment they
+     * arrive (between ticks, so the render interpolation jumps); the robot hands them to its flight
+     * simulation as drift samples instead, and keeps its own smoothed heading.
+     */
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        if (clientFlight == null) {
+            super.lerpTo(x, y, z, yRot, xRot, steps);
+            return;
+        }
+        clientFlight.sample(new Flight.Vec(x, y, z));
+    }
+
+    /** Bank angle in degrees (+ = right side down), interpolated for rendering. */
+    public float bank(float partialTick) {
+        return Mth.lerp(partialTick, bankO, bank);
     }
 
     private void reRegister(ConstructionManager m) {
@@ -140,19 +203,29 @@ public class ConstructionRobotEntity extends Entity {
 
     /** One tick toward {@code target}; true once there. */
     private boolean fly(Vec3 target) {
+        float speed = (float) (RobotStats.SPEED_BLOCKS_PER_TICK * battery.speedFactor());
+        syncTarget(target, speed);
         Flight.Vec from = new Flight.Vec(getX(), getY(), getZ());
         Flight.Vec to = new Flight.Vec(target.x, target.y, target.z);
-        Flight.Vec next = Flight.step(from, to, RobotStats.SPEED_BLOCKS_PER_TICK * battery.speedFactor());
+        Flight.Vec next = Flight.step(from, to, speed);
         double moved = Flight.distance(from, next);
         battery.fly(moved);
         double dx = next.x() - from.x(), dz = next.z() - from.z();
         if (dx * dx + dz * dz > 1e-6) {
             float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90f;
             setYRot(yaw);
-            setYHeadRot(yaw);
         }
         setPos(next.x(), next.y(), next.z());
         return Flight.distance(next, to) < ARRIVED;
+    }
+
+    /** Tells clients where the robot is flying and how fast (only sent when it changes). */
+    private void syncTarget(Vec3 target, float speed) {
+        BlockPos cell = BlockPos.containing(target);
+        entityData.set(DATA_TARGET_CELL, cell);
+        entityData.set(DATA_TARGET_OFFSET, new Vector3f((float) (target.x - cell.getX()), (float) (target.y - cell.getY()),
+                (float) (target.z - cell.getZ())));
+        entityData.set(DATA_SPEED, speed);
     }
 
     private void pickUp(ServerLevel level, ConstructionManager m) {

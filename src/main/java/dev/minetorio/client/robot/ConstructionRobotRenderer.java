@@ -30,7 +30,8 @@ import org.joml.Matrix4f;
 
 /**
  * Draws a construction robot: its element model (art/gen_robots.py, north = front, ~half a block)
- * turned to its heading and bobbing gently, the carried item hanging below it, and a soft shadow on
+ * turned to its heading (all interpolated with the partial tick: the client flies the robot itself,
+ * see ConstructionRobotEntity), banking into turns and bobbing gently, the carried item hanging below it, and a soft shadow on
  * the ground under it (vanilla entity shadows fade out a block or two above the ground).
  */
 public class ConstructionRobotRenderer extends EntityRenderer<ConstructionRobotEntity> {
@@ -56,6 +57,7 @@ public class ConstructionRobotRenderer extends EntityRenderer<ConstructionRobotE
         pose.pushPose();
         pose.translate(0, bob, 0);
         pose.mulPose(Axis.YP.rotationDegrees(180 - Mth.rotLerp(partialTick, robot.yRotO, robot.getYRot())));
+        pose.mulPose(Axis.ZP.rotationDegrees(-robot.bank(partialTick))); // bank into turns (+ = right side down)
         pose.mulPose(Axis.XP.rotationDegrees(Mth.sin(t * 0.11f) * 3f)); // slight sway
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5);
