@@ -1,0 +1,5 @@
+{
+  "type": "neoforge:remove_spawns",
+  "biomes": { "type": "neoforge:any" },
+  "entity_types": { "type": "neoforge:not", "value": "#minetorio:natural_spawns" }
+}

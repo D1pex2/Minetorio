@@ -289,5 +289,15 @@
   "minetorio.selection.hint.corner": "ПКМ по второму углу, ЛКМ — отмена",
   "minetorio.selection.hint.box": "Колесо: двигать грань, на которую смотрите · ПКМ: применить · Shift: снять · ЛКМ: отмена",
   "minetorio.selection.hint.top_down": "Протяните рамку ЛКМ или ПКМ · Shift: снять отметки · щелчок ПКМ: настройки",
-  "minetorio.selection.hint.dragging": "Отпустите, чтобы применить · Shift: снять"
+  "minetorio.selection.hint.dragging": "Отпустите, чтобы применить · Shift: снять",
+  "item.minetorio.raw_fish": "Сырая рыба",
+  "entity.minetorio.fish": "Рыба",
+  "entity.minetorio.character_corpse": "Труп персонажа",
+  "entity.minetorio.character_corpse.of": "Труп персонажа: %s",
+  "gamerule.minetorio:vanillaRecipes": "Ванильные рецепты",
+  "gamerule.minetorio:vanillaRecipes.description": "Оставить рецепты Minecraft (верстак, печь, камнерез...). Выкл.: только крафт Minetorio.",
+  "gamerule.minetorio:daySeconds": "Длина суток (секунды)",
+  "gamerule.minetorio:daySeconds.description": "Реальных секунд в полных сутках (Factorio: 416). 0 — ванильные 20 минут.",
+  "gamerule.minetorio:corpseMinutes": "Время жизни трупа (минуты)",
+  "gamerule.minetorio:corpseMinutes.description": "Минут мирового времени, после которых труп персонажа исчезает вместе с остатками. 0 — навсегда."
 }

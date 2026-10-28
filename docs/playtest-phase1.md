@@ -190,6 +190,18 @@ Build a two- or three-floor structure first (e.g. a stone box with floors 4 bloc
 - [ ] With a cut, the cursor goes "through" the hidden blocks: you can place, break and open machines on the lower floor. Hidden mobs and items cannot be clicked.
 - [ ] Leave the view (V or Esc) with a cut set: everything comes back exactly as before (no missing blocks, machines or entities). Entering again starts without a cut.
 
+### Factorio player: no vanilla systems
+
+Game rules (Settings → Game rules on world creation, or `/gamerule`): `minetorio:vanillaRecipes` (default false), `minetorio:daySeconds` (default 416, 0 = vanilla 20 min), `minetorio:corpseMinutes` (default 120, 0 = forever).
+
+- [ ] Survival: the 2×2 grid, a crafting table, furnace, smoker, stonecutter, smithing table and campfire craft/smelt nothing; the recipe book is empty. `/gamerule minetorio:vanillaRecipes true` brings vanilla recipes back at once (no reload), `false` removes them again. R (hand crafting) works as before.
+- [ ] No mobs anywhere: no animals in a new world, no zombies/skeletons at night or in caves, no phantoms after nights without sleep, no wandering trader, no patrols. Spawn eggs and `/summon` still work in creative.
+- [ ] An obsidian frame lit with flint and steel stays empty (no portal). Eyes of ender cannot be put into an end portal frame. Nothing (players, items, mobs) can go to the Nether or the End, not even with `/execute in minecraft:the_nether run tp @s ~ ~ ~`.
+- [ ] The hunger bar is gone from the HUD. Sprint, jump and fight for minutes: you can always sprint. Take damage (fall a few blocks): health does not come back for 10 s, then refills smoothly (about 0.7 heart-halves per second, full from empty in ~28 s). Taking damage again restarts the 10 s.
+- [ ] Fish (`/summon minetorio:fish` in water until world generation spawns them) swim in water. Right-click or hit one: it disappears and you get 5 Raw Fish. When hurt, right-click raw fish: +6.4 health at once (a bit over 3 hearts), then half a second of cooldown; at full health nothing happens.
+- [ ] Die with items in the inventory, hotbar, offhand and armour: nothing scatters; a chest-like "Character corpse: <name>" stands where you died. Right-click opens it (anyone can), sneak + right-click takes everything that fits. Once empty it disappears. It survives save/reload; after `minetorio:corpseMinutes` of world time it disappears with what is left.
+- [ ] A full day-night cycle lasts about 7 minutes (the sun moves smoothly, no jumps). `/gamerule minetorio:daySeconds 1200` gives a vanilla-length day, `0` resets to vanilla.
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
 1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.

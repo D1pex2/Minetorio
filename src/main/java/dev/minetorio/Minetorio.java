@@ -7,6 +7,7 @@ import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.orefield.OrePatchLedger;
 import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.orefield.StartingFields;
+import dev.minetorio.content.player.PlayerBasics;
 import dev.minetorio.content.power.PowerGridManager;
 import dev.minetorio.content.handcraft.HandcraftTicker;
 import dev.minetorio.content.drag.DragPlacement;
@@ -69,5 +70,6 @@ public class Minetorio {
         dev.minetorio.content.robot.RobotWork.register();
         dev.minetorio.content.robot.Planners.register();
         RobotCommand.register();
+        PlayerBasics.register(modBus);
     }
 }

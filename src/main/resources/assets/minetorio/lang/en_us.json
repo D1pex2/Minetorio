@@ -289,5 +289,15 @@
   "minetorio.selection.hint.corner": "Right-click the second corner, left-click cancels",
   "minetorio.selection.hint.box": "Wheel: move the face you look at · right-click: apply · Shift: unmark · left-click: cancel",
   "minetorio.selection.hint.top_down": "Drag with the left or right button to select · Shift: unmark · right click: settings",
-  "minetorio.selection.hint.dragging": "Release to apply · Shift: unmark"
+  "minetorio.selection.hint.dragging": "Release to apply · Shift: unmark",
+  "item.minetorio.raw_fish": "Raw Fish",
+  "entity.minetorio.fish": "Fish",
+  "entity.minetorio.character_corpse": "Character Corpse",
+  "entity.minetorio.character_corpse.of": "Character corpse: %s",
+  "gamerule.minetorio:vanillaRecipes": "Vanilla recipes",
+  "gamerule.minetorio:vanillaRecipes.description": "Keep Minecraft's own recipes (crafting table, furnace, stonecutter...). Off: only Minetorio crafting.",
+  "gamerule.minetorio:daySeconds": "Day length (seconds)",
+  "gamerule.minetorio:daySeconds.description": "Real seconds in a full day-night cycle (Factorio: 416). 0 = vanilla 20 minutes.",
+  "gamerule.minetorio:corpseMinutes": "Character corpse lifetime (minutes)",
+  "gamerule.minetorio:corpseMinutes.description": "Minutes of world time before a character corpse disappears with what is left in it. 0 = forever."
 }
