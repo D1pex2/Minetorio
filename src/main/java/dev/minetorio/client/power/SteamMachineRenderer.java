@@ -3,13 +3,14 @@ package dev.minetorio.client.power;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.minetorio.client.machine.MachineRender;
+import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.power.SteamMachineBlockEntity;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -42,21 +43,17 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
 
     @Override
     public void render(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        pose.pushPose();
-        MachineRender.toCenter(pose, be.facing(), be.shape());
-        renderParts(be, partialTick, pose, buffers, light, overlay);
-        pose.popPose();
+        renderParts(be, partialTick, pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
     }
 
-    /** Draws the parts with the pose at the footprint center (model north = facing). */
-    protected abstract void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
-                                        int light, int overlay);
+    /** Draws the machine's parts from the controller block's corner. */
+    protected abstract void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MachineRender.PartSink sink);
 
     /** Draws {@code model} with its block-space origin shifted by {@code dz} blocks along the model's z. */
-    protected void draw(ModelResourceLocation model, double dz, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+    protected static void draw(ModelResourceLocation model, double dz, PoseStack pose, MachineRender.PartSink sink, boolean glow) {
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5 + dz);
-        MachineRender.renderModel(modelRenderer, model, pose, buffers, light, overlay);
+        sink.part(model, pose, false, glow);
         pose.popPose();
     }
 
@@ -69,10 +66,17 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
         public Boiler(BlockEntityRendererProvider.Context ctx) { super(ctx); }
 
         @Override
-        protected void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
-                                   int light, int overlay) {
-            draw(BOILER_BODY, 0, pose, buffers, light, overlay);
-            if (be.isWorking()) draw(BOILER_FIRE, 0, pose, buffers, LightTexture.FULL_BRIGHT, overlay);
+        protected void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MachineRender.PartSink sink) {
+            assemble(be.facing(), be.shape(), be.isWorking(), pose, sink);
+        }
+
+        /** Lays out the boiler from the controller block's corner, with its fire while {@code burning}. */
+        public static void assemble(Direction facing, MultiblockShape shape, boolean burning, PoseStack pose, MachineRender.PartSink sink) {
+            pose.pushPose();
+            MachineRender.toCenter(pose, facing, shape);
+            draw(BOILER_BODY, 0, pose, sink, false);
+            if (burning) draw(BOILER_FIRE, 0, pose, sink, true);
+            pose.popPose();
         }
     }
 
@@ -96,20 +100,26 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
         public Engine(BlockEntityRendererProvider.Context ctx) { super(ctx); }
 
         @Override
-        protected void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers,
-                                   int light, int overlay) {
-            draw(ENGINE_BODY, 0, pose, buffers, light, overlay);
-            draw(ENGINE_FRONT, -END_SHIFT, pose, buffers, light, overlay);
-            draw(ENGINE_REAR, END_SHIFT, pose, buffers, light, overlay);
-            float angle = be.renderAngle(partialTick);
+        protected void renderParts(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MachineRender.PartSink sink) {
+            assemble(be.facing(), be.shape(), be.renderAngle(partialTick), pose, sink);
+        }
+
+        /** Lays out the engine from the controller block's corner, the gears turned for engine angle {@code angle}. */
+        public static void assemble(Direction facing, MultiblockShape shape, float angle, PoseStack pose, MachineRender.PartSink sink) {
+            pose.pushPose();
+            MachineRender.toCenter(pose, facing, shape);
+            draw(ENGINE_BODY, 0, pose, sink, false);
+            draw(ENGINE_FRONT, -END_SHIFT, pose, sink, false);
+            draw(ENGINE_REAR, END_SHIFT, pose, sink, false);
             for (Gear gear : GEARS) {
                 pose.pushPose();
                 pose.translate(0, gear.y() / 16f, (gear.z() - GEAR_CENTER) / 16f);
                 pose.mulPose(Axis.XP.rotationDegrees(angle * gear.ratio() + gear.phase()));
                 pose.translate(-0.5, -GEAR_CENTER / 16f, -GEAR_CENTER / 16f);
-                MachineRender.renderModel(modelRenderer, gear.model(), pose, buffers, light, overlay);
+                sink.part(gear.model(), pose);
                 pose.popPose();
             }
+            pose.popPose();
         }
     }
 }

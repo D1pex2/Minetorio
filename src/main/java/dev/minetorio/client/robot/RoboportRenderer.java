@@ -1,6 +1,8 @@
 package dev.minetorio.client.robot;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.core.Direction;
+import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.client.machine.MachineRender;
 import dev.minetorio.content.robot.RoboportBlockEntity;
 import java.util.ArrayList;
@@ -47,13 +49,18 @@ public class RoboportRenderer implements BlockEntityRenderer<RoboportBlockEntity
 
     @Override
     public void render(RoboportBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+        assemble(be.facing(), be.shape(), pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
+    }
+
+    /** Lays out the roboport's pieces from the controller block's corner. */
+    public static void assemble(Direction facing, MultiblockShape shape, PoseStack pose, MachineRender.PartSink sink) {
         pose.pushPose();
-        MachineRender.toCenter(pose, be.facing(), be.shape());
+        MachineRender.toCenter(pose, facing, shape);
         for (int p = 0; p < PIECES.size(); p++) {
             double[] o = OFFSETS.get(p);
             pose.pushPose();
             pose.translate(o[0] / 16, o[1] / 16, o[2] / 16);
-            MachineRender.renderModel(modelRenderer, PIECES.get(p), pose, buffers, light, overlay);
+            sink.part(PIECES.get(p), pose);
             pose.popPose();
         }
         pose.popPose();

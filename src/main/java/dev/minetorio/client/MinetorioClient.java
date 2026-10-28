@@ -42,10 +42,9 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.SPLITTER.get(), SplitterRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.INSERTER.get(), InserterRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.BURNER_MINING_DRILL.get(),
-                ctx -> new DrillRenderer(ctx, null, DrillRenderer.BURNER_HEAD, null, null));
+                ctx -> new DrillRenderer(ctx, DrillRenderer.BURNER));
         event.registerBlockEntityRenderer(ModBlockEntities.ELECTRIC_MINING_DRILL.get(),
-                ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC_BODY, DrillRenderer.ELECTRIC_HEAD, DrillRenderer.ELECTRIC_TOWER,
-                        DrillRenderer.ELECTRIC_CARRIAGE));
+                ctx -> new DrillRenderer(ctx, DrillRenderer.ELECTRIC));
         event.registerBlockEntityRenderer(ModBlockEntities.BOILER.get(), SteamMachineRenderer.Boiler::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ENGINE.get(), SteamMachineRenderer.Engine::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);

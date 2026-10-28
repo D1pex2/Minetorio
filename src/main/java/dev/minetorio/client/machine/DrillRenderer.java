@@ -3,12 +3,14 @@ package dev.minetorio.client.machine;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.minetorio.content.machine.MiningDrillBlockEntity;
+import dev.minetorio.content.multiblock.MultiblockShape;
 import javax.annotation.Nullable;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -30,22 +32,19 @@ public class DrillRenderer implements BlockEntityRenderer<MiningDrillBlockEntity
     /** How far the carriage rises over its rest position, in model pixels (art/check_zfight.py samples 0..this). */
     static final float CARRIAGE_TRAVEL_PX = 4;
 
-    private final ModelBlockRenderer modelRenderer;
-    @Nullable
-    private final ModelResourceLocation body;
-    private final ModelResourceLocation head;
-    @Nullable
-    private final ModelResourceLocation top;
-    @Nullable
-    private final ModelResourceLocation carriage;
+    /** A drill's models: optional body, the head, optional top and optional carriage. */
+    public record Parts(@Nullable ModelResourceLocation body, ModelResourceLocation head, @Nullable ModelResourceLocation top,
+                        @Nullable ModelResourceLocation carriage) {}
 
-    public DrillRenderer(BlockEntityRendererProvider.Context ctx, @Nullable ModelResourceLocation body, ModelResourceLocation head,
-                         @Nullable ModelResourceLocation top, @Nullable ModelResourceLocation carriage) {
+    public static final Parts BURNER = new Parts(null, BURNER_HEAD, null, null);
+    public static final Parts ELECTRIC = new Parts(ELECTRIC_BODY, ELECTRIC_HEAD, ELECTRIC_TOWER, ELECTRIC_CARRIAGE);
+
+    private final ModelBlockRenderer modelRenderer;
+    private final Parts parts;
+
+    public DrillRenderer(BlockEntityRendererProvider.Context ctx, Parts parts) {
         this.modelRenderer = ctx.getBlockRenderDispatcher().getModelRenderer();
-        this.body = body;
-        this.head = head;
-        this.top = top;
-        this.carriage = carriage;
+        this.parts = parts;
     }
 
     /** Carriage height over its rest position in blocks: 0 at head angle 0, the full travel half a turn later. */
@@ -55,21 +54,26 @@ public class DrillRenderer implements BlockEntityRenderer<MiningDrillBlockEntity
 
     @Override
     public void render(MiningDrillBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        float angle = be.renderHeadAngle(partialTick);
+        assemble(parts, be.facing(), be.shape(), be.renderHeadAngle(partialTick), pose,
+                MachineRender.sink(modelRenderer, buffers, light, overlay));
+    }
+
+    /** Lays out the drill's parts from the controller block's corner, the head turned by {@code angle} degrees. */
+    public static void assemble(Parts parts, Direction facing, MultiblockShape shape, float angle, PoseStack pose, MachineRender.PartSink sink) {
         pose.pushPose();
-        MachineRender.toCenter(pose, be.facing(), be.shape());
-        if (body != null) draw(body, 0, pose, buffers, light, overlay);
-        if (top != null) draw(top, 1, pose, buffers, light, overlay);
-        if (carriage != null) draw(carriage, carriageLift(angle), pose, buffers, light, overlay);
+        MachineRender.toCenter(pose, facing, shape);
+        if (parts.body() != null) draw(parts.body(), 0, pose, sink);
+        if (parts.top() != null) draw(parts.top(), 1, pose, sink);
+        if (parts.carriage() != null) draw(parts.carriage(), carriageLift(angle), pose, sink);
         pose.mulPose(Axis.YP.rotationDegrees(angle));
-        draw(head, 0, pose, buffers, light, overlay);
+        draw(parts.head(), 0, pose, sink);
         pose.popPose();
     }
 
-    private void draw(ModelResourceLocation model, float dy, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+    private static void draw(ModelResourceLocation model, float dy, PoseStack pose, MachineRender.PartSink sink) {
         pose.pushPose();
         pose.translate(-0.5, dy, -0.5);
-        MachineRender.renderModel(modelRenderer, model, pose, buffers, light, overlay);
+        sink.part(model, pose);
         pose.popPose();
     }
 
@@ -77,6 +81,6 @@ public class DrillRenderer implements BlockEntityRenderer<MiningDrillBlockEntity
     @Override
     public AABB getRenderBoundingBox(MiningDrillBlockEntity be) {
         AABB box = MachineRender.footprintBox(be.getBlockPos(), be.facing(), be.shape());
-        return top == null ? box : box.expandTowards(0, 1, 0);
+        return parts.top() == null ? box : box.expandTowards(0, 1, 0);
     }
 }

@@ -7,6 +7,7 @@ import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.core.inserter.InserterType;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.IntUnaryOperator;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -31,7 +32,7 @@ import org.joml.Vector3f;
  * The stack inserter has a wider hand with its fingers further apart (Factorio's big green claw).
  */
 public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity> {
-    private static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
+    public static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
     private static final float SHOULDER_Y = 5.5f / 16;
     /** Elbow height over the shoulder: a base plus a share per block of reach (long arms stand a little taller). */
     private static final float ELBOW_RISE = 0.40f;
@@ -57,9 +58,6 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
     private static final int FINGER_COLOR = 0xFFB4B8BC;
 
     private final ItemRenderer items;
-    /** Reused per finger (renderers run on the render thread only). */
-    private final Vector3f fingerTop = new Vector3f();
-    private final Vector3f fingerTip = new Vector3f();
     private final Map<String, ItemStack> stacks = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, ItemStack> eldest) {
@@ -97,30 +95,8 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
 
     @Override
     public void render(InserterBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        InserterType type = be.type();
-        float[] h = heading(be.facing(), be.renderArm(partialTick));
-        float radius = HAND_REACH * type.reach;
-        Vector3f shoulder = new Vector3f(0.5f, SHOULDER_Y, 0.5f);
-        Vector3f elbow = new Vector3f(0.5f + h[0] * radius * ELBOW_AT, SHOULDER_Y + ELBOW_RISE + ELBOW_RISE_PER_REACH * type.reach,
-                0.5f + h[1] * radius * ELBOW_AT);
-        Vector3f hand = new Vector3f(0.5f + h[0] * radius, SHOULDER_Y + HAND_RISE, 0.5f + h[1] * radius);
-        Vector3f side = new Vector3f(-h[1], 0, h[0]);
-
-        VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(ARM_TEXTURE));
-        PoseStack.Pose p = pose.last();
-        int tier = tierColor(type);
-        box(vc, p, shoulder, new Vector3f(shoulder).add(0, 0.1f, 0), side, SHOULDER_HALF, JOINT_COLOR, light);
-        box(vc, p, new Vector3f(shoulder).add(0, 0.05f, 0), elbow, side, UPPER_HALF, tier, light);
-        box(vc, p, new Vector3f(elbow).sub(0, 0.045f, 0), new Vector3f(elbow).add(0, 0.045f, 0), side, ELBOW_HALF, JOINT_COLOR, light);
-        box(vc, p, elbow, new Vector3f(hand).add(0, 0.03f, 0), side, FORE_HALF, tier, light);
-        boolean wide = type == InserterType.STACK;
-        box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.03f, 0), side,
-                wide ? STACK_HAND_HALF : HAND_HALF, JOINT_COLOR, light);
-        for (float offset : wide ? STACK_FINGER_OFFSETS : FINGER_OFFSETS) {
-            fingerTop.set(side).mul(offset).add(hand).sub(0, 0.06f, 0);
-            fingerTip.set(fingerTop).sub(0, FINGER_LENGTH, 0);
-            box(vc, p, fingerTop, fingerTip, side, 0.014f, FINGER_COLOR, light);
-        }
+        Vector3f hand = drawArm(buffers.getBuffer(RenderType.entityCutoutNoCull(ARM_TEXTURE)), pose.last(), be.type(), be.facing(),
+                be.renderArm(partialTick), light, IntUnaryOperator.identity());
 
         String held = be.logic().held();
         Level level = be.getLevel();
@@ -135,6 +111,41 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
                 pose.popPose();
             }
         }
+    }
+
+    /**
+     * Draws the arm of a {@code type} inserter facing {@code facing} at progress {@code arm} (0 = hand over
+     * the pickup) into {@code vc} (textured with {@link #ARM_TEXTURE}), every color passed through
+     * {@code recolor} (ARGB; the ghost renderer tints it). Returns the hand position (block space).
+     */
+    public static Vector3f drawArm(VertexConsumer vc, PoseStack.Pose p, InserterType type, Direction facing, double arm, int light,
+                                   IntUnaryOperator recolor) {
+        float[] h = heading(facing, arm);
+        float radius = HAND_REACH * type.reach;
+        Vector3f shoulder = new Vector3f(0.5f, SHOULDER_Y, 0.5f);
+        Vector3f elbow = new Vector3f(0.5f + h[0] * radius * ELBOW_AT, SHOULDER_Y + ELBOW_RISE + ELBOW_RISE_PER_REACH * type.reach,
+                0.5f + h[1] * radius * ELBOW_AT);
+        Vector3f hand = new Vector3f(0.5f + h[0] * radius, SHOULDER_Y + HAND_RISE, 0.5f + h[1] * radius);
+        Vector3f side = new Vector3f(-h[1], 0, h[0]);
+
+        int tier = recolor.applyAsInt(tierColor(type));
+        int joint = recolor.applyAsInt(JOINT_COLOR);
+        int finger = recolor.applyAsInt(FINGER_COLOR);
+        box(vc, p, shoulder, new Vector3f(shoulder).add(0, 0.1f, 0), side, SHOULDER_HALF, joint, light);
+        box(vc, p, new Vector3f(shoulder).add(0, 0.05f, 0), elbow, side, UPPER_HALF, tier, light);
+        box(vc, p, new Vector3f(elbow).sub(0, 0.045f, 0), new Vector3f(elbow).add(0, 0.045f, 0), side, ELBOW_HALF, joint, light);
+        box(vc, p, elbow, new Vector3f(hand).add(0, 0.03f, 0), side, FORE_HALF, tier, light);
+        boolean wide = type == InserterType.STACK;
+        box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.03f, 0), side,
+                wide ? STACK_HAND_HALF : HAND_HALF, joint, light);
+        Vector3f fingerTop = new Vector3f();
+        Vector3f fingerTip = new Vector3f();
+        for (float offset : wide ? STACK_FINGER_OFFSETS : FINGER_OFFSETS) {
+            fingerTop.set(side).mul(offset).add(hand).sub(0, 0.06f, 0);
+            fingerTip.set(fingerTop).sub(0, FINGER_LENGTH, 0);
+            box(vc, p, fingerTop, fingerTip, side, 0.014f, finger, light);
+        }
+        return hand;
     }
 
     /** A square-section box from {@code a} to {@code b}, {@code half} wide; {@code side} is a horizontal axis across it. */
