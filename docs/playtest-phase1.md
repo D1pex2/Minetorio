@@ -92,6 +92,18 @@ Things to check closely:
 - [ ] Press **M**: the full map opens and shows the same explored area.
 - [ ] Break the radar's pole: the dish stops and the status says there is no power.
 
+### Alt mode and area highlights
+
+Check these once in English and once with the game language set to Russian (the key is listed under Controls → Minetorio as "Alt mode (machine icons)" / «Альт-режим (значки машин)»).
+
+- [ ] Press **Left Alt**: the action bar says alt mode is on; press again: off. It is a toggle, not a hold.
+- [ ] With alt mode on, every machine within about 32 blocks shows an icon on a dark rounded square above it, turning to face you: the assembler its recipe's product, the furnace the plate it smelts, drills their ore, the lab the current research (a red pack if the research has no item), the boiler its fuel. Icons behind walls are hidden; far ones are drawn larger so they stay readable.
+- [ ] Warnings flash in the icon's lower right corner (or alone, blinking, when the machine has no icon): red ⚡ no power, yellow ⚡ low power, red coal no fuel, red ✖ no ore field, yellow ! output full, yellow ? no recipe / no research. Break a pole and watch the machines it fed start flashing within half a second.
+- [ ] Inserters show a yellow arrow over their base from the pickup side to the drop side; a burner inserter stuck mid-swing without fuel shows a small flashing badge.
+- [ ] Hold a small electric pole and look at the ground: a pale blue 5×5 square on the terrain shows its supply area, a thin ring its wire reach (7.5), and the supply areas of the poles already placed nearby show faintly, so gaps are easy to see. Looking at a placed pole (empty hand) shows its square and ring.
+- [ ] Hold or look at a burner drill (2×2) or an electric drill (5×5): a green square shows the mining area. Hold or look at a radar: a blue outline marks its 7×7-chunk continuous scan area.
+- [ ] The highlights follow steps in the terrain, do not flicker against the ground, and are not drawn on top of belts or machines.
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
 1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.

@@ -1,10 +1,16 @@
 package dev.minetorio.content.machine;
 
+import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.core.alt.AltInfo;
+import dev.minetorio.core.alt.AltRules;
+import dev.minetorio.core.alt.AltSync;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.core.Units;
+import dev.minetorio.core.area.AreaMath;
+import dev.minetorio.core.area.GroundRect;
 import dev.minetorio.core.orefield.MiningOrder;
 import dev.minetorio.core.orefield.OreType;
 import javax.annotation.Nullable;
@@ -38,10 +44,11 @@ import net.minecraft.world.level.block.state.BlockState;
  * cell in front of the drill ({@link #outputPos()}). A blocked buffer or no field block under the
  * area stop the drill and its energy draw.
  *
- * <p><b>Client sync.</b> Only {@link #isWorking()} (mined with energy this tick) is synced, and
- * only when it changes; the client spins the drill head while it is set.
+ * <p><b>Client sync.</b> {@link #isWorking()} (mined with energy this tick) is synced when it
+ * changes; the client spins the drill head while it is set. The alt-mode info ({@link AltSource})
+ * is synced when it changes, checked every {@value AltSync#PERIOD} ticks.
  */
-public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEntity {
+public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEntity implements AltSource {
     private static final String KEY_PROGRESS = "progress";
     private static final String KEY_OUTPUT = "output";
     private static final String KEY_WORKING = "working";
@@ -63,6 +70,8 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     /** Whether the drill could mine this tick if it had energy (buffer empty, a field block under it). */
     private boolean active;
     private boolean working;
+    private final AltSync altSync = new AltSync();
+    private AltInfo clientAlt = AltInfo.NONE;
 
     // client animation
     private float headAngle;
@@ -83,6 +92,20 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
 
     /** Translation key shown when the drill could mine but gets no energy. */
     protected abstract String noEnergyKey();
+
+    /** Alt-mode energy status (no fuel / no or low power). */
+    protected abstract dev.minetorio.core.alt.AltStatus energyStatus();
+
+    /** Alt mode: the ore of the field block being mined; no ore, output full, energy (see {@link AltRules#drill}). */
+    @Override
+    public AltInfo computeAlt() {
+        OreType ore = target != null && level != null ? OreFields.typeOf(level.getBlockState(target)) : null;
+        return AltRules.drill(ore == null ? null : ore.item(), output.held(), energyStatus());
+    }
+
+    @Override
+    public AltInfo altInfo() { return clientAlt; }
+
 
     public Direction facing() { return getBlockState().getValue(MultiblockControllerBlock.FACING); }
 
@@ -112,12 +135,9 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
     public int[] miningArea() {
         MultiblockShape s = shape();
         Direction f = facing();
-        BlockPos far = worldPosition.relative(f, s.depth() - 1).relative(f.getClockWise(), s.width() - 1);
-        int grow = (areaSize() - Math.max(s.width(), s.depth())) / 2;
-        return new int[] {
-            Math.min(worldPosition.getX(), far.getX()) - grow, Math.min(worldPosition.getZ(), far.getZ()) - grow,
-            Math.max(worldPosition.getX(), far.getX()) + grow, Math.max(worldPosition.getZ(), far.getZ()) + grow
-        };
+        GroundRect r = AreaMath.drillArea(worldPosition.getX(), worldPosition.getZ(), f.getStepX(), f.getStepZ(),
+                s.width(), s.depth(), areaSize());
+        return new int[] {r.minX(), r.minZ(), r.maxX(), r.maxZ()};
     }
 
     /** Height of the layer the drill stands on. */
@@ -205,6 +225,7 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
             setChanged();
         }
         setWorking(level, satisfaction > 0);
+        AltSource.tickAlt(this, altSync);
     }
 
     private void setWorking(Level level, boolean now) {
@@ -261,14 +282,16 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
         if (tag.contains(KEY_PROGRESS)) progress = tag.getDouble(KEY_PROGRESS);
         if (tag.contains(KEY_OUTPUT)) output.load(tag.getCompound(KEY_OUTPUT));
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
+        clientAlt = AltSource.read(tag, clientAlt);
         invalidateTarget();
     }
 
-    /** Only the working flag (see class doc). */
+    /** The working flag and the alt-mode info. */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(KEY_WORKING, working);
+        AltSource.write(tag, this, altSync);
         return tag;
     }
 

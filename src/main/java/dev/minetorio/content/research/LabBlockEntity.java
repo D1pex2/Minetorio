@@ -1,5 +1,9 @@
 package dev.minetorio.content.research;
 
+import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.core.alt.AltInfo;
+import dev.minetorio.core.alt.AltRules;
+import dev.minetorio.core.alt.AltSync;
 import dev.minetorio.content.inserter.MachineEndpoint;
 import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
@@ -44,11 +48,11 @@ import net.neoforged.neoforge.items.IItemHandler;
  * to 2 of each pack); right-click with packs inserts by hand (up to 64). Nothing can be taken out;
  * breaking the lab drops the stored packs and those of the unit in progress.
  *
- * <p><b>Client sync.</b> Only {@link #isWorking()} (researched with power recently) is synced; the
+ * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} (researched with power recently) is synced; the
  * client lights and turns the dome while it is set. It turns on at once and off after
  * {@value #IDLE_GRACE} idle ticks.
  */
-public class LabBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint {
+public class LabBlockEntity extends MultiblockControllerBlockEntity implements MachineEndpoint, AltSource {
     public static final double SPEED = 1.0;
     public static final long POWER = Units.kw(60);
     /** Item handler slots: one per pack type. */
@@ -62,6 +66,8 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
     private final ElectricConsumerHelper power = new ElectricConsumerHelper(this, lab::powerDemand,
             () -> ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())));
     private final IItemHandler itemHandler = new PackHandler();
+    private final AltSync altSync = new AltSync();
+    private AltInfo clientAlt = AltInfo.NONE;
     private boolean working;
     private int idleTicks;
     // client animation
@@ -129,7 +135,19 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
             working = now;
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
+        AltSource.tickAlt(this, altSync);
     }
+
+    /** Alt mode: status only (no research, no or low power); the client draws the research's icon. */
+    @Override
+    public AltInfo computeAlt() {
+        boolean research = level != null && level.getServer() != null
+                && ResearchSavedData.get(level.getServer()).state().current().isPresent();
+        return AltRules.lab(research, AltRules.electric(power.satisfaction()));
+    }
+
+    @Override
+    public AltInfo altInfo() { return clientAlt; }
 
     private int packCount() {
         int n = 0;
@@ -257,6 +275,7 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_LAB)) CoreNbt.loadLabInto(lab, tag.getCompound(KEY_LAB));
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
+        clientAlt = AltSource.read(tag, clientAlt);
     }
 
     /** Only the working flag (see class doc). */
@@ -264,6 +283,7 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(KEY_WORKING, working);
+        AltSource.write(tag, this, altSync);
         return tag;
     }
 

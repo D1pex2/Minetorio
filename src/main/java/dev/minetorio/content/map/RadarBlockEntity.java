@@ -1,5 +1,9 @@
 package dev.minetorio.content.map;
 
+import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.core.alt.AltInfo;
+import dev.minetorio.core.alt.AltRules;
+import dev.minetorio.core.alt.AltSync;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
@@ -33,10 +37,10 @@ import net.minecraft.world.phys.Vec3;
  * target and the charge are saved with the radar; a radar broken and placed again starts its
  * frontier over (explored chunks are skipped at once).
  *
- * <p><b>Client sync.</b> Only {@link #isWorking()} (powered) is synced; the client turns the dish
+ * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} (powered) is synced; the client turns the dish
  * while it is set.
  */
-public class RadarBlockEntity extends MultiblockControllerBlockEntity {
+public class RadarBlockEntity extends MultiblockControllerBlockEntity implements AltSource {
     /** Explored chunks skipped per tick at most while looking for the next frontier chunk. */
     private static final int MAX_SKIPS_PER_TICK = 512;
     /** Dish turn while powered, degrees per tick (client). */
@@ -50,6 +54,8 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
     private final RadarFrontier frontier = new RadarFrontier(RadarLogic.FAR_RADIUS);
     private final ElectricConsumerHelper power = new ElectricConsumerHelper(this, () -> RadarLogic.POWER,
             () -> ElectricConsumerHelper.box(shape().footprint(worldPosition, facing())));
+    private final AltSync altSync = new AltSync();
+    private AltInfo clientAlt = AltInfo.NONE;
     private boolean working;
     /** Frontier chunk handed out and not explored yet, or {@link RadarFrontier#NONE}. */
     private long pendingTarget = RadarFrontier.NONE;
@@ -117,7 +123,15 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
             working = now;
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
+        AltSource.tickAlt(this, altSync);
     }
+
+    /** Alt mode: status only (no or low power). */
+    @Override
+    public AltInfo computeAlt() { return AltRules.statusOnly(AltRules.electric(power.satisfaction())); }
+
+    @Override
+    public AltInfo altInfo() { return clientAlt; }
 
     void tickClient() {
         prevDishAngle = dishAngle;
@@ -175,6 +189,7 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
         if (tag.contains(KEY_PROGRESS)) logic.load(tag.getDouble(KEY_PROGRESS));
         if (tag.contains(KEY_TARGET)) pendingTarget = tag.getLong(KEY_TARGET);
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
+        clientAlt = AltSource.read(tag, clientAlt);
     }
 
     /** Only the working flag (see class doc). */
@@ -182,6 +197,7 @@ public class RadarBlockEntity extends MultiblockControllerBlockEntity {
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(KEY_WORKING, working);
+        AltSource.write(tag, this, altSync);
         return tag;
     }
 
