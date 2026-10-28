@@ -3,6 +3,7 @@ package dev.minetorio.content.drag;
 import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.map.RemoteView;
 import dev.minetorio.content.robot.GhostBlock;
 import dev.minetorio.content.robot.GhostBlockEntity;
 import dev.minetorio.content.robot.GhostItem;
@@ -150,7 +151,8 @@ public final class DragPlacement {
         }
         Kind kind = kindOf(stack);
         if (kind == null || dir == null || !player.level().isLoaded(start)
-                || !player.canInteractWithBlock(start, REACH_TOLERANCE) || (ghost && !HandGhosts.canGhost(stack))) {
+                || !RemoteView.canReach(player, start, REACH_TOLERANCE) || (ghost && !HandGhosts.canGhost(stack))
+                || (!ghost && RemoteView.isRemote(player))) { // the remote view only lays ghosts
             return;
         }
         SESSIONS.put(player.getUUID(), new Session(kind, ghost, (BlockItem) stack.getItem(), player.level().dimension(), start, dir,
@@ -246,7 +248,7 @@ public final class DragPlacement {
 
     private static boolean mayBuild(ServerPlayer player, ServerLevel level, BlockPos pos) {
         return level.isLoaded(pos) && player.mayBuild() && level.mayInteract(player, pos)
-                && player.canInteractWithBlock(pos, REACH_TOLERANCE);
+                && RemoteView.canReach(player, pos, REACH_TOLERANCE);
     }
 
     private static Result placeCell(ServerPlayer player, ServerLevel level, Session s, BlockPos pos, Direction facing) {

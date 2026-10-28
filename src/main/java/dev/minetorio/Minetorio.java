@@ -10,6 +10,7 @@ import dev.minetorio.content.orefield.StartingFields;
 import dev.minetorio.content.power.PowerGridManager;
 import dev.minetorio.content.handcraft.HandcraftTicker;
 import dev.minetorio.content.drag.DragPlacement;
+import dev.minetorio.content.map.RemoteView;
 import dev.minetorio.content.map.WatchedChunks;
 import dev.minetorio.content.map.WorldMap;
 import dev.minetorio.content.registry.ModAttachments;
@@ -57,6 +58,7 @@ public class Minetorio {
         DemoSavedData.register();
         WorldMap.register();
         WatchedChunks.register();
+        RemoteView.register();
         DragPlacement.register();
         DemoCommand.register();
         ConstructionManager.register();

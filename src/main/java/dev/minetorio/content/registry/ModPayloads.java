@@ -5,6 +5,7 @@ import dev.minetorio.content.drag.DragPayloads;
 import dev.minetorio.content.handcraft.HandcraftPayloads;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.map.MapPayloads;
+import dev.minetorio.content.map.RemotePayloads;
 import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.research.ResearchSyncPayload;
 import dev.minetorio.content.research.SelectResearchPayload;
@@ -47,7 +48,13 @@ public final class ModPayloads {
                 .playToServer(DragPayloads.Steps.TYPE, DragPayloads.Steps.STREAM_CODEC, DragPayloads.Steps::handle)
                 .playToServer(GhostPayloads.Place.TYPE, GhostPayloads.Place.STREAM_CODEC, GhostPayloads.Place::handle)
                 .playToServer(GhostPayloads.FromRecipe.TYPE, GhostPayloads.FromRecipe.STREAM_CODEC, GhostPayloads.FromRecipe::handle)
-                .playToServer(GhostPayloads.Pipette.TYPE, GhostPayloads.Pipette.STREAM_CODEC, GhostPayloads.Pipette::handle);
+                .playToServer(GhostPayloads.Pipette.TYPE, GhostPayloads.Pipette.STREAM_CODEC, GhostPayloads.Pipette::handle)
+                .playToServer(RemotePayloads.Enter.TYPE, RemotePayloads.Enter.STREAM_CODEC, RemotePayloads.Enter::handle)
+                .playToServer(RemotePayloads.Move.TYPE, RemotePayloads.Move.STREAM_CODEC, RemotePayloads.Move::handle)
+                .playToServer(RemotePayloads.Exit.TYPE, RemotePayloads.Exit.STREAM_CODEC, RemotePayloads.Exit::handle)
+                .playToServer(RemotePayloads.OpenMenu.TYPE, RemotePayloads.OpenMenu.STREAM_CODEC, RemotePayloads.OpenMenu::handle)
+                .playToServer(RemotePayloads.RemoveGhost.TYPE, RemotePayloads.RemoveGhost.STREAM_CODEC, RemotePayloads.RemoveGhost::handle)
+                .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

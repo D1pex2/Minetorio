@@ -3,6 +3,7 @@ package dev.minetorio.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.minetorio.Minetorio;
 import dev.minetorio.client.alt.AltMode;
+import dev.minetorio.client.camera.BuildCamera;
 import dev.minetorio.client.handcraft.HandcraftScreen;
 import dev.minetorio.client.research.ResearchScreen;
 import net.minecraft.client.KeyMapping;
@@ -48,9 +49,9 @@ public final class ModKeys {
                 && InputConstants.isKeyDown(Minecraft.getInstance().getWindow().getWindow(), key.getValue());
     }
 
-    /** Whether the ghost key is held (in game, no screen open). */
+    /** Whether the ghost key is held (in game, no screen open); always in the remote view, where every placement is a ghost. */
     public static boolean ghostHeld() {
-        return Minecraft.getInstance().screen == null && GHOST.isDown();
+        return Minecraft.getInstance().screen == null && (GHOST.isDown() || BuildCamera.isRemote());
     }
 
     @SubscribeEvent

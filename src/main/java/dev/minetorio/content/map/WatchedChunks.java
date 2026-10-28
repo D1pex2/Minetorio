@@ -128,4 +128,16 @@ public final class WatchedChunks {
         coverage(server);
         coverage = new WatchCoverage();
     }
+
+    /** Marks the chunks around {@code centerChunk} as watched by a stand-in radar {@code id} (GameTests only). */
+    public static void watchForTests(ServerLevel level, long id, int centerX, int centerZ, int radius) {
+        if (!(level.getServer() instanceof net.minecraft.gametest.framework.GameTestServer)) throw new IllegalStateException("GameTest server only");
+        watch(level, id, ChunkKeys.of(centerX, centerZ), radius);
+    }
+
+    /** Removes the stand-in radar {@code id} of {@link #watchForTests} (GameTests only). */
+    public static void unwatchForTests(ServerLevel level, long id) {
+        if (!(level.getServer() instanceof net.minecraft.gametest.framework.GameTestServer)) throw new IllegalStateException("GameTest server only");
+        unwatch(level, id);
+    }
 }

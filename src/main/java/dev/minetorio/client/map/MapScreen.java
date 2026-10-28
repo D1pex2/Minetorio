@@ -1,9 +1,11 @@
 package dev.minetorio.client.map;
 
+import dev.minetorio.client.camera.RemoteViewClient;
 import dev.minetorio.content.map.ClientMapData;
 import dev.minetorio.content.map.ClientWatchedChunks;
 import java.util.ArrayList;
 import java.util.List;
+import dev.minetorio.core.camera.RemoteArea;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -17,6 +19,10 @@ import net.minecraft.world.level.Level;
  * bottom. Chunks a working radar watches right now are tinted and outlined
  * ({@link RadarCoverageOverlay}). Opens centered on the player. Overworld only: elsewhere it says the map is unavailable.
  * Does not pause the game.
+ *
+ * <p>Remote view: at the closest zoom, a left click (without dragging) or one more wheel notch in
+ * over a chunk a radar watches (or that the player sees himself) asks for the remote view there
+ * ({@link RemoteViewClient}); Esc in the remote view comes back here, centred on that place.
  */
 public class MapScreen extends Screen {
     /**
@@ -32,6 +38,8 @@ public class MapScreen extends Screen {
     private double cx;
     private double cz;
     private float scale = lastScale;
+    private double pressX = Double.NaN, pressY = Double.NaN;
+    private boolean dragged;
 
     public MapScreen() {
         super(Component.translatable("minetorio.map.title"));
@@ -40,6 +48,26 @@ public class MapScreen extends Screen {
             cx = mc.player.getX();
             cz = mc.player.getZ();
         }
+    }
+
+    /** The map centred on block column {@code (x, z)} (coming back from the remote view). */
+    public MapScreen(double x, double z) {
+        this();
+        cx = x;
+        cz = z;
+    }
+
+    /** Whether the map is zoomed in all the way (where the remote view starts). */
+    private boolean atMaxZoom() {
+        return scale >= MAX_SCALE - 1e-3f;
+    }
+
+    private double worldX(double mouseX) {
+        return cx + (mouseX - width / 2.0) / scale;
+    }
+
+    private double worldZ(double mouseY) {
+        return cz + (mouseY - height / 2.0) / scale;
     }
 
     static boolean available() {
@@ -70,6 +98,9 @@ public class MapScreen extends Screen {
             lines.add(Component.translatable("minetorio.map.unexplored"));
         } else {
             if (ClientWatchedChunks.isWatched(bx >> 4, bz >> 4)) lines.add(Component.translatable("minetorio.map.watched"));
+            if (RemoteViewClient.eligible(bx >> 4, bz >> 4)) {
+                lines.add(Component.translatable(atMaxZoom() ? "minetorio.map.remote_click" : "minetorio.map.remote_zoom"));
+            }
             for (MapHoverInfo p : MapHoverInfo.PROVIDERS) p.appendLines(bx, bz, color, lines);
             MapHoverInfo.MapView view = new MapHoverInfo.MapView(cx, cz, scale, 0, 0, width, height);
             g.enableScissor(0, 0, width, height);
@@ -79,6 +110,8 @@ public class MapScreen extends Screen {
         MapOverlay.drawPlayers(g, cx, cz, scale, 0, 0, width, height, partialTick);
         g.drawCenteredString(font, Component.translatable("minetorio.map.help", MapKeys.MAP.getTranslatedKeyMessage()),
                 width / 2, 6, 0xFFB0B0B0);
+        Component status = RemoteViewClient.message();
+        if (status != null) g.drawCenteredString(font, status, width / 2, 18, 0xFFFF8080);
         int y = height - 6 - lines.size() * 10;
         for (Component line : lines) {
             g.drawString(font, line, 6, y, 0xFFFFFFFF, true);
@@ -88,14 +121,41 @@ public class MapScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (!Double.isNaN(pressX) && Math.abs(mouseX - pressX) + Math.abs(mouseY - pressY) > 3) dragged = true;
         cx -= dragX / scale;
         cz -= dragY / scale;
         return true;
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            pressX = mouseX;
+            pressY = mouseY;
+            dragged = false;
+        }
+        return super.mouseClicked(mouseX, mouseY, button) || button == 0;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && !Double.isNaN(pressX) && !dragged && available() && atMaxZoom()) {
+            RemoteViewClient.requestEnter(worldX(mouseX), worldZ(mouseY));
+        }
+        if (button == 0) pressX = pressY = Double.NaN;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (scrollY == 0) return false;
+        if (scrollY > 0 && atMaxZoom() && available()) { // zooming in past the closest zoom: into the remote view
+            double wx = worldX(mouseX), wz = worldZ(mouseY);
+            if (RemoteViewClient.eligible(RemoteArea.chunkOf(wx), RemoteArea.chunkOf(wz))) {
+                RemoteViewClient.requestEnter(wx, wz);
+                return true;
+            }
+        }
         double wx = cx + (mouseX - width / 2.0) / scale, wz = cz + (mouseY - height / 2.0) / scale;
         float min = MIN_SCREEN_PX_PER_BLOCK / (float) Minecraft.getInstance().getWindow().getGuiScale();
         scale = Mth.clamp(scale * (float) Math.pow(ZOOM_STEP, scrollY), min, MAX_SCALE);
