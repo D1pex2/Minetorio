@@ -67,7 +67,8 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InserterBlockEntity>> INSERTER =
             BLOCK_ENTITIES.register("inserter", () -> BlockEntityType.Builder
                     .of(InserterBlockEntity::new, ModBlocks.BURNER_INSERTER.get(), ModBlocks.INSERTER.get(),
-                            ModBlocks.LONG_HANDED_INSERTER.get(), ModBlocks.FAST_INSERTER.get()).build(null));
+                            ModBlocks.LONG_HANDED_INSERTER.get(), ModBlocks.FAST_INSERTER.get(),
+                            ModBlocks.FILTER_INSERTER.get(), ModBlocks.STACK_INSERTER.get()).build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BurnerDrillBlockEntity>> BURNER_MINING_DRILL =
             BLOCK_ENTITIES.register("burner_mining_drill", () -> BlockEntityType.Builder

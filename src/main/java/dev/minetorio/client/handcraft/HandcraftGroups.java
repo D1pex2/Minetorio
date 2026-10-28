@@ -39,6 +39,8 @@ public final class HandcraftGroups {
             Map.entry("inserter", Group.LOGISTICS),
             Map.entry("long_handed_inserter", Group.LOGISTICS),
             Map.entry("fast_inserter", Group.LOGISTICS),
+            Map.entry("filter_inserter", Group.LOGISTICS),
+            Map.entry("stack_inserter", Group.LOGISTICS),
             Map.entry("pipe", Group.LOGISTICS),
             Map.entry("small_electric_pole", Group.LOGISTICS),
             Map.entry("roboport", Group.LOGISTICS),

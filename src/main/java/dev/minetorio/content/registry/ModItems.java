@@ -53,6 +53,8 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.INSERTER);
     public static final DeferredItem<BlockItem> LONG_HANDED_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.LONG_HANDED_INSERTER);
     public static final DeferredItem<BlockItem> FAST_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_INSERTER);
+    public static final DeferredItem<BlockItem> FILTER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FILTER_INSERTER);
+    public static final DeferredItem<BlockItem> STACK_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.STACK_INSERTER);
 
     // Steam power
     public static final DeferredItem<BlockItem> OFFSHORE_PUMP = multiblock(ModBlocks.OFFSHORE_PUMP);
@@ -74,7 +76,7 @@ public final class ModItems {
             "transport_belt", "fast_transport_belt", "express_transport_belt",
             "underground_belt", "fast_underground_belt", "express_underground_belt",
             "splitter", "fast_splitter", "express_splitter",
-            "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter",
+            "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
             "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
             "roboport", "construction_robot");
 

@@ -2,6 +2,7 @@ package dev.minetorio.content.inserter;
 
 import dev.minetorio.content.belt.LaneStacks;
 import dev.minetorio.content.machine.MachineItems;
+import dev.minetorio.content.nbt.CopyableSettings;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
@@ -10,6 +11,7 @@ import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.inserter.DropTarget;
 import dev.minetorio.core.inserter.InserterLogic;
 import dev.minetorio.core.inserter.InserterType;
+import dev.minetorio.core.inserter.ItemFilter;
 import dev.minetorio.core.inserter.PickupSource;
 import dev.minetorio.core.machine.Burner;
 import java.util.Map;
@@ -44,11 +46,17 @@ import net.minecraft.world.phys.AABB;
  * changes; the client then ticks its own copy of the logic with an empty source and a refusing
  * target, which reproduces the arm motion between those events (the arm goes to the target and
  * waits there, or returns and waits at the pickup). The renderer interpolates with the partial tick.
+ * The settings (a filter inserter's filter) are in the update tag too.
+ *
+ * <p><b>Settings.</b> {@link #saveSettings()}/{@link #loadSettings} copy the filter (whitelist or
+ * blacklist and the filter items) of a filter inserter; other inserters have none.
  */
-public class InserterBlockEntity extends BlockEntity {
+public class InserterBlockEntity extends BlockEntity implements CopyableSettings {
     private static final String KEY_LOGIC = "logic";
     private static final String KEY_BURNER = "burner";
     private static final String KEY_RATE = "rate";
+    private static final String KEY_SETTINGS = "settings";
+    private static final String KEY_FILTER = "filter";
     /** Re-sync the arm speed when it drifts this much from what the client was told. */
     private static final double RATE_SYNC_DELTA = 0.05;
 
@@ -64,6 +72,7 @@ public class InserterBlockEntity extends BlockEntity {
     // sync bookkeeping (server) / arm motion (client)
     @Nullable
     private String syncedHeld;
+    private int syncedCount;
     private double rate;
     private boolean working;
     private boolean syncedOnce;
@@ -164,7 +173,7 @@ public class InserterBlockEntity extends BlockEntity {
      */
     private double burnerSatisfaction(PickupSource src, DropTarget dst) {
         boolean starting = logic.held() == null && !logic.isMoving() && logic.armProgress() == 0
-                && src.peek(dst::wants).isPresent();
+                && logic.canPickUp(src, dst);
         return logic.isMoving() || starting ? burner.draw() : 0;
     }
 
@@ -184,11 +193,13 @@ public class InserterBlockEntity extends BlockEntity {
     private void sync(Level level, double satisfaction) {
         double newRate = logic.isMoving() ? satisfaction : rate;
         boolean newWorking = logic.isMoving() && satisfaction > 0;
-        boolean changed = !syncedOnce || !Objects.equals(syncedHeld, logic.held()) || newWorking != working
+        boolean changed = !syncedOnce || !Objects.equals(syncedHeld, logic.held()) || syncedCount != logic.heldCount()
+                || newWorking != working
                 || logic.isMoving() && Math.abs(newRate - rate) > RATE_SYNC_DELTA;
         if (!changed) return;
         syncedOnce = true;
         syncedHeld = logic.held();
+        syncedCount = logic.heldCount();
         rate = newRate;
         working = newWorking;
         level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
@@ -199,11 +210,56 @@ public class InserterBlockEntity extends BlockEntity {
     /** Drops the held item and the unburnt fuel (server side) and empties both. */
     public void dropContents() {
         if (level == null || level.isClientSide()) return;
+        int n = logic.heldCount();
         String held = logic.takeHeld();
-        if (held != null) LaneStacks.drop(level, worldPosition, held);
+        for (int i = 0; held != null && i < n; i++) LaneStacks.drop(level, worldPosition, held);
         if (burner == null) return;
         MachineItems.drop(level, worldPosition, burner.fuel());
         burner.load(Map.of(), burner.remainingJ());
+    }
+
+    // --- settings ----------------------------------------------------------------------------------
+
+    /** The filter of a filter inserter (read-only use; change it through {@link #setFilter}/{@link #setBlacklist}), or null. */
+    @Nullable
+    public ItemFilter filter() { return logic.filter(); }
+
+    /** Sets filter slot {@code slot} to an item id (null clears it); no-op without a filter or out of range. */
+    public void setFilter(int slot, @Nullable String item) {
+        ItemFilter f = logic.filter();
+        if (f == null || slot < 0 || slot >= f.size()) return;
+        f.set(slot, item);
+        settingsChanged();
+    }
+
+    /** Switches the filter between whitelist and blacklist; no-op without a filter. */
+    public void setBlacklist(boolean blacklist) {
+        ItemFilter f = logic.filter();
+        if (f == null) return;
+        f.setBlacklist(blacklist);
+        settingsChanged();
+    }
+
+    @Override
+    public CompoundTag saveSettings() {
+        CompoundTag tag = new CompoundTag();
+        if (logic.filter() != null) tag.put(KEY_FILTER, CoreNbt.write(logic.filter().save()));
+        return tag;
+    }
+
+    @Override
+    public void loadSettings(CompoundTag tag) {
+        readSettings(tag);
+        settingsChanged();
+    }
+
+    private void readSettings(CompoundTag tag) {
+        if (logic.filter() != null && tag.contains(KEY_FILTER)) logic.filter().load(CoreNbt.read(tag.getCompound(KEY_FILTER)));
+    }
+
+    private void settingsChanged() {
+        setChanged();
+        if (level != null && !level.isClientSide()) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
     }
 
     // --- persistence and sync ------------------------------------------------------------------------
@@ -213,6 +269,7 @@ public class InserterBlockEntity extends BlockEntity {
         super.saveAdditional(tag, registries);
         tag.put(KEY_LOGIC, CoreNbt.write(logic.save()));
         if (burner != null) tag.put(KEY_BURNER, CoreNbt.writeBurner(burner));
+        tag.put(KEY_SETTINGS, saveSettings());
     }
 
     @Override
@@ -220,6 +277,7 @@ public class InserterBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_LOGIC)) logic.load(CoreNbt.read(tag.getCompound(KEY_LOGIC)));
         if (burner != null && tag.contains(KEY_BURNER)) CoreNbt.loadBurnerInto(burner, tag.getCompound(KEY_BURNER));
+        if (tag.contains(KEY_SETTINGS)) readSettings(tag.getCompound(KEY_SETTINGS));
         if (tag.contains(KEY_RATE)) { // client update
             rate = tag.getDouble(KEY_RATE);
             working = logic.isMoving() && rate > 0;
@@ -232,6 +290,7 @@ public class InserterBlockEntity extends BlockEntity {
         CompoundTag tag = new CompoundTag();
         tag.put(KEY_LOGIC, CoreNbt.write(logic.save()));
         tag.putDouble(KEY_RATE, rate);
+        tag.put(KEY_SETTINGS, saveSettings());
         return tag;
     }
 

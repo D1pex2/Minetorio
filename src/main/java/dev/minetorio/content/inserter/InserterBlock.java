@@ -8,7 +8,11 @@ import dev.minetorio.core.inserter.InserterType;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -35,7 +39,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * Inserter (all four types). {@link #FACING} is the drop direction (the player's horizontal look
  * direction at placement); items are picked up {@code reach} blocks behind and dropped
  * {@code reach} blocks ahead. The base is a block model; the arm is drawn by a block entity
- * renderer. A burner inserter is fuelled by right-clicking it with fuel.
+ * renderer. A burner inserter is fuelled by right-clicking it with fuel; right-clicking a filter
+ * inserter opens its filter GUI ({@link InserterFilterMenu}).
  */
 public class InserterBlock extends BaseEntityBlock {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -110,6 +115,17 @@ public class InserterBlock extends BaseEntityBlock {
         if (accepted == 0) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         stack.consume(accepted, player);
         return ItemInteractionResult.CONSUME;
+    }
+
+    /** Filter inserter: opens the filter GUI. */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (type.filterSlots == 0) return InteractionResult.PASS;
+        if (level.isClientSide()) return InteractionResult.SUCCESS;
+        if (!(level.getBlockEntity(pos) instanceof InserterBlockEntity) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
+        sp.openMenu(new SimpleMenuProvider((id, inventory, p) -> new InserterFilterMenu(id, inventory, pos),
+                Component.translatable(getDescriptionId())), pos);
+        return InteractionResult.CONSUME;
     }
 
     /** Drops the item in the hand and the fuel; the inserter item itself comes from the loot table. */

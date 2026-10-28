@@ -39,12 +39,14 @@ public final class Phase1Data {
         return new TechTree(List.of(
                 tech("automation", "", "automation", 10, 10, "assembling_machine_1,long_handed_inserter"),
                 tech("logistics", "", "automation", 20, 15, "underground_belt,splitter"),
-                tech("fast_inserter", "automation", "automation", 30, 15, "fast_inserter"),
+                tech("fast_inserter", "automation", "automation", 30, 15, "fast_inserter,filter_inserter"),
                 tech("logistic_science_pack", "", "automation", 75, 5, "logistic_science_pack"),
                 tech("automation_2", "automation,logistic_science_pack", "automation,logistic", 40, 15,
                         "assembling_machine_2"),
                 tech("logistics_2", "logistics,logistic_science_pack", "automation,logistic", 200, 30,
                         "fast_transport_belt,fast_underground_belt,fast_splitter"),
+                // TEMP: Factorio 1.1 also requires advanced electronics (oil stage)
+                tech("stack_inserter", "fast_inserter,logistics_2", "automation,logistic", 150, 30, "stack_inserter"),
                 // TEMP: red + green until the oil stage; Factorio's construction robotics needs more
                 tech("construction_robotics", "automation,logistic_science_pack", "automation,logistic", 100, 30,
                         "roboport,construction_robot")));
@@ -96,6 +98,9 @@ public final class Phase1Data {
         r.add(craft("inserter", "1 electronic_circuit, 1 iron_gear_wheel, 1 iron_plate", 1, 0.5));
         r.add(craft("long_handed_inserter", "1 inserter, 1 iron_gear_wheel, 1 iron_plate", 1, 0.5));
         r.add(craft("fast_inserter", "2 electronic_circuit, 2 iron_plate, 1 inserter", 1, 0.5));
+        r.add(craft("filter_inserter", "1 fast_inserter, 4 electronic_circuit", 1, 0.5));
+        // TEMP until the oil stage: Factorio's 1 advanced circuit becomes 2 more electronic circuits
+        r.add(craft("stack_inserter", "15 iron_gear_wheel, 17 electronic_circuit, 1 fast_inserter", 1, 0.5));
         r.add(craft("assembling_machine_1", "3 electronic_circuit, 5 iron_gear_wheel, 9 iron_plate", 1, 0.5));
         r.add(craft("assembling_machine_2",
                 "2 iron_plate, 3 electronic_circuit, 5 iron_gear_wheel, 1 assembling_machine_1", 1, 0.5));
@@ -130,7 +135,7 @@ public final class Phase1Data {
 
     private static Set<String> buildStart() {
         Set<String> locked = Set.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
-                "fast_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot");
+                "fast_inserter", "filter_inserter", "stack_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot");
         Set<String> s = new LinkedHashSet<>();
         for (Recipe r : BOOK.all()) {
             if (r.category() == RecipeCategory.CRAFTING

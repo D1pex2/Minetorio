@@ -262,9 +262,9 @@ def pairs(group_a, group_b, everything):
 # --------------------------------------------------------------------------- composites
 
 
-def inserter_arm(reach, arm, facing_deg=0):
+def inserter_arm(reach, arm, facing_deg=0, hand_half=0.05):
     """Joint, arm and hand boxes of InserterRenderer.render (client/inserter/InserterRenderer.java:97-111, the
-    claw fingers left out), in model pixels, for facing north (heading toward the pickup = north at arm 0)."""
+    claw fingers left out; hand_half 0.085 for the stack inserter), in model pixels, for facing north (heading toward the pickup = north at arm 0)."""
     SHOULDER_Y, ELBOW_RISE, ELBOW_RISE_PER_REACH, ELBOW_AT, HAND_RISE, HAND_REACH = 5.5 / 16, 0.40, 0.06, 0.1, 0.2, 0.85
     a = math.pi * arm
     c, s = -math.cos(a), math.sin(a)
@@ -280,7 +280,7 @@ def inserter_arm(reach, arm, facing_deg=0):
                          (add(shoulder, (0, 0.05, 0)), elbow, 0.035),
                          (sub(elbow, (0, 0.045, 0)), add(elbow, (0, 0.045, 0)), 0.045),
                          (elbow, add(hand, (0, 0.03, 0)), 0.024),
-                         (sub(hand, (0, 0.06, 0)), add(hand, (0, 0.03, 0)), 0.05)):
+                         (sub(hand, (0, 0.06, 0)), add(hand, (0, 0.03, 0)), hand_half)):
         u = norm(sub(b0, a0))
         sv = norm(side)
         vv = norm(cross(u, sv))
@@ -362,8 +362,10 @@ COMPOSITES = [
                              ("top", M("small_electric_pole_top"), [[("t", (0, 32, 0), None)]])]),
     # InserterRenderer.java:97-111: procedural arm over the template_inserter base (shoulder at y 5.5 px).
     *[(f"{n}+arm", [("base", M(n), [[]]),
-                    ("arm", lambda r=r: [inserter_arm(r, arm) for arm in (0, 0.25, 0.5, 0.75, 1)], None)])
-      for n, r in (("burner_inserter", 1), ("inserter", 1), ("long_handed_inserter", 2), ("fast_inserter", 1))],
+                    ("arm", lambda r=r, hh=hh: [inserter_arm(r, arm, hand_half=hh) for arm in (0, 0.25, 0.5, 0.75, 1)],
+                     None)])
+      for n, r, hh in (("burner_inserter", 1, 0.05), ("inserter", 1, 0.05), ("long_handed_inserter", 2, 0.05),
+                       ("fast_inserter", 1, 0.05), ("filter_inserter", 1, 0.05), ("stack_inserter", 1, 0.085))],
     # blockstates/pipe.json: core + four sides (y 0/90/180/270) + up + down.
     ("pipe(all arms)", [("core", M("pipe_core"), [[]]),
                         *[(f"side{y}", M("pipe_side"), [[blockstate_y(y)]]) for y in (0, 90, 180, 270)],

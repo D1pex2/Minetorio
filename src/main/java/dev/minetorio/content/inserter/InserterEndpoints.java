@@ -110,6 +110,9 @@ public final class InserterEndpoints {
                 LaneSide side = frontMostSide(belt, item::equals);
                 return side != null && belt.lane(side).takeFirstMatching(item::equals).isPresent();
             }
+
+            @Override
+            public boolean streaming() { return true; }
         };
     }
 

@@ -216,5 +216,11 @@
   "minetorio.roboport.energy": "Energy: %s / %s MJ",
   "minetorio.roboport.area": "Construction area: %s×%s",
   "minetorio.drones.built": "Construction robots showcase built: the robots will build the ghosts from the chest.",
-  "minetorio.drones.failed": "Could not build the robots showcase: %s"
+  "minetorio.drones.failed": "Could not build the robots showcase: %s",
+  "block.minetorio.filter_inserter": "Filter Inserter",
+  "block.minetorio.stack_inserter": "Stack Inserter",
+  "technology.minetorio.stack_inserter": "Stack Inserter",
+  "minetorio.filter_inserter.whitelist": "Mode: whitelist",
+  "minetorio.filter_inserter.blacklist": "Mode: blacklist",
+  "minetorio.filter_inserter.hint": "Click a slot with an item to set it"
 }

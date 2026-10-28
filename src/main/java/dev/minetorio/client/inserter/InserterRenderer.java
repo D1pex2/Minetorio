@@ -28,6 +28,7 @@ import org.joml.Vector3f;
  * hanging from it, all in the vertical plane of the arm's heading. Long-handed arms reach twice as far.
  * The heading turns 180° about the base through the inserter's right side as {@code armProgress}
  * goes 0 (hand over the pickup block) → 1 (over the drop block). The held item hangs under the claw.
+ * The stack inserter has a wider hand with its fingers further apart (Factorio's big green claw).
  */
 public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity> {
     private static final ResourceLocation ARM_TEXTURE = ResourceLocation.fromNamespaceAndPath("minetorio", "textures/block/steel.png");
@@ -46,10 +47,12 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
     private static final float ELBOW_HALF = 0.045f;
     private static final float FORE_HALF = 0.024f;
     private static final float HAND_HALF = 0.05f;
+    private static final float STACK_HAND_HALF = 0.085f;
     private static final int MAX_CACHED_STACKS = 64;
     private static final int JOINT_COLOR = 0xFF3A3D41;
     /** Claw fingers: sideways offsets from the hand center, length and color. */
     private static final float[] FINGER_OFFSETS = {-0.045f, 0.045f};
+    private static final float[] STACK_FINGER_OFFSETS = {-0.075f, -0.025f, 0.025f, 0.075f};
     private static final float FINGER_LENGTH = 0.1f;
     private static final int FINGER_COLOR = 0xFFB4B8BC;
 
@@ -75,6 +78,8 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
             case BASIC -> 0xFFE8B820;
             case LONG -> 0xFFC83A30;
             case FAST -> 0xFF3A78D8;
+            case FILTER -> 0xFF8A3AC8;
+            case STACK -> 0xFF4FB83A;
         };
     }
 
@@ -108,8 +113,10 @@ public class InserterRenderer implements BlockEntityRenderer<InserterBlockEntity
         box(vc, p, new Vector3f(shoulder).add(0, 0.05f, 0), elbow, side, UPPER_HALF, tier, light);
         box(vc, p, new Vector3f(elbow).sub(0, 0.045f, 0), new Vector3f(elbow).add(0, 0.045f, 0), side, ELBOW_HALF, JOINT_COLOR, light);
         box(vc, p, elbow, new Vector3f(hand).add(0, 0.03f, 0), side, FORE_HALF, tier, light);
-        box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.03f, 0), side, HAND_HALF, JOINT_COLOR, light);
-        for (float offset : FINGER_OFFSETS) {
+        boolean wide = type == InserterType.STACK;
+        box(vc, p, new Vector3f(hand).sub(0, 0.06f, 0), new Vector3f(hand).add(0, 0.03f, 0), side,
+                wide ? STACK_HAND_HALF : HAND_HALF, JOINT_COLOR, light);
+        for (float offset : wide ? STACK_FINGER_OFFSETS : FINGER_OFFSETS) {
             fingerTop.set(side).mul(offset).add(hand).sub(0, 0.06f, 0);
             fingerTip.set(fingerTop).sub(0, FINGER_LENGTH, 0);
             box(vc, p, fingerTop, fingerTip, side, 0.014f, FINGER_COLOR, light);

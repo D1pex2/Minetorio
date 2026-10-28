@@ -22,6 +22,7 @@ T = "minetorio:block/"
 # InserterRenderer's arm (client/inserter/InserterRenderer.java), in blocks
 SHOULDER_Y, ELBOW_RISE, ELBOW_RISE_PER_REACH, ELBOW_AT, HAND_RISE, HAND_REACH = 5.5 / 16, 0.40, 0.06, 0.1, 0.2, 0.85
 SHOULDER_HALF, UPPER_HALF, ELBOW_HALF, FORE_HALF, HAND_HALF = 0.065, 0.035, 0.045, 0.024, 0.05
+STACK_HAND_HALF = 0.085
 
 
 def segment(a, b, half, tex):
@@ -38,7 +39,7 @@ def segment(a, b, half, tex):
             "rotation": {"axis": "x", "angle": angle, "origin": a}, "faces": faces}
 
 
-def inserter(name, reach, tier_tex):
+def inserter(name, reach, tier_tex, hand_half=HAND_HALF):
     """The base and the arm reaching toward the pickup side (north, arm progress 0)."""
     radius = HAND_REACH * reach
     shoulder = (0.5, SHOULDER_Y, 0.5)
@@ -51,7 +52,7 @@ def inserter(name, reach, tier_tex):
             segment(up(shoulder, 0.05), elbow, UPPER_HALF, tier_tex),
             segment(up(elbow, 0.045), up(elbow, -0.045), ELBOW_HALF, joint),
             segment(elbow, up(hand, 0.03), FORE_HALF, tier_tex),
-            segment(up(hand, 0.03), up(hand, -0.06), HAND_HALF, joint)]
+            segment(up(hand, 0.03), up(hand, -0.06), hand_half, joint)]
     return els
 
 
@@ -83,6 +84,9 @@ MACHINES = [
     ("inserter.png", "inserter (in world, reaching north)", lambda: inserter("inserter", 1, T + "tier_yellow"), 90),
     ("long_handed_inserter.png", "long-handed inserter (in world)",
      lambda: inserter("long_handed_inserter", 2, T + "tier_red"), 90),
+    ("filter_inserter.png", "filter inserter (in world)", lambda: inserter("filter_inserter", 1, T + "tier_purple"), 90),
+    ("stack_inserter.png", "stack inserter (in world, wide hand)",
+     lambda: inserter("stack_inserter", 1, T + "tier_green", STACK_HAND_HALF), 90),
     ("offshore_pump.png", "offshore pump (water north)", lambda: placed(B + "offshore_pump"), 90),
     ("small_electric_pole.png", "small electric pole (3 high)",
      lambda: placed(B + "small_electric_pole") + placed(B + "small_electric_pole_middle", dy=16)

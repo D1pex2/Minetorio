@@ -9,14 +9,14 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
 class InserterLogicTest {
-    static final class Src implements PickupSource {
+    static class Src implements PickupSource {
         final List<String> items = new ArrayList<>();
         Src(String... i) { items.addAll(List.of(i)); }
         public Optional<String> peek(Predicate<String> w) { return items.stream().filter(w).findFirst(); }
         public boolean take(String item) { return items.remove(item); }
     }
 
-    static final class Dst implements DropTarget {
+    static class Dst implements DropTarget {
         final List<String> got = new ArrayList<>();
         boolean open = true;
         String only;

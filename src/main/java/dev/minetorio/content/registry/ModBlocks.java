@@ -93,6 +93,10 @@ public final class ModBlocks {
             p -> new InserterBlock(InserterType.LONG, p), belt(MapColor.COLOR_RED));
     public static final DeferredBlock<InserterBlock> FAST_INSERTER = BLOCKS.registerBlock("fast_inserter",
             p -> new InserterBlock(InserterType.FAST, p), belt(MapColor.COLOR_BLUE));
+    public static final DeferredBlock<InserterBlock> FILTER_INSERTER = BLOCKS.registerBlock("filter_inserter",
+            p -> new InserterBlock(InserterType.FILTER, p), belt(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<InserterBlock> STACK_INSERTER = BLOCKS.registerBlock("stack_inserter",
+            p -> new InserterBlock(InserterType.STACK, p), belt(MapColor.COLOR_GREEN));
 
     // Steam power
     public static final DeferredBlock<OffshorePumpBlock> OFFSHORE_PUMP = BLOCKS.registerBlock("offshore_pump",
