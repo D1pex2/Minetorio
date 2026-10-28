@@ -6,6 +6,7 @@ import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.core.belt.BeltLane;
 import dev.minetorio.core.belt.BeltTier;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -80,7 +81,19 @@ public class SplitterBlock extends MultiblockControllerBlock {
         SplitterBlock next = FastReplace.target(stack, this, SplitterBlock.class, player, level, pos);
         if (next == null || !FastReplace.canPay(player, stack, 1)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
-        if (!(level.getBlockEntity(pos) instanceof SplitterBlockEntity old)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        BlockState placed = replaceTier(level, pos, state, next);
+        if (placed == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        FastReplace.finish(level, pos, placed, player, stack, this, 1);
+        return ItemInteractionResult.CONSUME;
+    }
+
+    /**
+     * Swaps the splitter whose controller is at {@code pos} for {@code next} in place (server side),
+     * same facing and footprint, lane contents kept; the placed state, or null when there is none.
+     */
+    @Nullable
+    public static BlockState replaceTier(Level level, BlockPos pos, BlockState state, SplitterBlock next) {
+        if (!(level.getBlockEntity(pos) instanceof SplitterBlockEntity old)) return null;
         List<BeltLane> lanes = old.takeLanes();
         BlockState placed = next.defaultBlockState().setValue(FACING, state.getValue(FACING));
         // The old controller's removal dismantles its (now empty) structure; the new one re-places the part.
@@ -90,8 +103,7 @@ public class SplitterBlock extends MultiblockControllerBlock {
         } else {
             for (BeltLane lane : lanes) LaneStacks.drop(level, pos, lane);
         }
-        FastReplace.finish(level, pos, placed, player, stack, this, 1);
-        return ItemInteractionResult.CONSUME;
+        return placed;
     }
 
     @Override

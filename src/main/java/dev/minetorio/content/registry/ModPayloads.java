@@ -23,7 +23,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Custom network payloads (handlers run on the main thread). */
 public final class ModPayloads {
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
 
     private ModPayloads() {}
 
@@ -54,7 +54,17 @@ public final class ModPayloads {
                 .playToServer(RemotePayloads.Exit.TYPE, RemotePayloads.Exit.STREAM_CODEC, RemotePayloads.Exit::handle)
                 .playToServer(RemotePayloads.OpenMenu.TYPE, RemotePayloads.OpenMenu.STREAM_CODEC, RemotePayloads.OpenMenu::handle)
                 .playToServer(RemotePayloads.RemoveGhost.TYPE, RemotePayloads.RemoveGhost.STREAM_CODEC, RemotePayloads.RemoveGhost::handle)
-                .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle);
+                .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.Select.TYPE, dev.minetorio.content.robot.PlannerPayloads.Select.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.Select::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.SetFilter.TYPE, dev.minetorio.content.robot.PlannerPayloads.SetFilter.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.SetFilter::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.SetRules.TYPE, dev.minetorio.content.robot.PlannerPayloads.SetRules.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.SetRules::handle)
+                .playToServer(dev.minetorio.content.robot.PlannerPayloads.Give.TYPE, dev.minetorio.content.robot.PlannerPayloads.Give.STREAM_CODEC,
+                        dev.minetorio.content.robot.PlannerPayloads.Give::handle)
+                .playToClient(dev.minetorio.content.robot.MarkPayloads.Chunk.TYPE, dev.minetorio.content.robot.MarkPayloads.Chunk.STREAM_CODEC,
+                        dev.minetorio.content.robot.MarkPayloads.Chunk::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

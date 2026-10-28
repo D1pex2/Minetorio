@@ -192,6 +192,31 @@ public class UndergroundBeltBlock extends BaseEntityBlock {
         return ItemInteractionResult.CONSUME;
     }
 
+    /** The paired partner of the piece at {@code pos}, or null when it is unpaired. */
+    @Nullable
+    public static BlockPos pairedPartner(Level level, BlockPos pos) {
+        if (!(level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be)) return null;
+        BlockPos partnerPos = be.partnerPos();
+        return partnerPos != null && level.getBlockEntity(partnerPos) instanceof UndergroundBeltBlockEntity p
+                && pos.equals(p.partnerPos()) ? partnerPos : null;
+    }
+
+    /**
+     * Swaps the piece at {@code pos} (and its paired partner) for {@code next} in place (server side),
+     * as the hand's fast-replace does: pairing and contents kept. Returns the pieces replaced (1 or
+     * 2), or 0 when there is no underground belt there or {@code next} cannot reach the partner.
+     */
+    public static int replaceTier(Level level, BlockPos pos, BlockState state, UndergroundBeltBlock next) {
+        if (!(level.getBlockEntity(pos) instanceof UndergroundBeltBlockEntity be)) return 0;
+        BlockPos partnerPos = pairedPartner(level, pos);
+        UndergroundBeltBlockEntity partner = partnerPos == null ? null : (UndergroundBeltBlockEntity) level.getBlockEntity(partnerPos);
+        if (partner != null && be.distance() > next.maxDistance()) return 0;
+        int distance = be.distance();
+        replacePiece(level, pos, state, be, next, distance);
+        if (partner != null) replacePiece(level, partnerPos, level.getBlockState(partnerPos), partner, next, distance);
+        return partner != null ? 2 : 1;
+    }
+
     private static BlockState replacePiece(Level level, BlockPos pos, BlockState state, UndergroundBeltBlockEntity old,
                                            UndergroundBeltBlock next, int distance) {
         BeltLane[] lanes = old.takeForReplace();

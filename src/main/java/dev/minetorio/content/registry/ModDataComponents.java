@@ -18,6 +18,17 @@ public final class ModDataComponents {
             COMPONENTS.registerComponentType("ghost_target",
                     b -> b.persistent(ResourceLocation.CODEC).networkSynchronized(ResourceLocation.STREAM_CODEC));
 
+    /** A deconstruction planner's filter ({@code DeconstructionFilter} ordinal). Saved and synced. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> DECONSTRUCTION_FILTER =
+            COMPONENTS.registerComponentType("deconstruction_filter",
+                    b -> b.persistent(com.mojang.serialization.Codec.INT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT));
+
+    /** An upgrade planner's mapping rows. Saved and synced. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.minetorio.core.robot.UpgradeRules>> UPGRADE_RULES =
+            COMPONENTS.registerComponentType("upgrade_rules",
+                    b -> b.persistent(dev.minetorio.content.robot.PlannerItems.RULES_CODEC)
+                            .networkSynchronized(dev.minetorio.content.robot.PlannerItems.RULES_STREAM_CODEC));
+
     private ModDataComponents() {}
 
     public static void register(IEventBus modBus) {

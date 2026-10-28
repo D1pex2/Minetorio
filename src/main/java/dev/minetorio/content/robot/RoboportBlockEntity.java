@@ -56,9 +56,11 @@ import net.neoforged.neoforge.items.IItemHandler;
  * {@link RobotStats#CONSTRUCTION_RADIUS} blocks around its center ({@link #area()}).
  *
  * <p><b>Dispatch</b> (every {@value #DISPATCH_INTERVAL} ticks, while its buffer holds energy): free
- * build jobs in the area are handed out in queue order ({@link Dispatcher}); each needs one item in
- * a provider in the area — any chest-like container ({@link #isProvider}) — and one stored robot,
- * which is launched with a full battery. Robots charge here from the buffer when they come back
+ * jobs in the area are handed out in queue order ({@link Dispatcher}), one stored robot each,
+ * launched with a full battery. A build or upgrade job needs its item in a provider in the area —
+ * any chest-like container ({@link #isProvider}); a deconstruction job needs a chest with room for
+ * the block's item (robots take what they break and what an upgrade replaced to a chest,
+ * {@link #storageFor}). Robots charge here from the buffer when they come back
  * (up to {@value RobotStats#CHARGING_STATIONS} at once, 1 MW each) and are then stored again.
  *
  * <p>{@link #setCreativePower} (debug command) keeps the buffer full without a grid.
@@ -275,17 +277,67 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         if (free <= 0 || buffer <= 0) return;
         ConstructionManager m = ConstructionManager.get(level);
         ConstructionArea area = area();
+        ConstructionMarks marks = ConstructionMarks.get(level);
         List<ConstructionQueue.Job> pending = new ArrayList<>();
-        for (ConstructionQueue.Job j : m.queue().pending(ConstructionQueue.Kind.BUILD, area::contains)) {
+        for (ConstructionQueue.Job j : m.queue().pending(area::contains)) {
             BlockPos p = ConstructionManager.pos(j.cell());
-            if (level.isLoaded(p) && Ghosts.canBuild(level, p)) pending.add(j);
+            if (!level.isLoaded(p)) continue;
+            boolean ok = switch (j.kind()) {
+                case BUILD -> Ghosts.canBuild(level, p);
+                case DECONSTRUCT -> marks.deconstruction().stillValid(j.cell(), ConstructionMarks.blockId(level.getBlockState(p)));
+                case UPGRADE -> marks.upgrades().stillValid(j.cell(), ConstructionMarks.blockId(level.getBlockState(p)));
+            };
+            if (ok) pending.add(j);
         }
         if (pending.isEmpty()) return;
         Map<Cell, Map<String, Integer>> stock = scanProviders(level, area);
         if (stock.isEmpty()) return;
+        List<BlockPos> chests = stock.keySet().stream().map(ConstructionManager::pos).toList();
         List<Dispatcher.Assignment> plan = Dispatcher.plan(pending, free, new ArrayList<>(stock.keySet()),
-                (c, item) -> stock.getOrDefault(c, Map.of()).getOrDefault(item, 0), m.ledger());
+                (c, item) -> stock.getOrDefault(c, Map.of()).getOrDefault(item, 0), m.ledger(),
+                j -> hasRoom(level, chests, RobotWork.mainItem(level.getBlockState(ConstructionManager.pos(j.cell())))));
         for (Dispatcher.Assignment a : plan) launch(level, m, a);
+    }
+
+    /** Whether one of {@code chests} takes {@code stack} (an empty stack: any chest with an empty slot). */
+    private static boolean hasRoom(ServerLevel level, List<BlockPos> chests, ItemStack stack) {
+        for (BlockPos p : chests) {
+            IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, p, null);
+            if (h == null) continue;
+            if (stack.isEmpty()) {
+                for (int i = 0; i < h.getSlots(); i++) if (h.getStackInSlot(i).isEmpty()) return true;
+            } else if (net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(h, stack.copy(), true).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The storage chest in {@code area} a robot at {@code from} puts {@code stack} into: the nearest
+     * one already holding that item and taking all of it, else the nearest taking all of it; null
+     * when none has room.
+     */
+    @Nullable
+    static BlockPos storageFor(ServerLevel level, ConstructionArea area, ItemStack stack, Vec3 from) {
+        BlockPos same = null, any = null;
+        double sameD = Double.MAX_VALUE, anyD = Double.MAX_VALUE;
+        for (BlockPos p : providers(level, area)) {
+            IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, p, null);
+            if (h == null || !net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(h, stack.copy(), true).isEmpty()) continue;
+            double d = p.distToCenterSqr(from);
+            boolean holds = false;
+            for (int i = 0; i < h.getSlots() && !holds; i++) holds = ItemStack.isSameItemSameComponents(h.getStackInSlot(i), stack);
+            if (holds && d < sameD) {
+                sameD = d;
+                same = p;
+            }
+            if (d < anyD) {
+                anyD = d;
+                any = p;
+            }
+        }
+        return same != null ? same : any;
     }
 
     private void launch(ServerLevel level, ConstructionManager m, Dispatcher.Assignment a) {
@@ -293,19 +345,25 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         Vec3 d = dock();
         robot.moveTo(d.x, d.y, d.z, facing().toYRot(), 0);
         if (!m.queue().claim(a.job().cell(), robot.robotId())) {
-            m.ledger().release(a.provider(), a.job().item());
+            releaseItems(m, a);
             return;
         }
-        robot.startJob(worldPosition, ConstructionManager.pos(a.job().cell()), ConstructionManager.pos(a.provider()), a.job().item());
+        robot.startJob(worldPosition, ConstructionManager.pos(a.job().cell()),
+                a.provider() == null ? null : ConstructionManager.pos(a.provider()), a.job().item(), a.job().kind(), a.job().count());
         if (!level.addFreshEntity(robot)) {
             m.queue().release(a.job().cell(), robot.robotId());
-            m.ledger().release(a.provider(), a.job().item());
+            releaseItems(m, a);
             return;
         }
         robots.removeItemType(ModItems.CONSTRUCTION_ROBOT.get(), 1);
         out++;
         doorHold = RoboportAnimation.DOOR_HOLD_TICKS;
         setChanged();
+    }
+
+    private static void releaseItems(ConstructionManager m, Dispatcher.Assignment a) {
+        if (a.provider() == null) return;
+        for (int i = 0; i < a.job().count(); i++) m.ledger().release(a.provider(), a.job().item());
     }
 
     /** Item counts of every provider in the area, by item id. */

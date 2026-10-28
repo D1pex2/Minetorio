@@ -11,6 +11,15 @@ public abstract class MultiblockControllerBlockEntity extends BlockEntity {
     /** Set while the structure is being torn down, so part/controller removals do not recurse. */
     boolean dismantling;
 
+    /**
+     * The controller is about to be swapped for another machine of the same shape (an upgrade): its
+     * removal must leave the parts standing and drop nothing ({@link MultiblockControllerBlock#dismantle}
+     * does nothing for it).
+     */
+    public void prepareReplace() {
+        dismantling = true;
+    }
+
     protected MultiblockControllerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
     }

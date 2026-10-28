@@ -21,8 +21,8 @@ import net.neoforged.neoforge.event.level.LevelEvent;
  * {@link ProviderLedger} of items promised to robots, and the loaded roboports. Robots save their
  * own job and re-claim it when they load.
  *
- * <p>Deconstruction marks are a core-only flag for now ({@link ConstructionQueue#markForDeconstruction});
- * they are not saved and robots do not act on them yet.
+ * <p>Deconstruction and upgrade jobs mirror the saved marks of {@link ConstructionMarks}, which
+ * attaches itself to the queue when the manager is created.
  */
 public final class ConstructionManager {
     private static final Map<ServerLevel, ConstructionManager> MANAGERS = new WeakHashMap<>();
@@ -40,7 +40,13 @@ public final class ConstructionManager {
     }
 
     public static ConstructionManager get(ServerLevel level) {
-        return MANAGERS.computeIfAbsent(level, l -> new ConstructionManager());
+        ConstructionManager m = MANAGERS.get(level);
+        if (m == null) {
+            m = new ConstructionManager();
+            MANAGERS.put(level, m);
+            ConstructionMarks.get(level).attach(m.queue);
+        }
+        return m;
     }
 
     @Nullable

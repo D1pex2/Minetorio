@@ -226,7 +226,20 @@ public class BeltBlock extends BaseEntityBlock {
         BeltBlock next = FastReplace.target(stack, this, BeltBlock.class, player, level, pos);
         if (next == null || !FastReplace.canPay(player, stack, 1)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (level.isClientSide()) return ItemInteractionResult.SUCCESS;
-        if (!(level.getBlockEntity(pos) instanceof BeltBlockEntity old)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        BlockState placed = replaceTier(level, pos, state, next);
+        if (placed == null) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        FastReplace.finish(level, pos, placed, player, stack, this, 1);
+        return ItemInteractionResult.CONSUME;
+    }
+
+    /**
+     * Swaps the belt at {@code pos} for {@code next} in place (server side), keeping facing and lane
+     * contents; the placed state, or null when there is no belt there. Shared by the hand's
+     * fast-replace and the robots' upgrades.
+     */
+    @Nullable
+    public static BlockState replaceTier(Level level, BlockPos pos, BlockState state, BeltBlock next) {
+        if (!(level.getBlockEntity(pos) instanceof BeltBlockEntity old)) return null;
         BeltLane[] lanes = old.takeLanes();
         BlockState placed = withShape(level, pos, next.defaultBlockState().setValue(FACING, state.getValue(FACING)));
         level.setBlock(pos, placed, Block.UPDATE_ALL);
@@ -235,8 +248,7 @@ public class BeltBlock extends BaseEntityBlock {
         } else {
             for (BeltLane lane : lanes) LaneStacks.drop(level, pos, lane);
         }
-        FastReplace.finish(level, pos, placed, player, stack, this, 1);
-        return ItemInteractionResult.CONSUME;
+        return placed;
     }
 
     @Override
