@@ -3,6 +3,7 @@ package dev.minetorio.client.drag;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.minetorio.Minetorio;
+import dev.minetorio.client.ModKeys;
 import dev.minetorio.client.machine.MultiblockPlacementPreview;
 import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.BeltGeometry;
@@ -12,6 +13,9 @@ import dev.minetorio.content.drag.DragPayloads;
 import dev.minetorio.content.drag.DragPlacement;
 import dev.minetorio.content.drag.DragTerrain;
 import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.robot.GhostPayloads;
+import dev.minetorio.content.robot.GhostReservations;
+import dev.minetorio.content.robot.HandGhosts;
 import dev.minetorio.core.drag.DragCell;
 import dev.minetorio.core.drag.DragDir;
 import dev.minetorio.core.drag.DragLine;
@@ -57,6 +61,11 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * about to leave reach are sent to the server and placed; releasing places the rest. A pole drag
  * shows (and places) poles only at wire-reach spacing. Vanilla's repeated placement while the
  * button is held is suppressed during a drag; a click without moving places just the one cell.
+ *
+ * <p>With the ghost key ({@link ModKeys#GHOST}) held, a right-click with any Minetorio block item
+ * places a ghost instead ({@link HandGhosts}, sent as {@link GhostPayloads.Place}; nothing is
+ * placed or used here), and a belt or pole click starts a ghost drag: the same line, drawn blue,
+ * laid as ghosts without items.
  */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class DragClient {
@@ -75,6 +84,8 @@ public final class DragClient {
 
     private static final class Drag {
         final DragPlacement.Kind kind;
+        /** Lays ghosts: no item budget, blue preview. */
+        final boolean ghost;
         final Item item;
         final BlockPos start;
         final DragDir startDir;
@@ -91,8 +102,9 @@ public final class DragClient {
         int budget = -1;
         int used;
 
-        Drag(DragPlacement.Kind kind, Item item, BlockPos start, DragDir dir, Level level) {
+        Drag(DragPlacement.Kind kind, boolean ghost, Item item, BlockPos start, DragDir dir, Level level) {
             this.kind = kind;
+            this.ghost = ghost;
             this.item = item;
             this.start = start;
             this.startDir = dir;
@@ -126,6 +138,7 @@ public final class DragClient {
 
     /** Whether a belt of the dragged item would go into {@code pos} facing {@code facing} (free, or fast-replace). */
     private static boolean placeable(Level level, Drag d, BlockPos pos, Direction facing) {
+        if (d.ghost) return DragTerrain.isFree(level, pos) && GhostReservations.freeFor(level, pos, pos);
         if (DragTerrain.isFree(level, pos)) return true;
         BlockState state = level.getBlockState(pos);
         return d.kind == DragPlacement.Kind.BELT && state.getBlock() instanceof BeltBlock b
@@ -146,13 +159,40 @@ public final class DragClient {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || event.getHand() != InteractionHand.MAIN_HAND) return;
         ItemStack stack = player.getMainHandItem();
+        if (ModKeys.ghostHeld() && HandGhosts.canGhost(stack)) {
+            ghostClick(event, mc, player, stack);
+            return;
+        }
         DragPlacement.Kind kind = DragPlacement.kindOf(stack);
         if (kind == null || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
         if (usesBlock(mc.level, hit.getBlockPos()) && !player.isSecondaryUseActive()) return; // the click uses that block
         BlockPlaceContext ctx = new BlockPlaceContext(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
         if (!ctx.canPlace()) return;
         // the vanilla click goes on and places the first cell; the drag continues from it
-        drag = new Drag(kind, stack.getItem(), ctx.getClickedPos(), DragTerrain.fromMc(player.getDirection()), mc.level);
+        drag = new Drag(kind, false, stack.getItem(), ctx.getClickedPos(), DragTerrain.fromMc(player.getDirection()), mc.level);
+    }
+
+    /**
+     * A right-click with the ghost key held: no real placement; the server places the ghost the
+     * click plans ({@link HandGhosts#plan}). A belt or pole goes on as a ghost drag from that cell.
+     */
+    private static void ghostClick(InputEvent.InteractionKeyMappingTriggered event, Minecraft mc, LocalPlayer player, ItemStack stack) {
+        event.setCanceled(true);
+        if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
+            event.setSwingHand(false);
+            return;
+        }
+        PacketDistributor.sendToServer(new GhostPayloads.Place(hit));
+        DragPlacement.Kind kind = DragPlacement.kindOf(stack);
+        HandGhosts.Plan plan = HandGhosts.plan(mc.level, player, stack, hit);
+        if (kind != null && plan != null) {
+            drag = new Drag(kind, true, stack.getItem(), plan.pos(), DragTerrain.fromMc(player.getDirection()), mc.level);
+        }
+    }
+
+    /** Whether a drag is in progress (the single-click ghost preview hides meanwhile). */
+    public static boolean isDragging() {
+        return drag != null;
     }
 
     /**
@@ -176,7 +216,7 @@ public final class DragClient {
             finish(d);
             return;
         }
-        if (d.budget < 0) d.budget = player.getAbilities().instabuild ? Integer.MAX_VALUE : count(player, d.item);
+        if (d.budget < 0) d.budget = player.getAbilities().instabuild || d.ghost ? Integer.MAX_VALUE : count(player, d.item);
         grow(mc, player, d);
         flush(player, d);
     }
@@ -248,7 +288,7 @@ public final class DragClient {
     private static void send(Drag d, int upTo, boolean finish) {
         if (!d.started) {
             if (upTo == 0) return; // a plain click: nothing to drag
-            PacketDistributor.sendToServer(new DragPayloads.Start(d.start, (byte) d.startDir.id()));
+            PacketDistributor.sendToServer(new DragPayloads.Start(d.start, (byte) d.startDir.id(), d.ghost));
             d.started = true;
         }
         do {
@@ -286,8 +326,8 @@ public final class DragClient {
                 Direction facing = DragTerrain.toMc(d.line.cell(i).facing());
                 boolean ok = placeable(d.level, d, p, facing);
                 AABB box = new AABB(p.getX(), p.getY(), p.getZ(), p.getX() + 1, p.getY() + 2 / 16.0, p.getZ() + 1).inflate(INFLATE);
-                MultiblockPlacementPreview.drawBox(pose, buffers, box, ok);
-                if (ok) arrow(pose, buffers, p, facing);
+                MultiblockPlacementPreview.drawBox(pose, buffers, box, ok, d.ghost);
+                if (ok) arrow(pose, buffers, p, facing, d.ghost);
             }
         } else {
             Set<Integer> picks = new HashSet<>(PoleSpacer.picks(d.path(), PowerGridManager.WIRE_REACH));
@@ -296,23 +336,26 @@ public final class DragClient {
                 if (picks.contains(i)) {
                     AABB box = new AABB(p.getX() + 6 / 16.0, p.getY(), p.getZ() + 6 / 16.0, p.getX() + 10 / 16.0, p.getY() + 3,
                             p.getZ() + 10 / 16.0).inflate(INFLATE);
-                    MultiblockPlacementPreview.drawBox(pose, buffers, box, poleFits(d.level, p));
+                    MultiblockPlacementPreview.drawBox(pose, buffers, box, poleFits(d, p), d.ghost);
                 } else if (i == d.line.size() - 1) {
                     AABB box = new AABB(p.getX(), p.getY(), p.getZ(), p.getX() + 1, p.getY() + 1 / 16.0, p.getZ() + 1).inflate(INFLATE);
-                    MultiblockPlacementPreview.drawBox(pose, buffers, box, true);
+                    MultiblockPlacementPreview.drawBox(pose, buffers, box, true, d.ghost);
                 }
             }
         }
         pose.popPose();
     }
 
-    private static boolean poleFits(Level level, BlockPos p) {
-        for (int k = 0; k < 3; k++) if (!DragTerrain.isFree(level, p.above(k))) return false;
+    private static boolean poleFits(Drag d, BlockPos p) {
+        for (int k = 0; k < 3; k++) {
+            if (!DragTerrain.isFree(d.level, p.above(k))) return false;
+            if (d.ghost && !GhostReservations.freeFor(d.level, p.above(k), p)) return false;
+        }
         return true;
     }
 
     /** A flat arrow on top of the ghost plate pointing along {@code facing}. */
-    private static void arrow(PoseStack pose, MultiBufferSource.BufferSource buffers, BlockPos p, Direction facing) {
+    private static void arrow(PoseStack pose, MultiBufferSource.BufferSource buffers, BlockPos p, Direction facing, boolean ghost) {
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         PoseStack.Pose last = pose.last();
         float y = p.getY() + 2.5f / 16;
@@ -322,18 +365,19 @@ public final class DragClient {
         float[] tail = {cx - fx * 0.3f, cz - fz * 0.3f};
         float[] wingL = {cx + fx * 0.05f + sx * 0.25f, cz + fz * 0.05f + sz * 0.25f};
         float[] wingR = {cx + fx * 0.05f - sx * 0.25f, cz + fz * 0.05f - sz * 0.25f};
-        segment(lines, last, tail, tip, y);
-        segment(lines, last, wingL, tip, y);
-        segment(lines, last, wingR, tip, y);
+        float[] c = ghost ? MultiblockPlacementPreview.GHOST_RGB : MultiblockPlacementPreview.OK_RGB;
+        segment(lines, last, tail, tip, y, c);
+        segment(lines, last, wingL, tip, y, c);
+        segment(lines, last, wingR, tip, y, c);
         buffers.endBatch(RenderType.lines());
     }
 
-    private static void segment(VertexConsumer lines, PoseStack.Pose pose, float[] a, float[] b, float y) {
+    private static void segment(VertexConsumer lines, PoseStack.Pose pose, float[] a, float[] b, float y, float[] c) {
         float nx = b[0] - a[0], nz = b[1] - a[1];
         float len = (float) Math.sqrt(nx * nx + nz * nz);
         nx /= len;
         nz /= len;
-        lines.addVertex(pose, a[0], y, a[1]).setColor(0.2f, 0.9f, 0.2f, 0.9f).setNormal(pose, nx, 0, nz);
-        lines.addVertex(pose, b[0], y, b[1]).setColor(0.2f, 0.9f, 0.2f, 0.9f).setNormal(pose, nx, 0, nz);
+        lines.addVertex(pose, a[0], y, a[1]).setColor(c[0], c[1], c[2], 0.9f).setNormal(pose, nx, 0, nz);
+        lines.addVertex(pose, b[0], y, b[1]).setColor(c[0], c[1], c[2], 0.9f).setNormal(pose, nx, 0, nz);
     }
 }

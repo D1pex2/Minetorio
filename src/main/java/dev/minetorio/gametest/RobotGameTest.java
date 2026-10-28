@@ -190,6 +190,7 @@ public class RobotGameTest {
             h.assertTrue(launched[0], "never saw a robot fly");
             h.assertTrue(robotsFlying(h) == 0 && port.availableRobots() == 4 && port.robotsOut() == 0,
                     "robots not home: " + port.availableRobots() + " stored, " + robotsFlying(h) + " flying");
+            c.clearContent(); // passed: the chest stays in the world, its leftovers must not feed later roboport tests
         });
     }
 
@@ -233,6 +234,35 @@ public class RobotGameTest {
             // powered afterwards, the same roboport builds it
             TestPower.powerAt(h, POLE);
             h.succeedWhen(() -> h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(3, 1, 10)));
+        });
+    }
+
+    /** A ghost line laid by hand (ghost key + drag, no items) is built by the robots from the chest, curve included. */
+    @GameTest(template = "empty16", batch = "robots_hand_ghosts", timeoutTicks = 1200)
+    public static void robotsBuildAHandPlacedGhostLine(GameTestHelper h) {
+        RoboportBlockEntity port = roboport(h, 4, true);
+        ChestBlockEntity c = chest(h, new ItemStack(ModItems.TRANSPORT_BELT.get(), 10));
+        HandGhostGameTest.floor(h, 1, 10, 11, 13);
+        ServerPlayer player = HandGhostGameTest.player(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(5, 1, 13), Direction.EAST);
+        java.util.List<dev.minetorio.core.drag.DragDir> path = new java.util.ArrayList<>(
+                java.util.Collections.nCopies(4, dev.minetorio.core.drag.DragDir.EAST));
+        path.add(dev.minetorio.core.drag.DragDir.SOUTH);
+        HandGhostGameTest.ghostDrag(h, player, new BlockPos(2, 1, 11), Direction.EAST, path);
+        for (int x = 2; x <= 6; x++) h.assertBlockPresent(ModBlocks.GHOST.get(), new BlockPos(x, 1, 11));
+        h.assertBlockPresent(ModBlocks.GHOST.get(), new BlockPos(6, 1, 12));
+        h.assertTrue(player.getMainHandItem().getCount() == 1, "the drag used items");
+        h.succeedWhen(() -> {
+            for (int x = 2; x <= 5; x++) {
+                h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(x, 1, 11));
+                h.assertTrue(h.getBlockState(new BlockPos(x, 1, 11)).getValue(BeltBlock.FACING) == Direction.EAST, "belt facing at x " + x);
+            }
+            h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(6, 1, 11));
+            h.assertBlockPresent(ModBlocks.TRANSPORT_BELT.get(), new BlockPos(6, 1, 12));
+            h.assertTrue(h.getBlockState(new BlockPos(6, 1, 11)).getValue(BeltBlock.FACING) == Direction.SOUTH, "corner facing");
+            h.assertTrue(h.getBlockState(new BlockPos(6, 1, 11)).getValue(BeltBlock.SHAPE) != BeltBlock.Shape.STRAIGHT, "no curve");
+            h.assertTrue(count(c, ModItems.TRANSPORT_BELT.get()) == 4, "items not taken from the chest");
+            h.assertTrue(robotsFlying(h) == 0 && port.availableRobots() == 4, "robots not home");
+            c.clearContent(); // passed: the chest stays in the world, its leftovers must not feed later roboport tests
         });
     }
 }

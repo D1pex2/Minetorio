@@ -8,6 +8,7 @@ import dev.minetorio.content.map.MapPayloads;
 import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.research.ResearchSyncPayload;
 import dev.minetorio.content.research.SelectResearchPayload;
+import dev.minetorio.content.robot.GhostPayloads;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -21,7 +22,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Custom network payloads (handlers run on the main thread). */
 public final class ModPayloads {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     private ModPayloads() {}
 
@@ -42,7 +43,8 @@ public final class ModPayloads {
                 .playToServer(OreFieldPayloads.Query.TYPE, OreFieldPayloads.Query.STREAM_CODEC, OreFieldPayloads.Query::handle)
                 .playToClient(OreFieldPayloads.Info.TYPE, OreFieldPayloads.Info.STREAM_CODEC, OreFieldPayloads.Info::handle)
                 .playToServer(DragPayloads.Start.TYPE, DragPayloads.Start.STREAM_CODEC, DragPayloads.Start::handle)
-                .playToServer(DragPayloads.Steps.TYPE, DragPayloads.Steps.STREAM_CODEC, DragPayloads.Steps::handle);
+                .playToServer(DragPayloads.Steps.TYPE, DragPayloads.Steps.STREAM_CODEC, DragPayloads.Steps::handle)
+                .playToServer(GhostPayloads.Place.TYPE, GhostPayloads.Place.STREAM_CODEC, GhostPayloads.Place::handle);
     }
 
     /** Client to server: set the recipe of the assembler at {@code pos} (validated by {@link AssemblerBlockEntity#select}). */

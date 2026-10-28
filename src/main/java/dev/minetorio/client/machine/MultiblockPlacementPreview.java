@@ -2,9 +2,12 @@ package dev.minetorio.client.machine;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.minetorio.Minetorio;
+import dev.minetorio.client.ModKeys;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
+import dev.minetorio.content.robot.GhostReservations;
+import dev.minetorio.content.robot.HandGhosts;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
@@ -37,11 +40,17 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * block's placement check, so it shows what a right-click would do: the main hand wins (a
  * different block item there means no preview), and nothing is shown while aiming at a machine or
  * any block with a menu (a right-click would open it) unless sneaking. Red also when the player may
- * not build or would stand in the controller cell.
+ * not build or would stand in the controller cell, or when a ghost reserves part of the footprint
+ * (unless the machine goes right onto that ghost: then it completes it). With the ghost key held
+ * the ghost preview ({@code GhostPlacementPreview}) shows instead.
  */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class MultiblockPlacementPreview {
     private static final double INFLATE = 0.005;
+    /** Preview colours: fits, ghost (Factorio's ghost blue), blocked. */
+    public static final float[] OK_RGB = {0.2f, 0.9f, 0.2f};
+    public static final float[] GHOST_RGB = {0.35f, 0.65f, 1.0f};
+    public static final float[] BAD_RGB = {0.95f, 0.2f, 0.2f};
 
     private MultiblockPlacementPreview() {}
 
@@ -51,6 +60,7 @@ public final class MultiblockPlacementPreview {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
+        if (ModKeys.ghostHeld() && HandGhosts.canGhost(player.getMainHandItem())) return; // a ghost click: GhostPlacementPreview
         InteractionHand hand = heldHand(player);
         if (hand == null || (opensOnUse(mc.level, hit.getBlockPos()) && !player.isSecondaryUseActive())) return;
         MultiblockBlockItem item = (MultiblockBlockItem) player.getItemInHand(hand).getItem();
@@ -81,6 +91,7 @@ public final class MultiblockPlacementPreview {
         boolean ok = state != null && player.getAbilities().mayBuild
                 && mc.level.isUnobstructed(state, placed.getClickedPos(), CollisionContext.of(player));
         List<BlockPos> cells = item.controller().shape().footprint(placed.getClickedPos(), placed.getHorizontalDirection());
+        for (BlockPos c : cells) if (!GhostReservations.freeFor(mc.level, c, placed.getClickedPos())) ok = false;
         AABB box = new AABB(cells.getFirst());
         for (BlockPos p : cells) box = box.minmax(new AABB(p));
         box = box.inflate(INFLATE);
@@ -100,7 +111,13 @@ public final class MultiblockPlacementPreview {
      * placement ghost.
      */
     public static void drawBox(PoseStack pose, MultiBufferSource.BufferSource buffers, AABB box, boolean ok) {
-        float r = ok ? 0.2f : 0.95f, g = ok ? 0.9f : 0.2f, b = 0.2f;
+        drawBox(pose, buffers, box, ok, false);
+    }
+
+    /** {@link #drawBox(PoseStack, MultiBufferSource.BufferSource, AABB, boolean)}, blue instead of green for a {@code ghost}. */
+    public static void drawBox(PoseStack pose, MultiBufferSource.BufferSource buffers, AABB box, boolean ok, boolean ghost) {
+        float[] c = !ok ? BAD_RGB : ghost ? GHOST_RGB : OK_RGB;
+        float r = c[0], g = c[1], b = c[2];
         LevelRenderer.addChainedFilledBoxVertices(pose, buffers.getBuffer(RenderType.debugFilledBox()),
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, r, g, b, 0.18f);
         buffers.endBatch(RenderType.debugFilledBox());
