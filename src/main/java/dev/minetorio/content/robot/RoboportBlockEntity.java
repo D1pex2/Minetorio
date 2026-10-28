@@ -148,9 +148,15 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
         return new ConstructionArea(c.x, worldPosition.getY() + 0.5, c.z, RobotStats.CONSTRUCTION_RADIUS);
     }
 
-    /** Where robots leave and enter: just above the roof hatch. */
+    /**
+     * Height of the dock above the floor, in blocks: just above the iris hatch in the middle of the
+     * roof (its top is at 55.6 px in art/gen_robots.py), below the pylon tops.
+     */
+    public static final double DOCK_HEIGHT = 58 / 16.0;
+
+    /** Where robots leave and enter: just above the roof hatch, over the footprint center. */
     public Vec3 dock() {
-        return center().add(0, shape().height() + 0.25, 0);
+        return center().add(0, DOCK_HEIGHT, 0);
     }
 
     // --- power -----------------------------------------------------------------------------------

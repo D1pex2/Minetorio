@@ -367,7 +367,7 @@ class ModelZFightTest {
         for (int i = 0; i < 2; i++)
             for (int j = 0; j < 2; j++)
                 for (int k = 0; k < 2; k++)
-                    roboport.add(Part.fixed("p" + i + j + k, "roboport_" + i + j + k, Tr.t(-16 + 16 * i, k == 0 ? 0 : 24, -16 + 16 * j)));
+                    roboport.add(Part.fixed("p" + i + j + k, "roboport_" + i + j + k, Tr.t(-16 + 16 * i, 40 * k, -16 + 16 * j)));
         c.add(new Composite("roboport", roboport));
         // SteamMachineRenderer.Boiler: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));

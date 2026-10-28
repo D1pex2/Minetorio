@@ -13,10 +13,11 @@ import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Draws a roboport. The 4×4 machine is bigger than one block model may be (−16..32), so
+ * Draws a roboport. The 4×4×4 machine is bigger than one block model may be (−16..32), so
  * art/gen_robots.py cuts it into eight pieces — x half {@code i}, z half {@code j}, lower/upper
- * {@code k} — each authored around its own origin: piece px = machine px − {@link #offset}, with the
- * machine authored around the footprint's center at the bottom, north orientation.
+ * {@code k} (the cut is at y 28 px; the upper pieces start at 40 px and reach the 64 px top) — each
+ * authored around its own origin: piece px = machine px − {@link #offset}, with the machine authored
+ * around the footprint's center at the bottom, north orientation.
  */
 public class RoboportRenderer implements BlockEntityRenderer<RoboportBlockEntity> {
     public static final List<ModelResourceLocation> PIECES = new ArrayList<>();
@@ -35,7 +36,7 @@ public class RoboportRenderer implements BlockEntityRenderer<RoboportBlockEntity
 
     /** Piece origin in machine pixels (must match art/gen_robots.py). */
     static double[] offset(int i, int j, int k) {
-        return new double[] {-16 + 16 * i, k == 0 ? 0 : 24, -16 + 16 * j};
+        return new double[] {-16 + 16 * i, 40 * k, -16 + 16 * j};
     }
 
     private final ModelBlockRenderer modelRenderer;
