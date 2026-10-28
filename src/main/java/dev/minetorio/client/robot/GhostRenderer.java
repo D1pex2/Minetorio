@@ -19,6 +19,7 @@ import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.client.power.OffshorePumpRenderer;
 import dev.minetorio.content.power.BoilerBlock;
 import dev.minetorio.content.power.OffshorePumpBlock;
+import dev.minetorio.client.power.EnergyRender;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
@@ -112,6 +113,9 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
         else if (block instanceof LabBlock) LabRenderer.assemble(facing, shape, 0, false, pose, sink);
         else if (block instanceof RadarBlock) RadarRenderer.assemble(facing, shape, 0, pose, sink);
         else if (block instanceof RoboportBlock) RoboportRenderer.assemble(facing, shape, pose, sink);
+        else if (block instanceof dev.minetorio.content.power.SolarPanelBlock) EnergyRender.assemble(EnergyRender.SOLAR_PANEL, facing, shape, pose, sink);
+        else if (block instanceof dev.minetorio.content.power.AccumulatorBlock) EnergyRender.assembleAccumulator(facing, shape, 0, -1, 0, pose, sink);
+        else if (block instanceof dev.minetorio.content.power.MultiblockPoleBlock pole) EnergyRender.assemble(EnergyRender.poleModels(pole.poleType()), facing, shape, pose, sink);
         else if (block instanceof BoilerBlock) SteamMachineRenderer.Boiler.assemble(facing, shape, false, pose, sink);
         else if (block instanceof SteamEngineBlock) SteamMachineRenderer.Engine.assemble(facing, shape, 0, pose, sink);
         else if (block instanceof OffshorePumpBlock) OffshorePumpRenderer.assemble(facing, shape, 0, false, pose, sink);

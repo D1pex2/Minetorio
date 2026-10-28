@@ -1,6 +1,7 @@
 package dev.minetorio.content.power;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.core.power.PoleType;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,7 +25,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * Small electric pole: a thin post {@value #HEIGHT} blocks tall that connects by wire to every pole
- * within {@value PowerGridManager#WIRE_REACH} blocks and supplies the 5×5×5 cube around its lower
+ * within 7.5 blocks ({@link PoleType#SMALL}) and supplies the 5×5×5 cube around its lower
  * block (see {@link PowerGridManager}). Wires are drawn by the client from the connections in the block
  * entity's update tag.
  *
@@ -34,7 +35,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * drops only for part 0): an upper part's removal destroys the lower block with drops, and parts whose
  * block below is gone turn to air.
  */
-public class ElectricPoleBlock extends BaseEntityBlock {
+public class ElectricPoleBlock extends BaseEntityBlock implements PowerPole {
     public static final MapCodec<ElectricPoleBlock> CODEC = simpleCodec(ElectricPoleBlock::new);
     /** Blocks the pole stands tall. */
     public static final int HEIGHT = 3;
@@ -50,6 +51,9 @@ public class ElectricPoleBlock extends BaseEntityBlock {
 
     @Override
     protected MapCodec<? extends BaseEntityBlock> codec() { return CODEC; }
+
+    @Override
+    public PoleType poleType() { return PoleType.SMALL; }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {

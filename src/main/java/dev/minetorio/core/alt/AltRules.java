@@ -87,6 +87,14 @@ public final class AltRules {
         return AltInfo.of(hasFuel ? fuelItem : null, burner(hasFuel));
     }
 
+    /**
+     * Solar panel and accumulator: no icon; {@link AltStatus#NO_POWER} (Factorio's "not connected")
+     * while no pole's supply area reaches them.
+     */
+    public static AltInfo gridMember(boolean connected) {
+        return AltInfo.of(null, connected ? AltStatus.NONE : AltStatus.NO_POWER);
+    }
+
     /** Status-only machines (radar). */
     public static AltInfo statusOnly(AltStatus energy) { return AltInfo.of(null, energy); }
 

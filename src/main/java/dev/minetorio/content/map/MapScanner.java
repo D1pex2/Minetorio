@@ -2,7 +2,7 @@ package dev.minetorio.content.map;
 
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
-import dev.minetorio.content.power.ElectricPoleBlock;
+import dev.minetorio.content.power.PowerPole;
 import dev.minetorio.core.map.MapPalette;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -91,8 +91,8 @@ public final class MapScanner {
     /** Marker for our structures, or 0 for blocks drawn in their own map color. */
     static byte marker(BlockState state) {
         Block b = state.getBlock();
+        if (b instanceof PowerPole) return MapPalette.MARKER_POLE; // any pole type (a 2x2 pole's other cells read as machine)
         if (b instanceof MultiblockControllerBlock || b instanceof MultiblockPartBlock) return MapPalette.MARKER_MACHINE;
-        if (b instanceof ElectricPoleBlock) return MapPalette.MARKER_POLE;
         return 0;
     }
 }

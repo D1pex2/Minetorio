@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/medium_electric_pole"
+    },
+    "facing=south": {
+      "model": "minetorio:block/medium_electric_pole"
+    },
+    "facing=east": {
+      "model": "minetorio:block/medium_electric_pole"
+    },
+    "facing=west": {
+      "model": "minetorio:block/medium_electric_pole"
+    }
+  }
+}

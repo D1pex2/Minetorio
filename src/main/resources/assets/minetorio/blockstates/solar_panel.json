@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/solar_panel"
+    },
+    "facing=south": {
+      "model": "minetorio:block/solar_panel"
+    },
+    "facing=east": {
+      "model": "minetorio:block/solar_panel"
+    },
+    "facing=west": {
+      "model": "minetorio:block/solar_panel"
+    }
+  }
+}

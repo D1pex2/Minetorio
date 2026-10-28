@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/substation"
+    },
+    "facing=south": {
+      "model": "minetorio:block/substation"
+    },
+    "facing=east": {
+      "model": "minetorio:block/substation"
+    },
+    "facing=west": {
+      "model": "minetorio:block/substation"
+    }
+  }
+}

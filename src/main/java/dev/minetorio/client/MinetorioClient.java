@@ -51,6 +51,9 @@ public final class MinetorioClient {
         event.registerBlockEntityRenderer(ModBlockEntities.OFFSHORE_PUMP.get(), dev.minetorio.client.power.OffshorePumpRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.STORAGE_TANK.get(), dev.minetorio.client.power.StorageTankRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SMALL_ELECTRIC_POLE.get(), WireRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.MULTIBLOCK_POLE.get(), dev.minetorio.client.power.MultiblockPoleRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.SOLAR_PANEL.get(), dev.minetorio.client.power.SolarPanelRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.ACCUMULATOR.get(), dev.minetorio.client.power.AccumulatorRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.ASSEMBLING_MACHINE.get(), AssemblerRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.LAB.get(), LabRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.RADAR.get(), RadarRenderer::new);
@@ -87,6 +90,7 @@ public final class MinetorioClient {
         event.register(RadarRenderer.BASE);
         event.register(RadarRenderer.DISH);
         RoboportRenderer.PIECES.forEach(event::register);
+        dev.minetorio.client.power.EnergyRender.all().forEach(event::register);
         RoboportRenderer.ANIMATED.forEach(event::register);
         event.register(ConstructionRobotRenderer.MODEL);
         event.register(ConstructionRobotRenderer.ROTOR);

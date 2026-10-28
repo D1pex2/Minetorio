@@ -18,7 +18,11 @@ import dev.minetorio.content.map.RadarBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.orefield.OreFieldBlock;
 import dev.minetorio.content.power.BoilerBlock;
+import dev.minetorio.content.power.AccumulatorBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
+import dev.minetorio.content.power.MultiblockPoleBlock;
+import dev.minetorio.content.power.SolarPanelBlock;
+import dev.minetorio.core.power.PoleType;
 import dev.minetorio.content.power.OffshorePumpBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
@@ -119,6 +123,18 @@ public final class ModBlocks {
     public static final DeferredBlock<ElectricPoleBlock> SMALL_ELECTRIC_POLE = BLOCKS.registerBlock("small_electric_pole",
             ElectricPoleBlock::new, BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f)
                     .sound(SoundType.WOOD).noOcclusion().pushReaction(PushReaction.BLOCK));
+
+    // Solar power and electric network (Factorio 1.1 sizes)
+    public static final DeferredBlock<SolarPanelBlock> SOLAR_PANEL = BLOCKS.registerBlock("solar_panel",
+            SolarPanelBlock::new, machine(MapColor.COLOR_BLUE));
+    public static final DeferredBlock<AccumulatorBlock> ACCUMULATOR = BLOCKS.registerBlock("accumulator",
+            AccumulatorBlock::new, machine(MapColor.METAL));
+    public static final DeferredBlock<MultiblockPoleBlock> MEDIUM_ELECTRIC_POLE = BLOCKS.registerBlock("medium_electric_pole",
+            p -> new MultiblockPoleBlock(PoleType.MEDIUM, p), machine(MapColor.COLOR_BROWN).strength(1.5f).sound(SoundType.METAL));
+    public static final DeferredBlock<MultiblockPoleBlock> BIG_ELECTRIC_POLE = BLOCKS.registerBlock("big_electric_pole",
+            p -> new MultiblockPoleBlock(PoleType.BIG, p), machine(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    public static final DeferredBlock<MultiblockPoleBlock> SUBSTATION = BLOCKS.registerBlock("substation",
+            p -> new MultiblockPoleBlock(PoleType.SUBSTATION, p), machine(MapColor.METAL).sound(SoundType.METAL));
 
     // Construction robots
     public static final DeferredBlock<RoboportBlock> ROBOPORT = BLOCKS.registerBlock("roboport",

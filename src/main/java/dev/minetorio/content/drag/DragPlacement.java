@@ -1,8 +1,8 @@
 package dev.minetorio.content.drag;
 
 import dev.minetorio.content.belt.BeltBlock;
-import dev.minetorio.content.power.ElectricPoleBlock;
-import dev.minetorio.content.power.PowerGridManager;
+import dev.minetorio.content.power.PowerPole;
+import dev.minetorio.core.power.PoleType;
 import dev.minetorio.content.map.RemoteView;
 import dev.minetorio.content.robot.GhostBlock;
 import dev.minetorio.content.robot.GhostBlockEntity;
@@ -86,8 +86,14 @@ public final class DragPlacement {
     public static Kind kindOf(ItemStack stack) {
         if (!(stack.getItem() instanceof BlockItem item)) return null;
         if (item.getBlock() instanceof BeltBlock) return Kind.BELT;
-        if (item.getBlock() instanceof ElectricPoleBlock) return Kind.POLE;
+        if (item.getBlock() instanceof PowerPole) return Kind.POLE;
         return null;
+    }
+
+    /** Pole drag spacing of {@code item}'s pole type ({@link PoleType#dragReach}); the small pole's for anything else. */
+    public static double dragReach(Item item) {
+        PoleType type = PowerPole.typeOf(item);
+        return (type == null ? PoleType.SMALL : type).dragReach();
     }
 
     /** Whether {@code player}'s drag is placing a cell at this moment (lets a belt go under the player). */
@@ -128,7 +134,7 @@ public final class DragPlacement {
             this.dimension = dimension;
             this.line = new DragLine(start.getX(), start.getZ(), dir, MAX_CELLS);
             this.ys[0] = start.getY();
-            this.spacer = new PoleSpacer(PowerGridManager.WIRE_REACH, start.getX(), start.getY(), start.getZ());
+            this.spacer = new PoleSpacer(dragReach(item), start.getX(), start.getY(), start.getZ());
             this.lastTick = tick;
         }
 
