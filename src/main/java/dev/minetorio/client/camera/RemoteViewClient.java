@@ -220,12 +220,13 @@ public final class RemoteViewClient {
             drop(event);
             return;
         }
+        ItemStack held = player.getMainHandItem();
+        if (held.getItem() instanceof dev.minetorio.content.blueprint.BlueprintItem) return; // BlueprintClient pastes / selects
         if (hit != null && !mc.options.keyShift.isDown() && hasGui(mc.level, hit.getBlockPos())) {
             drop(event);
             PacketDistributor.sendToServer(new RemotePayloads.OpenMenu(hit.getBlockPos()));
             return;
         }
-        ItemStack held = player.getMainHandItem();
         if (held.getItem() instanceof GhostItem || HandGhosts.canGhost(held)) return; // DragClient places the ghost (or line)
         drop(event);
     }

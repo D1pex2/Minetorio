@@ -59,32 +59,41 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
     @Override
     public void render(GhostBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
         if (!be.isValid()) return;
-        BlockState target = be.target();
+        draw(be.target(), facing(be), pose, buffers, R, G, B, A);
+    }
+
+    /**
+     * Draws {@code target} as a ghost in colour {@code (r, g, b, a)} at the pose's origin (the ghost's
+     * cell; a multiblock's controller cell), {@code facing} the machine's facing. Also used by
+     * previews (blueprint paste: blue, red where a part cannot go).
+     */
+    public static void draw(BlockState target, Direction facing, PoseStack pose, MultiBufferSource buffers, float r, float g, float b, float a) {
         Block block = target.getBlock();
         VertexConsumer vc = buffers.getBuffer(Sheets.translucentCullBlockSheet());
         pose.pushPose();
-        double[] c = block instanceof MultiblockControllerBlock mb ? MachineRender.center(facing(be), mb.shape()) : new double[] {0.5, 0.5};
+        double[] c = block instanceof MultiblockControllerBlock mb ? MachineRender.center(facing, mb.shape()) : new double[] {0.5, 0.5};
         pose.translate(c[0], LIFT, c[1]);
         pose.scale(1 + INFLATE, 1 + INFLATE, 1 + INFLATE);
         pose.translate(-c[0], 0, -c[1]);
+        float[] col = {r, g, b, a};
 
         if (block instanceof ElectricPoleBlock) {
             for (int i = 0; i < ElectricPoleBlock.HEIGHT; i++) {
                 pose.pushPose();
                 pose.translate(0, i, 0);
                 BlockState part = target.setValue(ElectricPoleBlock.PART, i);
-                quads(blockModel(part), part, pose, vc);
+                quads(blockModel(part), part, pose, vc, col);
                 pose.popPose();
             }
         } else {
-            quads(blockModel(target), target, pose, vc);
+            quads(blockModel(target), target, pose, vc, col);
         }
         if (block instanceof MultiblockControllerBlock mb) {
-            assemble(target, facing(be), mb.shape(), pose, (model, p, translucent, glow) ->
-                    quads(Minecraft.getInstance().getModelManager().getModel(model), null, p, vc));
+            assemble(target, facing, mb.shape(), pose, (model, p, translucent, glow) ->
+                    quads(Minecraft.getInstance().getModelManager().getModel(model), null, p, vc, col));
         } else if (block instanceof InserterBlock inserter && target.hasProperty(InserterBlock.FACING)) {
             InserterRenderer.drawArm(buffers.getBuffer(RenderType.entityTranslucent(InserterRenderer.ARM_TEXTURE)), pose.last(),
-                    inserter.type(), target.getValue(InserterBlock.FACING), 0, LightTexture.FULL_BRIGHT, GhostRenderer::tint);
+                    inserter.type(), target.getValue(InserterBlock.FACING), 0, LightTexture.FULL_BRIGHT, argb -> tint(argb, col));
         }
         pose.popPose();
     }
@@ -115,20 +124,20 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
         return Minecraft.getInstance().getBlockRenderer().getBlockModel(state);
     }
 
-    /** An ARGB color tinted ghost blue at the ghost's alpha. */
-    private static int tint(int argb) {
-        int r = (int) (((argb >> 16) & 0xFF) * R);
-        int g = (int) (((argb >> 8) & 0xFF) * G);
-        int b = (int) ((argb & 0xFF) * B);
-        return ((int) (A * 255) << 24) | (r << 16) | (g << 8) | b;
+    /** An ARGB color tinted by {@code col} (r, g, b, alpha). */
+    private static int tint(int argb, float[] col) {
+        int r = (int) (((argb >> 16) & 0xFF) * col[0]);
+        int g = (int) (((argb >> 8) & 0xFF) * col[1]);
+        int b = (int) ((argb & 0xFF) * col[2]);
+        return ((int) (col[3] * 255) << 24) | (r << 16) | (g << 8) | b;
     }
 
-    private static void quads(BakedModel model, BlockState state, PoseStack pose, VertexConsumer vc) {
+    private static void quads(BakedModel model, BlockState state, PoseStack pose, VertexConsumer vc, float[] col) {
         RandomSource r = RandomSource.create(42);
         for (Direction d : SIDES) {
             r.setSeed(42);
             for (var q : model.getQuads(state, d, r, ModelData.EMPTY, null)) {
-                vc.putBulkData(pose.last(), q, R, G, B, A, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+                vc.putBulkData(pose.last(), q, col[0], col[1], col[2], col[3], LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
             }
         }
     }

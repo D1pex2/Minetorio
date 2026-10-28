@@ -151,7 +151,8 @@ public final class DragPlacement {
         }
         Kind kind = kindOf(stack);
         if (kind == null || dir == null || !player.level().isLoaded(start)
-                || !RemoteView.canReach(player, start, REACH_TOLERANCE) || (ghost && !HandGhosts.canGhost(stack))
+                || !(ghost ? RemoteView.canReachGhost(player, start) : RemoteView.canReach(player, start, REACH_TOLERANCE))
+                || (ghost && !HandGhosts.canGhost(stack))
                 || (!ghost && RemoteView.isRemote(player))) { // the remote view only lays ghosts
             return;
         }
@@ -252,7 +253,10 @@ public final class DragPlacement {
     }
 
     private static Result placeCell(ServerPlayer player, ServerLevel level, Session s, BlockPos pos, Direction facing) {
-        if (!mayBuild(player, level, pos)) return Result.SKIPPED;
+        boolean may = s.ghost
+                ? level.isLoaded(pos) && player.mayBuild() && level.mayInteract(player, pos) && RemoteView.canReachGhost(player, pos)
+                : mayBuild(player, level, pos);
+        if (!may) return Result.SKIPPED;
         if (s.ghost) return placeGhost(player, level, s, pos, facing);
         BlockState state = level.getBlockState(pos);
         boolean fastReplace = s.kind == Kind.BELT && state.getBlock() instanceof BeltBlock other && other != s.block

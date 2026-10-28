@@ -8,6 +8,7 @@ import dev.minetorio.content.mixin.DistanceManagerAccess;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.core.camera.RemoteArea;
+import dev.minetorio.core.robot.GhostReach;
 import dev.minetorio.core.robot.RateBudget;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -214,6 +215,19 @@ public final class RemoteView {
         return isRemote(player) ? inArea(player, pos) : player.canInteractWithBlock(pos, tolerance);
     }
 
+    /**
+     * The reach check of ghost actions (placing and removing ghosts, ghost drag lines, blueprint
+     * paste and capture), Factorio's "anywhere on screen": in remote view, {@code pos} in its area;
+     * otherwise a loaded block within {@link GhostReach#MAX_HORIZONTAL} blocks horizontally and the
+     * server's view distance ({@link GhostReach#limit}). Real blocks keep the normal reach.
+     */
+    public static boolean canReachGhost(ServerPlayer player, BlockPos pos) {
+        if (isRemote(player)) return inArea(player, pos);
+        if (!player.level().isLoaded(pos)) return false;
+        return GhostReach.inReach(pos.getX() + 0.5 - player.getX(), pos.getZ() + 0.5 - player.getZ(),
+                player.server.getPlayerList().getViewDistance());
+    }
+
     /** Whether a machine GUI opened from the remote view is still valid for {@code player}. */
     public static boolean menuValid(Player player, AbstractContainerMenu menu) {
         if (!(player instanceof ServerPlayer sp)) return false;
@@ -310,11 +324,13 @@ public final class RemoteView {
         return true;
     }
 
-    /** Removes the ghost at {@code pos} (a left-click in the remote view). */
+    /**
+     * Removes the ghost at {@code pos}: a left-click in the remote view (in its area), or in the
+     * top-down build camera beyond the normal reach (within ghost reach, {@link #canReachGhost}).
+     */
     public static Result removeGhost(ServerPlayer player, BlockPos pos) {
-        if (!isRemote(player)) return Result.NOT_REMOTE;
         ServerLevel level = player.serverLevel();
-        if (!level.isLoaded(pos) || !inArea(player, pos)) return Result.OUT_OF_AREA;
+        if (!level.isLoaded(pos) || !canReachGhost(player, pos)) return Result.OUT_OF_AREA;
         if (!player.mayBuild() || !level.mayInteract(player, pos)) return Result.NOT_ALLOWED;
         if (!level.getBlockState(pos).is(ModBlocks.GHOST.get())) return Result.NO_GHOST;
         if (!ACTION_BUDGETS.computeIfAbsent(player.getUUID(), u -> new RateBudget(ACTION_BURST, ACTION_REFILL_PER_TICK))

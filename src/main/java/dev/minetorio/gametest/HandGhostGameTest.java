@@ -214,8 +214,8 @@ public class HandGhostGameTest {
     @GameTest(template = "empty16")
     public static void invalidGhostsAreRefused(GameTestHelper h) {
         floor(h, 0, 12, 0, 12);
-        // out of reach
-        ServerPlayer p = player(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(0, 1, 0), Direction.EAST);
+        // out of ghost reach (the normal reach does not apply to ghosts: see ghostReach*)
+        ServerPlayer p = player(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(0, 1, -90), Direction.EAST);
         h.assertFalse(click(h, p, new BlockPos(12, 0, 12), Direction.UP), "ghost out of reach");
         // a pump with no water near
         p = player(h, ModItems.OFFSHORE_PUMP.get(), new BlockPos(3, 1, 3), Direction.EAST);

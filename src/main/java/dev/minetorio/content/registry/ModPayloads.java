@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.blueprint.BlueprintPayloads;
 import dev.minetorio.content.drag.DragPayloads;
 import dev.minetorio.content.handcraft.HandcraftPayloads;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
@@ -23,7 +24,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Custom network payloads (handlers run on the main thread). */
 public final class ModPayloads {
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
 
     private ModPayloads() {}
 
@@ -54,6 +55,9 @@ public final class ModPayloads {
                 .playToServer(RemotePayloads.Exit.TYPE, RemotePayloads.Exit.STREAM_CODEC, RemotePayloads.Exit::handle)
                 .playToServer(RemotePayloads.OpenMenu.TYPE, RemotePayloads.OpenMenu.STREAM_CODEC, RemotePayloads.OpenMenu::handle)
                 .playToServer(RemotePayloads.RemoveGhost.TYPE, RemotePayloads.RemoveGhost.STREAM_CODEC, RemotePayloads.RemoveGhost::handle)
+                .playToServer(BlueprintPayloads.Capture.TYPE, BlueprintPayloads.Capture.STREAM_CODEC, BlueprintPayloads.Capture::handle)
+                .playToServer(BlueprintPayloads.Paste.TYPE, BlueprintPayloads.Paste.STREAM_CODEC, BlueprintPayloads.Paste::handle)
+                .playToServer(BlueprintPayloads.Give.TYPE, BlueprintPayloads.Give.STREAM_CODEC, BlueprintPayloads.Give::handle)
                 .playToClient(RemotePayloads.State.TYPE, RemotePayloads.State.STREAM_CODEC, RemotePayloads.State::handle);
     }
 

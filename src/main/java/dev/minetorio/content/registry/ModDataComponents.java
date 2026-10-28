@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.blueprint.BlueprintData;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -17,6 +18,11 @@ public final class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResourceLocation>> GHOST_TARGET =
             COMPONENTS.registerComponentType("ghost_target",
                     b -> b.persistent(ResourceLocation.CODEC).networkSynchronized(ResourceLocation.STREAM_CODEC));
+
+    /** A filled blueprint's contents ({@code BlueprintData}); an empty blueprint has none. Saved and synced. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlueprintData>> BLUEPRINT =
+            COMPONENTS.registerComponentType("blueprint",
+                    b -> b.persistent(BlueprintData.CODEC).networkSynchronized(BlueprintData.STREAM_CODEC).cacheEncoding());
 
     private ModDataComponents() {}
 
