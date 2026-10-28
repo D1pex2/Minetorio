@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "minetorio:block/buffer_chest"
+    }
+  }
+}

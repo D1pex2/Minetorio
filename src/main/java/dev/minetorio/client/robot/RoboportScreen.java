@@ -23,6 +23,8 @@ public class RoboportScreen extends AbstractContainerScreen<RoboportMenu> {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
+        // stage 4: the roboport's logistic network, in a panel to the right
+        dev.minetorio.client.logistics.NetworkStatsPanel.render(g, font, leftPos + imageWidth + 4, topPos, menu.containerId, mouseX, mouseY);
         renderTooltip(g, mouseX, mouseY);
     }
 

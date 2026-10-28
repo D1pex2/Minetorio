@@ -426,6 +426,9 @@ class ModelZFightTest {
         // ConstructionRobotRenderer: the body and its fan rotor turning about the vertical axis x = z = 8.
         c.add(new Composite("construction_robot", List.of(Part.fixed("body", "construction_robot"),
                 spinning("rotor", "construction_robot_rotor", 'y', center))));
+        // LogisticRobotRenderer: the same for the logistic robot.
+        c.add(new Composite("logistic_robot", List.of(Part.fixed("body", "logistic_robot"),
+                spinning("rotor", "logistic_robot_rotor", 'y', center))));
         // SteamMachineRenderer.Boiler: boiler body and fire.
         c.add(new Composite("boiler", List.of(Part.fixed("body", "boiler_body"), Part.fixed("fire", "boiler_fire"))));
         // SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x through

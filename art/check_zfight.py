@@ -389,6 +389,9 @@ COMPOSITES = [
     # ConstructionRobotRenderer.java: the body and its fan rotor turning about the vertical axis x = z = 8.
     ("construction_robot", [("body", M("construction_robot"), [[]]),
                             ("rotor", M("construction_robot_rotor"), [spin_y(a) for a in SPIN], Y)]),
+    # LogisticRobotRenderer.java: the same for the logistic robot.
+    ("logistic_robot", [("body", M("logistic_robot"), [[]]),
+                        ("rotor", M("logistic_robot_rotor"), [spin_y(a) for a in SPIN], Y)]),
     # SteamMachineRenderer.java: boiler body and fire, both at dz 0.
     ("boiler", [("body", M("boiler_body"), [[]]), ("fire", M("boiler_fire"), [[]])]),
     # SteamMachineRenderer.Engine: body at dz 0, front at -1.5 blocks, rear at +1.5, gears turning about x

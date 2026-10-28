@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "minetorio:block/passive_provider_chest"
+    }
+  }
+}
