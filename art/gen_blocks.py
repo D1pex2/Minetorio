@@ -178,28 +178,7 @@ for x, y in ((4, 12), (8, 13), (12, 12)):
 blocks["furnace_mouth"] = im
 
 
-def fire_frame(t, seed=31):
-    rnd = random.Random(seed + t * 7)
-    im = new(C("#1d1714"))
-    heights = [6 + int(4 * (0.5 + 0.5 * math.sin(x * 1.3 + t * 1.7))) + rnd.randint(-1, 1) for x in range(16)]
-    for x in range(16):
-        top = 15 - heights[x]
-        for y in range(max(top, 1), 15):
-            d = (y - top) / max(heights[x], 1)
-            col = C("#fff2a0") if d > 0.75 else C("#ffc23a") if d > 0.45 else C("#ff7a1a") if d > 0.2 else C("#c23a12")
-            px(im, x, y, col)
-    for x in (2, 6, 10, 14):
-        rect(im, x, 12, x, 14, DARK[2])
-    rect(im, 1, 12, 14, 12, DARK[1])
-    rect(im, 0, 0, 15, 0, STONE[5]); rect(im, 0, 15, 15, 15, STONE[5])
-    return im
-
-
-strip = new(h=16 * 8)
-for t in range(8):
-    strip.paste(fire_frame(t), (0, 16 * t))
-blocks["fire"] = strip
-anim["fire"] = {"animation": {"frametime": 2}}
+# (the fire itself is furnace_fire, in the burner/steam machine section below)
 
 # ---------------------------------------------------------------- engine
 # engine cylinder: copper with brass straps
@@ -285,15 +264,16 @@ def lattice(base, line, seed, glass_hi):
     return im
 
 
-blocks["lab_dome_glass"] = lattice(C("#22323e", 150), C("#d2caae"), 90, C("#6f98ae", 170))
+# Factorio 1.1 lab: brass struts over smoky grey glass (idle) / glass lit blue from inside (researching)
+blocks["lab_dome_glass"] = lattice(C("#2a3238", 165), C("#c9a464"), 90, C("#7d8f99", 175))
 
 
 def dome_glow_frame(t):
     level = 0.5 + 0.5 * math.sin(t / 8 * 2 * math.pi)
-    lo, hi = (70, 150, 200), (170, 235, 255)
-    glass = tuple(int(lo[i] + (hi[i] - lo[i]) * level) for i in range(3)) + (150,)
+    lo, hi = (30, 70, 190), (90, 165, 255)
+    glass = tuple(int(lo[i] + (hi[i] - lo[i]) * level) for i in range(3)) + (180,)
     sparkle = tuple(min(255, c + 60) for c in glass[:3]) + (200,)
-    return lattice(glass, C("#fff4d0"), 90, sparkle)
+    return lattice(glass, C("#f0cf86"), 90, sparkle)
 
 
 strip = new(h=16 * 8)
@@ -441,14 +421,15 @@ for t in range(8):
 blocks["asm_lamp_glow"] = strip
 anim["asm_lamp_glow"] = {"animation": {"frametime": 2}}
 
-# steam engine tanks: weathered off-white steel with rust streaks and a riveted seam
-TANK = P("#e4e1d6", "#cfcbbd", "#b7b2a2", "#9a9484", "#77705f", "#544d3e")
+# steam engine tanks: weathered steel with rust streaks and a riveted seam
+# (the 1.1 sprite: grey steel with a blue cast, rust round the rivets and seams)
+TANK = P("#a4aaa7", "#8e9491", "#7a807d", "#666b69", "#515654", "#3b3f3e")
 rnd = random.Random(110)
 im = noisy(TANK, 111, 1, 2, (0.55, 0.45))
 for _ in range(5):
     x, y = rnd.randint(0, 15), rnd.randint(0, 8)
     for k in range(rnd.randint(3, 7)):
-        px(im, x, min(15, y + k), RUST[1] if k < 2 else RUST[0])
+        px(im, x, min(15, y + k), RUST[2] if k < 2 else RUST[1])
 rect(im, 0, 3, 15, 3, TANK[4])
 for x in range(1, 16, 3):
     px(im, x, 4, TANK[0])
@@ -493,6 +474,229 @@ rect(im, 6, 9, 9, 12, YELLOW[1])
 rect(im, 7, 4, 8, 11, YELLOW[0])
 blocks["chute_arrow"] = im
 blocks["furnace_ledge"] = Image.eval(blocks["furnace_stone"].convert("RGB"), lambda v: min(255, int(v * 1.12) + 12)).convert("RGBA")
+
+# ---------------------------------------------------------------- burner/steam machine rework (working animations)
+# Each machine checked against its Factorio 1.1 wiki image and animation (art/render_compare.py). Animated strips
+# with irregular frame times flicker like fire instead of pulsing evenly.
+EMBER = P("#fff6c0", "#ffd65a", "#ff9a2a", "#e05a14", "#9c2c0c", "#4a160a")
+
+
+def strip_of(frames):
+    im = new(h=16 * len(frames))
+    for k, f in enumerate(frames):
+        im.paste(f, (0, 16 * k))
+    return im
+
+
+def flicker_meta(times):
+    return {"animation": {"frames": [{"index": i, "time": t} for i, t in enumerate(times)]}}
+
+
+def furnace_fire_frame(t):
+    """The stone furnace's fire seen through its mouth: tongues over a bed of embers (Factorio's 48-frame fire,
+    cut to 16 frames). Hottest at the bottom, the tongues' heights wander from frame to frame."""
+    rnd = random.Random(300 + t)
+    im = new(EMBER[5])
+    for x in range(16):
+        h = 7 + 3.5 * math.sin(x * 0.9 + t * 0.8) + 2.5 * math.sin(x * 2.3 - t * 1.9) + rnd.uniform(-1.5, 1.5)
+        top = 15 - max(3, int(h))
+        for y in range(max(top, 0), 16):
+            d = (y - top) / max(15 - top, 1)
+            k = 0 if d > 0.82 else 1 if d > 0.6 else 2 if d > 0.35 else 3 if d > 0.15 else 4
+            px(im, x, y, EMBER[k])
+    for x in range(16):                       # glowing coal bed
+        px(im, x, 15, EMBER[1 if rnd.random() < 0.5 else 2])
+        if rnd.random() < 0.4:
+            px(im, x, 14, EMBER[0])
+    for _ in range(3):                        # sparks
+        px(im, rnd.randint(1, 14), rnd.randint(0, 5), EMBER[1])
+    return im
+
+
+FLICKER16 = [2, 1, 3, 1, 2, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1]
+blocks["furnace_fire"] = strip_of([furnace_fire_frame(t) for t in range(16)])
+anim["furnace_fire"] = flicker_meta(FLICKER16)
+
+
+def vent_glow_frame(t):
+    """The furnace's top vent: a grate over glowing coals that brighten and dim."""
+    rnd = random.Random(320 + t)
+    lvl = 0.6 + 0.4 * math.sin(t * 2.1) * math.sin(t * 0.7 + 1)
+    im = new()
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(x - 7.5, y - 7.5) / 10.6
+            k = max(0, min(5, int(5 - (1 - r) * 4.2 * lvl - rnd.uniform(0, 1.2))))
+            px(im, x, y, EMBER[k])
+    for v in (4, 8, 12):                      # the grate bars
+        rect(im, v, 0, v, 15, DARK[4]); rect(im, 0, v, 15, v, DARK[4])
+    rect(im, 0, 0, 15, 0, SAND[5]); rect(im, 0, 0, 0, 15, SAND[5])
+    rect(im, 0, 15, 15, 15, SAND[4]); rect(im, 15, 0, 15, 15, SAND[4])
+    return im
+
+
+blocks["furnace_vent_glow"] = strip_of([vent_glow_frame(t) for t in range(8)])
+anim["furnace_vent_glow"] = flicker_meta([3, 2, 4, 2, 3, 2, 3, 4])
+
+
+def lit_bricks(level):
+    """The furnace's bricks lit yellow by the fire (Factorio's lit front): the brick pattern washed toward
+    warm yellow by `level` (0..1)."""
+    src = blocks["furnace_stone"]
+    im = new()
+    warm = (255, 205, 70)
+    for y in range(16):
+        for x in range(16):
+            r, g, b, a = src.getpixel((x, y))
+            k = level * (0.55 + 0.3 * (y / 15))   # brighter toward the fire below
+            px(im, x, y, (int(r + (warm[0] - r) * k), int(g + (warm[1] - g) * k), int(b + (warm[2] - b) * k * 0.6), 255))
+    return im
+
+
+blocks["furnace_stone_lit"] = strip_of([lit_bricks(0.68 + 0.14 * math.sin(t * 1.9) + 0.1 * math.sin(t * 4.3))
+                                        for t in range(8)])
+anim["furnace_stone_lit"] = flicker_meta([3, 2, 4, 2, 3, 2, 3, 4])
+
+# polished piston rod / valve stem: a bright highlight down its length
+im = new(STEEL[2])
+for y in range(16):
+    for x, k in ((0, 4), (1, 3), (2, 2), (3, 1), (4, 0), (5, 0), (6, 1), (7, 2), (8, 2), (9, 3), (10, 3), (11, 4),
+                 (12, 4), (13, 5), (14, 4), (15, 5)):
+        px(im, x, y, STEEL[k])
+for y in (0, 15):
+    rect(im, 0, y, 15, y, DARK[3])
+blocks["piston_rod"] = im
+
+# electric drill rails: Factorio's toothed rack columns (dark steel, light teeth)
+im = noisy(DARK, 330, 2, 4)
+rect(im, 0, 0, 1, 15, DARK[5]); rect(im, 14, 0, 15, 15, DARK[5])
+rect(im, 2, 0, 2, 15, DARK[1])
+for y in range(0, 16, 3):
+    rect(im, 4, y, 11, y, STEEL[3]); rect(im, 4, y + 1, 11, y + 1, DARK[5])
+    px(im, 4, y, STEEL[2]); px(im, 11, y + 1, BLACK)
+blocks["edr_rail"] = im
+
+# electric drill status lamp: dark green lens (idle) and a pulsing lit one (mining)
+GREENLAMP = P("#e6ffd6", "#9cf57a", "#4fd63a", "#2c9a22", "#164f12")
+
+
+def green_lamp(level):
+    im = new(DARK[5])
+    ImageDraw.Draw(im).ellipse([1, 1, 14, 14], fill=DARK[3])
+    ramp = list(reversed(GREENLAMP))
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(x - 7.5, y - 7.5)
+            if r < 5.8:
+                px(im, x, y, ramp[max(0, min(4, round(level * 4 - r / 3)))])
+    px(im, 5, 5, GREENLAMP[0] if level > 0.3 else GREENLAMP[2])
+    return im
+
+
+blocks["edr_lamp_glow"] = strip_of([green_lamp(0.7 + 0.3 * math.cos(2 * math.pi * t / 8)) for t in range(8)])
+anim["edr_lamp_glow"] = {"animation": {"frametime": 3}}
+
+# the electric drill's motor head: copper-pink casing with a dark band and bolts (the reference's pink head)
+MOTOR = P("#f3c2a8", "#dc9a7c", "#c07a5c", "#9a5a42", "#6c3a2a", "#43231a")
+im = noisy(MOTOR, 340, 1, 3)
+rect(im, 0, 6, 15, 8, DARK[3]); rect(im, 0, 6, 15, 6, DARK[1])
+for x in (2, 7, 12):
+    rivet(im, x, 2, STEEL); rivet(im, x, 11, STEEL)
+rect(im, 0, 0, 15, 0, MOTOR[0]); rect(im, 0, 15, 15, 15, MOTOR[5])
+blocks["edr_motor"] = im
+
+# rubber hose: rusty brown with ribs
+HOSE = P("#b0705a", "#8e553f", "#70402e", "#53301f", "#352015")
+im = new(HOSE[2])
+for y in range(16):
+    for x in range(16):
+        px(im, x, y, HOSE[[3, 2, 1, 1, 2, 2, 3, 4][x // 2]] if y % 4 else HOSE[4])
+blocks["hose"] = im
+
+# lab: the core inside the dome (dark steel with science slots) and its pulsing lit version (researching)
+im = panel(DARK, 350, with_rivets=False)
+for x0, c in ((2, RED[2]), (6, GREEN[2]), (10, BLUE[2])):
+    rect(im, x0, 4, x0 + 3, 11, DARK[5]); rect(im, x0 + 1, 5, x0 + 2, 10, c)
+blocks["lab_core"] = im
+LABGLOW = P("#e8f7ff", "#a8dcff", "#5aa8ff", "#2f6ee0", "#1a3a8a", "#0c1a44")
+
+
+def lab_core_frame(t):
+    lvl = 0.5 + 0.5 * math.sin(2 * math.pi * t / 12)
+    im = new()
+    for y in range(16):
+        for x in range(16):
+            r = abs(x - 7.5) / 8
+            k = max(0, min(5, int(round(4.6 - lvl * 3.4 - (1 - r) * 1.6 + (0.6 if (y + t) % 6 == 0 else 0)))))
+            px(im, x, y, LABGLOW[k])
+    for x0 in (2, 6, 10):
+        rect(im, x0 + 1, 5, x0 + 2, 10, LABGLOW[0] if lvl > 0.5 else LABGLOW[1])
+    return im
+
+
+blocks["lab_core_glow"] = strip_of([lab_core_frame(t) for t in range(12)])
+anim["lab_core_glow"] = {"animation": {"frametime": 3}}      # one pulse per 36 ticks
+# the lab's entrance: a dark doorway in a steel frame
+im = panel(STEEL, 352, with_rivets=False)
+rect(im, 3, 4, 12, 15, DARK[5]); rect(im, 4, 3, 11, 3, DARK[4])
+rect(im, 4, 5, 11, 15, BLACK)
+for y in (8, 12):
+    rect(im, 5, y, 10, y, DARK[4])
+blocks["lab_door"] = im
+
+# boiler: the grated fire box front (dark grilles in a bronze frame) and a pressure gauge
+im = new(BRONZE[3])
+rect(im, 0, 0, 15, 0, BRONZE[1]); rect(im, 0, 15, 15, 15, BRONZE[5])
+for x0 in (1, 8):
+    rect(im, x0, 2, x0 + 6, 13, DARK[5])
+    for y in range(3, 13, 2):
+        rect(im, x0 + 1, y, x0 + 5, y, DARK[2])
+blocks["boiler_grille"] = im
+
+# steam engine flywheel rim: ribbed steel (Factorio's striped drum)
+im = new()
+for y in range(16):
+    for x in range(16):
+        px(im, x, y, STEEL[[1, 2, 3, 4, 5, 4, 3, 2][x % 8]] if 1 <= y <= 14 else DARK[3])
+blocks["engine_flywheel"] = im
+
+# offshore pump: the glass tubes on top with still water (idle) and water flowing through them (pumping);
+# Factorio's 32-frame loop at 1/4 speed (128 ticks): bubbles run along the tube twice per loop
+WATER = P("#c8f0ff", "#7fd4f2", "#3aa8d8", "#1f7cb0", "#155276", "#0c3048")
+
+
+def pump_glass(t=None):
+    im = new(WATER[3])
+    for y in range(16):
+        for x in range(16):
+            k = 3 if 4 <= y <= 11 else 4
+            if y == 5:
+                k = 2
+            px(im, x, y, WATER[k])
+    if t is not None:
+        rnd = random.Random(360)
+        for b in range(6):
+            bx = (rnd.randint(0, 15) + t) % 16
+            by = rnd.choice((5, 7, 8, 10))
+            px(im, bx, by, WATER[0]); px(im, (bx + 15) % 16, by, WATER[1])
+        for x in range(16):
+            if (x + t * 2) % 8 < 2:
+                px(im, x, 6, WATER[1])
+    for x in (3, 12):                          # steel straps round the tube
+        rect(im, x, 0, x, 15, STEEL[3]); rect(im, x + 1, 0, x + 1, 15, STEEL[5])
+    rect(im, 0, 0, 15, 1, STEEL[2]); rect(im, 0, 14, 15, 15, STEEL[4])
+    return im
+
+
+blocks["pump_glass"] = pump_glass()
+blocks["pump_flow"] = strip_of([pump_glass(t) for t in range(16)])
+anim["pump_flow"] = {"animation": {"frametime": 1}}
+# corrugated bronze of the pump's elbows
+im = new()
+for y in range(16):
+    for x in range(16):
+        px(im, x, y, BRONZE[[0, 1, 2, 3, 4, 3][y % 6]])
+blocks["pump_ribs"] = im
 
 # ---------------------------------------------------------------- belts
 # Travel is toward the top of the image (model north). Chevrons point up; the pattern period is

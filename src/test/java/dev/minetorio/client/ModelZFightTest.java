@@ -381,19 +381,25 @@ class ModelZFightTest {
             c.add(new Composite("assembling_machine_" + t, asm));
         }
         // DrillRenderer: electric body and turning head at the center, the carriage riding 0..4 px up, the tower one
-        // block up.
+        // block up, the lit status lamp.
         List<List<Tr>> carriage = new ArrayList<>();
         for (int dy = 0; dy <= 4; dy++) carriage.add(dy == 0 ? List.of() : List.of(Tr.t(0, dy, 0)));
         c.add(new Composite("electric_mining_drill", List.of(Part.fixed("body", "electric_mining_drill_body"),
                 spinning("head", "electric_mining_drill_head", 'y', center),
                 new Part("carriage", "electric_mining_drill_carriage", carriage, null, null),
-                Part.fixed("tower", "electric_mining_drill_tower", Tr.t(0, 16, 0)))));
-        // Burner drill: body on the controller's blockstate; DrillRenderer puts the head at (+8, 0, -8) px.
+                Part.fixed("tower", "electric_mining_drill_tower", Tr.t(0, 16, 0)),
+                Part.fixed("lamp", "electric_mining_drill_lamp"))));
+        // Burner drill: body on the controller's blockstate; DrillRenderer draws its parts at (+8, 0, -8) px: the head
+        // turning, the piston rising 0..3 px, the fire.
         c.add(new Composite("burner_mining_drill", List.of(Part.fixed("body", "burner_mining_drill"),
-                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)))));
-        // LabRenderer: body and turning dome (glowing or idle).
+                spinning("head", "burner_mining_drill_head", 'y', center, Tr.t(8, 0, -8)),
+                sliding("piston", "burner_mining_drill_piston", Tr.t(8, 0, -8), Tr.t(8, 1, -8), Tr.t(8, 1.5, -8),
+                        Tr.t(8, 2, -8), Tr.t(8, 3, -8)),
+                Part.fixed("fire", "burner_mining_drill_fire", Tr.t(8, 0, -8)))));
+        // LabRenderer: body, lit core, the ring inside turning, the still dome (glowing or idle).
         for (String dome : List.of("lab_dome", "lab_dome_idle")) {
-            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), spinning("dome", dome, 'y', center))));
+            c.add(new Composite("lab+" + dome, List.of(Part.fixed("body", "lab_body"), Part.fixed("core", "lab_core_glow"),
+                    spinning("rotor", "lab_rotor", 'y', center), Part.fixed("dome", dome))));
         }
         // RadarRenderer: base at the center, the dish one block up turning about the vertical center axis.
         c.add(new Composite("radar", List.of(Part.fixed("base", "radar_base"),
@@ -434,11 +440,37 @@ class ModelZFightTest {
                 Part.fixed("front", "steam_engine_front", Tr.t(0, 0, -24)),
                 Part.fixed("rear", "steam_engine_rear", Tr.t(0, 0, 24))));
         for (Object[] g : new Object[][] {{"steam_engine_gear", 15.0, 10.0}, {"steam_engine_gear_small", 12.0, -6.0},
-            {"steam_engine_gear_small", 21.0, 25.0}}) {
+            {"steam_engine_gear_small", 21.0, 25.0}, {"steam_engine_flywheel", 14.0, -23.0}}) {
             double py = (double) g[1], pz = (double) g[2];
             engine.add(spinning("gear@" + py + "," + pz, (String) g[0], 'x', new V(0, 8, 8), Tr.t(0, py - 8, pz - 8)));
         }
+        // the connecting rod turned about the crank pin's rest position (y 20, z 10) and moved to the pin, the crosshead
+        // lowered, at sampled engine angles; the three valve stems lifted 0..1.5 px on their tanks
+        List<List<Tr>> rod = new ArrayList<>();
+        List<List<Tr>> cross = new ArrayList<>();
+        for (int a = 0; a < 360; a += 45) {
+            double r = Math.toRadians(a), py = 15 + 5 * Math.cos(r), pz = 10 + 5 * Math.sin(r);
+            double phi = Math.toDegrees(Math.asin((10 - pz) / 10));
+            List<Tr> pose = new ArrayList<>();
+            if (Math.abs(phi) > 1e-9) pose.add(Tr.r('x', phi, new V(0, 20, 10)));
+            if (a != 0) pose.add(Tr.t(0, py - 20, pz - 10));
+            rod.add(pose);
+            double drop = py + Math.sqrt(100 - (10 - pz) * (10 - pz)) - 30;
+            cross.add(a == 0 ? List.of() : List.of(Tr.t(0, drop, 0)));
+        }
+        engine.add(new Part("rod", "steam_engine_rod", rod, null, null));
+        engine.add(new Part("crosshead", "steam_engine_crosshead", cross, null, null));
+        for (int k = 0; k < 3; k++) {
+            int dz = 24 * (k - 1);
+            engine.add(sliding("valve" + k, "steam_engine_valve", Tr.t(0, 0, dz), Tr.t(0, 0.75, dz), Tr.t(0, 1.5, dz)));
+        }
         c.add(new Composite("steam_engine", engine));
+        // OffshorePumpRenderer: body on the controller's blockstate; the renderer draws its parts at (0, 0, -8) px: the two
+        // cogs turning about x through their models' (y 8, z 8), drawn at their pivots (center frame), and the flow.
+        c.add(new Composite("offshore_pump", List.of(Part.fixed("body", "offshore_pump"),
+                spinning("cog0", "offshore_pump_gear", 'x', new V(0, 8, 8), Tr.t(0, 6 - 8, 4 - 16)),
+                spinning("cog1", "offshore_pump_gear_b", 'x', new V(0, 8, 8), Tr.t(0, 6 - 8, 11 - 16)),
+                Part.fixed("flow", "offshore_pump_flow", Tr.t(0, 0, -8)))));
         // blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
         c.add(new Composite("small_electric_pole", List.of(Part.fixed("lower", "small_electric_pole"),
                 Part.fixed("middle", "small_electric_pole_middle", Tr.t(0, 16, 0)),

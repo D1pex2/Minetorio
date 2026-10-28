@@ -326,6 +326,27 @@ def t(dx, dy, dz):
     return ("t", (dx, dy, dz), None)
 
 
+# SteamMachineRenderer.Engine: the connecting rod turned about the crank pin's rest position (y 20, z 10) and moved to
+# the pin, the crosshead lowered as the crank turns (sampled engine angles).
+ENGINE_ANGLES = (0, 45, 90, 135, 180, 225, 270, 315)
+
+
+def engine_pin(a):
+    r = math.radians(a)
+    return 15 + 5 * math.cos(r), 10 + 5 * math.sin(r)
+
+
+def engine_rod(a):
+    py, pz = engine_pin(a)
+    phi = math.degrees(math.asin((10 - pz) / 10))
+    return ([("x", phi, (0, 20, 10))] if phi else []) + ([t(0, py - 20, pz - 10)] if a else [])
+
+
+def engine_cross(a):
+    py, pz = engine_pin(a)
+    return py + math.sqrt(100 - (10 - pz) ** 2) - 30
+
+
 # AssemblerRenderer.assemble: every part at translate(-0.5, 0, -0.5) of the footprint center, so model px are
 # composite px. Cogs and gears turn about z through their axes, gear A is drawn again 15 px east, the push rod
 # slides -1.5..1.5 px in z, the carriage -7..7 px in x, arm and head turn about the turret axis and the head
@@ -350,20 +371,25 @@ COMPOSITES = [
     *[(f"assembling_machine_{t_}", [("body", M(f"assembling_machine_{t_}_body"), [[]])] + ASM_COMMON + ASM_PARTS[t_])
       for t_ in (1, 2)],
     # DrillRenderer.java: electric body at the center, head turning about the vertical axis, the carriage
-    # riding 0..CARRIAGE_TRAVEL_PX (4 px) up, the tower one block up (draw(top, 1, ...)).
+    # riding 0..CARRIAGE_TRAVEL_PX (4 px) up, the tower one block up (draw(top, 1, ...)), the lit status lamp.
     ("electric_mining_drill", [("body", M("electric_mining_drill_body"), [[]]),
                                ("head", M("electric_mining_drill_head"), [spin_y(a) for a in SPIN], Y),
                                ("carriage", M("electric_mining_drill_carriage"),
                                 [[("t", (0, dy, 0), None)] if dy else [] for dy in (0, 1, 2, 3, 4)]),
-                               ("tower", M("electric_mining_drill_tower"), [[("t", (0, 16, 0), None)]])]),
-    # Burner drill: body on the controller's blockstate (x 0..32, z -16..16); DrillRenderer.java puts the
-    # head at MachineRender.center (2x2, north: 1.0, 0.0 blocks) - 0.5 = (+8, 0, -8) px.
+                               ("tower", M("electric_mining_drill_tower"), [[("t", (0, 16, 0), None)]]),
+                               ("lamp", M("electric_mining_drill_lamp"), [[]])]),
+    # Burner drill: body on the controller's blockstate (x 0..32, z -16..16); DrillRenderer.java draws its parts
+    # at MachineRender.center (2x2, north: 1.0, 0.0 blocks) - 0.5 = (+8, 0, -8) px: the head turning, the piston
+    # rising 0..PISTON_STROKE_PX (3 px), the fire.
     ("burner_mining_drill", [("body", M("burner_mining_drill"), [[]]),
                              ("head", M("burner_mining_drill_head"),
                               [[("y", a, (8, 0, 8)), ("t", (8, 0, -8), None)] if a else [("t", (8, 0, -8), None)]
-                               for a in SPIN], Y)]),
-    # LabRenderer.java: body and dome (glowing or idle) at the center, the dome turning.
-    *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("dome", M(d), [spin_y(a) for a in SPIN], Y)])
+                               for a in SPIN], Y),
+                             ("piston", M("burner_mining_drill_piston"), [[t(8, dy, -8)] for dy in (0, 1, 1.5, 2, 3)]),
+                             ("fire", M("burner_mining_drill_fire"), [[t(8, 0, -8)]])]),
+    # LabRenderer.java: body, lit core, the still dome (glowing or idle) and the ring inside turning.
+    *[(f"lab+{d}", [("body", M("lab_body"), [[]]), ("core", M("lab_core_glow"), [[]]),
+                    ("rotor", M("lab_rotor"), [spin_y(a) for a in SPIN], Y), ("dome", M(d), [[]])])
       for d in ("lab_dome", "lab_dome_idle")],
     # RadarRenderer.java: base at the center, the dish one block up turning about the vertical center axis.
     ("radar", [("base", M("radar_base"), [[]]),
@@ -400,7 +426,19 @@ COMPOSITES = [
                          [[("x", a, (0, 8, 8)), ("t", (0, py - 8, pz - 8), None)] if a else
                           [("t", (0, py - 8, pz - 8), None)] for a in SPIN], X)
                         for model, py, pz in (("steam_engine_gear", 15, 10), ("steam_engine_gear_small", 12, -6),
-                                              ("steam_engine_gear_small", 21, 25))]]),
+                                              ("steam_engine_gear_small", 21, 25), ("steam_engine_flywheel", 14, -23))],
+                      ("rod", M("steam_engine_rod"), [engine_rod(a) for a in ENGINE_ANGLES]),
+                      ("crosshead", M("steam_engine_crosshead"), [[t(0, engine_cross(a), 0)] for a in ENGINE_ANGLES]),
+                      *[(f"valve{k}", M("steam_engine_valve"), [[t(0, dy, 24 * (k - 1))] for dy in (0, 0.75, 1.5)])
+                        for k in range(3)]]),
+    # OffshorePumpRenderer.java: body on the controller's blockstate (x 0..16, z -16..16); the renderer draws its
+    # parts at MachineRender.center (1x2, north: 0.5, 0.0 blocks) - 0.5 = (0, 0, -8) px: the two cogs turning about
+    # x through their models' (y 8, z 8), drawn at their pivots (GEARS, center frame), and the flowing water.
+    ("offshore_pump", [("body", M("offshore_pump"), [[]]),
+                       *[(f"cog{i}", M(m), [[("x", a, (0, 8, 8)), t(0, py - 8, pz - 16)] if a else
+                                            [t(0, py - 8, pz - 16)] for a in SPIN], X)
+                         for i, (m, py, pz) in enumerate((("offshore_pump_gear", 6, 4), ("offshore_pump_gear_b", 6, 11)))],
+                       ("flow", M("offshore_pump_flow"), [[t(0, 0, -8)]])]),
     # blockstates/small_electric_pole.json: the middle and top parts' models on the blocks above the lower part's.
     ("small_electric_pole", [("lower", M("small_electric_pole"), [[]]),
                              ("middle", M("small_electric_pole_middle"), [[("t", (0, 16, 0), None)]]),
