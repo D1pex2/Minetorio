@@ -6,6 +6,7 @@ import com.mojang.math.Axis;
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
@@ -66,6 +67,32 @@ public final class MachineRender {
                                     VertexConsumer buffer, int light, int overlay) {
         BakedModel model = Minecraft.getInstance().getModelManager().getModel(location);
         renderer.renderModel(pose.last(), buffer, null, model, 1f, 1f, 1f, light, overlay, ModelData.EMPTY, null);
+    }
+
+    /**
+     * Receives the parts of a machine's assembly: a standalone block model drawn at {@code pose}
+     * (model 0..16 = one block from the pose origin). Renderers lay their machine out once through a
+     * sink, so the block entity renderer (a {@link #sink lit sink}) and the ghost renderer (a
+     * translucent tinted one) draw the very same parts at the same places.
+     */
+    @FunctionalInterface
+    public interface PartSink {
+        /** {@code translucent}: blended (glass); {@code glow}: drawn at full brightness. */
+        void part(ModelResourceLocation model, PoseStack pose, boolean translucent, boolean glow);
+
+        /** An opaque, normally lit part. */
+        default void part(ModelResourceLocation model, PoseStack pose) {
+            part(model, pose, false, false);
+        }
+    }
+
+    /** A sink that draws parts like the block entity renderers do: lit by {@code light}, solid or blended. */
+    public static PartSink sink(ModelBlockRenderer renderer, MultiBufferSource buffers, int light, int overlay) {
+        return (model, pose, translucent, glow) -> {
+            int l = glow ? LightTexture.FULL_BRIGHT : light;
+            if (translucent) renderTranslucentModel(renderer, model, pose, buffers, l, overlay);
+            else renderModel(renderer, model, pose, buffers, l, overlay);
+        };
     }
 
     /** The whole footprint of a machine (models extend past the controller block). */

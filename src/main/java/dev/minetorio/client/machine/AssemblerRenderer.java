@@ -1,6 +1,9 @@
 package dev.minetorio.client.machine;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.Direction;
+import dev.minetorio.content.multiblock.MultiblockShape;
 import com.mojang.math.Axis;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.registry.ModBlocks;
@@ -31,16 +34,23 @@ public class AssemblerRenderer implements BlockEntityRenderer<AssemblerBlockEnti
 
     @Override
     public void render(AssemblerBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        boolean tier2 = be.getBlockState().is(ModBlocks.ASSEMBLING_MACHINE_2.get());
+        assemble(be.getBlockState(), be.facing(), be.shape(), be.renderGearAngle(partialTick), pose,
+                MachineRender.sink(modelRenderer, buffers, light, overlay));
+    }
+
+    /** Lays out the machine of {@code state}'s tier from the controller block's corner, the gear turned by {@code gearAngle}. */
+    public static void assemble(BlockState state, Direction facing, MultiblockShape shape, float gearAngle, PoseStack pose,
+                                MachineRender.PartSink sink) {
+        boolean tier2 = state.is(ModBlocks.ASSEMBLING_MACHINE_2.get());
         pose.pushPose();
-        MachineRender.toCenter(pose, be.facing(), be.shape());
+        MachineRender.toCenter(pose, facing, shape);
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5);
-        MachineRender.renderModel(modelRenderer, tier2 ? BODY_2 : BODY_1, pose, buffers, light, overlay);
+        sink.part(tier2 ? BODY_2 : BODY_1, pose);
         pose.popPose();
-        pose.mulPose(Axis.YP.rotationDegrees(be.renderGearAngle(partialTick)));
+        pose.mulPose(Axis.YP.rotationDegrees(gearAngle));
         pose.translate(-0.5, 0, -0.5);
-        MachineRender.renderModel(modelRenderer, tier2 ? GEAR_2 : GEAR_1, pose, buffers, light, overlay);
+        sink.part(tier2 ? GEAR_2 : GEAR_1, pose);
         pose.popPose();
     }
 

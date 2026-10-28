@@ -1,10 +1,11 @@
 package dev.minetorio.client.research;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.core.Direction;
+import dev.minetorio.content.multiblock.MultiblockShape;
 import com.mojang.math.Axis;
 import dev.minetorio.client.machine.MachineRender;
 import dev.minetorio.content.research.LabBlockEntity;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -33,17 +34,22 @@ public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
 
     @Override
     public void render(LabBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+        assemble(be.facing(), be.shape(), be.renderDomeAngle(partialTick), be.isWorking(), pose,
+                MachineRender.sink(modelRenderer, buffers, light, overlay));
+    }
+
+    /** Lays out the lab from the controller block's corner: the dome turned by {@code domeAngle}, glowing while {@code working}. */
+    public static void assemble(Direction facing, MultiblockShape shape, float domeAngle, boolean working, PoseStack pose,
+                                MachineRender.PartSink sink) {
         pose.pushPose();
-        MachineRender.toCenter(pose, be.facing(), be.shape());
+        MachineRender.toCenter(pose, facing, shape);
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5);
-        MachineRender.renderModel(modelRenderer, BODY, pose, buffers, light, overlay);
+        sink.part(BODY, pose);
         pose.popPose();
-        pose.mulPose(Axis.YP.rotationDegrees(be.renderDomeAngle(partialTick)));
+        pose.mulPose(Axis.YP.rotationDegrees(domeAngle));
         pose.translate(-0.5, 0, -0.5);
-        boolean working = be.isWorking();
-        MachineRender.renderTranslucentModel(modelRenderer, working ? DOME : DOME_IDLE, pose, buffers,
-                working ? LightTexture.FULL_BRIGHT : light, overlay);
+        sink.part(working ? DOME : DOME_IDLE, pose, true, working);
         pose.popPose();
     }
 
