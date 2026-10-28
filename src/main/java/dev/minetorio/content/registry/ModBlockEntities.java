@@ -2,6 +2,10 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltBlockEntity;
+import dev.minetorio.content.fluid.PipeBlockEntity;
+import dev.minetorio.content.fluid.PumpBlockEntity;
+import dev.minetorio.content.fluid.StorageTankBlockEntity;
+import dev.minetorio.content.fluid.UndergroundPipeBlockEntity;
 import dev.minetorio.content.belt.SplitterBlockEntity;
 import dev.minetorio.content.belt.UndergroundBeltBlockEntity;
 import dev.minetorio.content.inserter.InserterBlockEntity;
@@ -14,7 +18,6 @@ import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.power.ElectricPoleBlockEntity;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
-import dev.minetorio.content.power.PipeBlockEntity;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
 import dev.minetorio.content.research.LabBlockEntity;
 import dev.minetorio.content.robot.GhostBlockEntity;
@@ -85,6 +88,18 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PipeBlockEntity>> PIPE =
             BLOCK_ENTITIES.register("pipe", () -> BlockEntityType.Builder
                     .of(PipeBlockEntity::new, ModBlocks.PIPE.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<UndergroundPipeBlockEntity>> UNDERGROUND_PIPE =
+            BLOCK_ENTITIES.register("pipe_to_ground", () -> BlockEntityType.Builder
+                    .of(UndergroundPipeBlockEntity::new, ModBlocks.PIPE_TO_GROUND.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<StorageTankBlockEntity>> STORAGE_TANK =
+            BLOCK_ENTITIES.register("storage_tank", () -> BlockEntityType.Builder
+                    .of(StorageTankBlockEntity::new, ModBlocks.STORAGE_TANK.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PumpBlockEntity>> PUMP =
+            BLOCK_ENTITIES.register("pump", () -> BlockEntityType.Builder
+                    .of(PumpBlockEntity::new, ModBlocks.PUMP.get()).build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BoilerBlockEntity>> BOILER =
             BLOCK_ENTITIES.register("boiler", () -> BlockEntityType.Builder

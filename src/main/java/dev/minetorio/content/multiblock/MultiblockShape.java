@@ -19,6 +19,8 @@ public record MultiblockShape(int width, int depth, int height) {
     public static final MultiblockShape BOILER = new MultiblockShape(3, 2, 2);
     public static final MultiblockShape STEAM_ENGINE = new MultiblockShape(3, 5, 2);
     public static final MultiblockShape OFFSHORE_PUMP = new MultiblockShape(1, 2, 1);
+    public static final MultiblockShape STORAGE_TANK = new MultiblockShape(3, 3, 2);
+    public static final MultiblockShape PUMP = new MultiblockShape(1, 2, 1);
     /** All splitter tiers. */
     public static final MultiblockShape SPLITTER = new MultiblockShape(2, 1, 1);
 

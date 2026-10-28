@@ -14,8 +14,9 @@ import dev.minetorio.content.registry.ModBlocks;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.power.OffshorePumpBlockEntity;
-import dev.minetorio.content.power.PipeBlock;
-import dev.minetorio.content.power.PipeBlockEntity;
+import dev.minetorio.content.fluid.PipeBlock;
+import dev.minetorio.content.fluid.PipeSide;
+import dev.minetorio.content.fluid.PipeBlockEntity;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.Units;
@@ -99,7 +100,7 @@ public class PowerGameTest {
     }
 
     static boolean pipeSide(GameTestHelper h, BlockPos rel, Direction side) {
-        return h.getLevel().getBlockState(h.absolutePos(rel)).getValue(PipeBlock.SIDES.get(side));
+        return PipeBlock.side(h.getLevel().getBlockState(h.absolutePos(rel)), side) == PipeSide.PIPE;
     }
 
     // --- steam power -----------------------------------------------------------------------------
@@ -359,7 +360,7 @@ public class PowerGameTest {
             h.assertTrue(boiler.water().amount() > 0, "water port box empty");
             h.assertTrue(boiler.steam().amount() == 0 && boiler.steam().fluid() == null, "water entered the steam box");
             PipeBlockEntity p = (PipeBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(steam));
-            h.assertTrue(p.box().amount() == 80, "water left the pipe through the steam port: " + p.box().amount());
+            h.assertTrue(Math.abs(p.fluidNode().amount() - 80) < 1e-6, "water left the pipe through the steam port: " + p.fluidNode().amount());
             h.succeed();
         });
     }

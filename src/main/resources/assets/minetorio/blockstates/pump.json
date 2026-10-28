@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/pump"
+    },
+    "facing=east": {
+      "model": "minetorio:block/pump",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "minetorio:block/pump",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "minetorio:block/pump",
+      "y": 270
+    }
+  }
+}

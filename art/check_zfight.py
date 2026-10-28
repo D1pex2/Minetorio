@@ -453,6 +453,29 @@ COMPOSITES = [
     ("pipe(all arms)", [("core", M("pipe_core"), [[]]),
                         *[(f"side{y}", M("pipe_side"), [[blockstate_y(y)]]) for y in (0, 90, 180, 270)],
                         ("up", M("pipe_up"), [[]]), ("down", M("pipe_down"), [[]])]),
+    # pipe.json with closed sides: caps on the four sides + arms up and down, and arms on the sides + caps up and down
+    # (blockstate x 270 / 90 about the block center).
+    ("pipe(side caps)", [("core", M("pipe_core"), [[]]),
+                         *[(f"cap{y}", M("pipe_cap"), [[blockstate_y(y)]]) for y in (0, 90, 180, 270)],
+                         ("up", M("pipe_up"), [[]]), ("down", M("pipe_down"), [[]])]),
+    ("pipe(vertical caps)", [("core", M("pipe_core"), [[]]),
+                             *[(f"side{y}", M("pipe_side"), [[blockstate_y(y)]]) for y in (0, 90, 180, 270)],
+                             ("capup", M("pipe_cap"), [[("x", -270, (8, 8, 8))]]),
+                             ("capdown", M("pipe_cap"), [[("x", -90, (8, 8, 8))]])]),
+    # Fluid neighbours: a pipe at an underground pipe's open end; pipes at the tank's front-right connections
+    # (StorageTankRenderer draws the body around the center block); pipes at both ends of the pump.
+    ("pipe_to_ground+pipe", [("ug", M("pipe_to_ground"), [[]]), ("core", M("pipe_core"), [[("t", (0, 0, -16), None)]]),
+                             ("arm", M("pipe_side"), [[blockstate_y(180), ("t", (0, 0, -16), None)]])]),
+    ("storage_tank+pipes", [("tank", M("storage_tank_body"), [[]]),
+                            ("core_n", M("pipe_core"), [[("t", (16, 0, -32), None)]]),
+                            ("arm_n", M("pipe_side"), [[blockstate_y(180), ("t", (16, 0, -32), None)]]),
+                            ("core_e", M("pipe_core"), [[("t", (32, 0, -16), None)]]),
+                            ("arm_e", M("pipe_side"), [[blockstate_y(270), ("t", (32, 0, -16), None)]])]),
+    ("pump+pipes", [("pump", M("pump"), [[]]),
+                    ("core_n", M("pipe_core"), [[("t", (0, 0, -32), None)]]),
+                    ("arm_n", M("pipe_side"), [[blockstate_y(180), ("t", (0, 0, -32), None)]]),
+                    ("core_s", M("pipe_core"), [[("t", (0, 0, 16), None)]]),
+                    ("arm_s", M("pipe_side"), [[("t", (0, 0, 16), None)]])]),
     # Neighbours: a belt feeding an underground entrance from behind (south, +z), a belt leaving an exit
     # (north, -z), a belt run, a splitter fed by two belts and an inserter beside a belt.
     *[(f"{pre}underground_belt_input+belt", [("ug", M(f"{pre}underground_belt_input"), [[]]),

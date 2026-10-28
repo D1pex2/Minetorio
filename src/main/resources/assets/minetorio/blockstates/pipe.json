@@ -7,7 +7,7 @@
     },
     {
       "when": {
-        "north": "true"
+        "north": "pipe"
       },
       "apply": {
         "model": "minetorio:block/pipe_side"
@@ -15,7 +15,15 @@
     },
     {
       "when": {
-        "east": "true"
+        "north": "cap"
+      },
+      "apply": {
+        "model": "minetorio:block/pipe_cap"
+      }
+    },
+    {
+      "when": {
+        "east": "pipe"
       },
       "apply": {
         "model": "minetorio:block/pipe_side",
@@ -24,7 +32,16 @@
     },
     {
       "when": {
-        "south": "true"
+        "east": "cap"
+      },
+      "apply": {
+        "model": "minetorio:block/pipe_cap",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "pipe"
       },
       "apply": {
         "model": "minetorio:block/pipe_side",
@@ -33,7 +50,16 @@
     },
     {
       "when": {
-        "west": "true"
+        "south": "cap"
+      },
+      "apply": {
+        "model": "minetorio:block/pipe_cap",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "pipe"
       },
       "apply": {
         "model": "minetorio:block/pipe_side",
@@ -42,7 +68,16 @@
     },
     {
       "when": {
-        "up": "true"
+        "west": "cap"
+      },
+      "apply": {
+        "model": "minetorio:block/pipe_cap",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "up": "pipe"
       },
       "apply": {
         "model": "minetorio:block/pipe_up"
@@ -50,10 +85,28 @@
     },
     {
       "when": {
-        "down": "true"
+        "down": "pipe"
       },
       "apply": {
         "model": "minetorio:block/pipe_down"
+      }
+    },
+    {
+      "when": {
+        "up": "cap"
+      },
+      "apply": {
+        "model": "minetorio:block/pipe_cap",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "down": "cap"
+      },
+      "apply": {
+        "model": "minetorio:block/pipe_cap",
+        "x": 90
       }
     }
   ]

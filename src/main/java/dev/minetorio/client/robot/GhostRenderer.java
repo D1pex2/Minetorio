@@ -115,6 +115,7 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
         else if (block instanceof BoilerBlock) SteamMachineRenderer.Boiler.assemble(facing, shape, false, pose, sink);
         else if (block instanceof SteamEngineBlock) SteamMachineRenderer.Engine.assemble(facing, shape, 0, pose, sink);
         else if (block instanceof OffshorePumpBlock) OffshorePumpRenderer.assemble(facing, shape, 0, false, pose, sink);
+        else if (block instanceof dev.minetorio.content.fluid.StorageTankBlock) dev.minetorio.client.power.StorageTankRenderer.assemble(facing, pose, sink);
     }
 
     /** The facing the built machine will have: its state's, else the look direction the ghost was placed with. */

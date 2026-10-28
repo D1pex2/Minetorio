@@ -2,6 +2,10 @@ package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
 import dev.minetorio.content.belt.BeltBlock;
+import dev.minetorio.content.fluid.PipeBlock;
+import dev.minetorio.content.fluid.PumpBlock;
+import dev.minetorio.content.fluid.StorageTankBlock;
+import dev.minetorio.content.fluid.UndergroundPipeBlock;
 import dev.minetorio.content.belt.SplitterBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.inserter.InserterBlock;
@@ -16,7 +20,6 @@ import dev.minetorio.content.orefield.OreFieldBlock;
 import dev.minetorio.content.power.BoilerBlock;
 import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.OffshorePumpBlock;
-import dev.minetorio.content.power.PipeBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
 import dev.minetorio.content.robot.GhostBlock;
@@ -103,6 +106,12 @@ public final class ModBlocks {
             OffshorePumpBlock::new, machine(MapColor.METAL));
     public static final DeferredBlock<PipeBlock> PIPE = BLOCKS.registerBlock("pipe",
             PipeBlock::new, belt(MapColor.METAL));
+    public static final DeferredBlock<UndergroundPipeBlock> PIPE_TO_GROUND = BLOCKS.registerBlock("pipe_to_ground",
+            UndergroundPipeBlock::new, belt(MapColor.METAL));
+    public static final DeferredBlock<StorageTankBlock> STORAGE_TANK = BLOCKS.registerBlock("storage_tank",
+            StorageTankBlock::new, machine(MapColor.METAL));
+    public static final DeferredBlock<PumpBlock> PUMP = BLOCKS.registerBlock("pump",
+            PumpBlock::new, machine(MapColor.METAL));
     public static final DeferredBlock<BoilerBlock> BOILER = BLOCKS.registerBlock("boiler",
             BoilerBlock::new, machine(MapColor.METAL));
     public static final DeferredBlock<SteamEngineBlock> STEAM_ENGINE = BLOCKS.registerBlock("steam_engine",

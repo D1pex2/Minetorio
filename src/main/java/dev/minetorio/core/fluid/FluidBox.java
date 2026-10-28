@@ -1,7 +1,7 @@
 package dev.minetorio.core.fluid;
 
-/** A tank holding one fluid type at a time. Fluid ids: "water", "steam". */
-public final class FluidBox {
+/** A machine's tank holding one fluid type at a time (fluid ids: see {@link FluidData}). */
+public final class FluidBox implements FluidStore {
     private static final double EPS = 1e-9;
 
     private final double capacity;
@@ -10,18 +10,21 @@ public final class FluidBox {
 
     public FluidBox(double capacity) { this.capacity = capacity; }
 
-    /** Current fluid id, or null when empty. */
+    @Override
     public String fluid() { return fluid; }
 
+    @Override
     public double amount() { return amount; }
 
+    @Override
     public double capacity() { return capacity; }
 
+    @Override
     public double fill() { return amount / capacity; }
 
-    /** Inserts up to {@code amount}; returns the amount actually inserted (0 if a different fluid is present). */
+    @Override
     public double insert(String fluid, double amount) {
-        if (amount <= 0 || (this.fluid != null && !this.fluid.equals(fluid))) return 0;
+        if (fluid == null || amount <= 0 || (this.fluid != null && !this.fluid.equals(fluid))) return 0;
         double inserted = Math.min(amount, capacity - this.amount);
         if (inserted <= 0) return 0;
         this.fluid = fluid;
@@ -29,7 +32,7 @@ public final class FluidBox {
         return inserted;
     }
 
-    /** Removes up to {@code amount}; returns the amount actually removed. */
+    @Override
     public double extract(double amount) {
         if (amount <= 0 || this.amount <= 0) return 0;
         double removed = Math.min(amount, this.amount);

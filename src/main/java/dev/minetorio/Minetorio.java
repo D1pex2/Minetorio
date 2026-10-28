@@ -50,6 +50,7 @@ public class Minetorio {
         ModFeatures.register(modBus);
         BeltTicker.register();
         PowerGridManager.register();
+        dev.minetorio.content.fluid.FluidNetworkManager.register();
         OreFields.register();
         StartingFields.register();
         OrePatchLedger.register();

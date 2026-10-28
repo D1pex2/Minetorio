@@ -1,5 +1,6 @@
 package dev.minetorio.content.power;
 
+import dev.minetorio.content.fluid.FluidPortBlock;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -14,9 +15,9 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * Controller block shared by the steam-power machines (offshore pump, boiler, steam engine): fluid
- * ports ({@link FluidPorts.Machine}), ticking, and a status line on right-click with an empty hand.
+ * ports ({@link FluidPortBlock}), ticking, and a status line on right-click with an empty hand.
  */
-public abstract class SteamMachineBlock extends MultiblockControllerBlock implements FluidPorts.Machine {
+public abstract class SteamMachineBlock extends MultiblockControllerBlock implements FluidPortBlock {
     protected SteamMachineBlock(Properties properties) {
         super(properties);
     }

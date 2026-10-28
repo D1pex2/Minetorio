@@ -1,0 +1,131 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "pipe_h": "minetorio:block/pipe_h",
+    "pipe_v": "minetorio:block/pipe_v",
+    "pipe_end": "minetorio:block/pipe_end",
+    "flange": "minetorio:block/flange",
+    "dark": "minetorio:block/dark_panel",
+    "particle": "minetorio:block/pipe_h"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        5,
+        2.6
+      ],
+      "to": [
+        11,
+        11,
+        4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#flange"
+        },
+        "east": {
+          "uv": [
+            2.6,
+            5,
+            4.0,
+            11
+          ],
+          "texture": "#flange"
+        },
+        "west": {
+          "uv": [
+            2.6,
+            5,
+            4.0,
+            11
+          ],
+          "texture": "#flange"
+        },
+        "up": {
+          "uv": [
+            5,
+            2.6,
+            11,
+            4.0
+          ],
+          "texture": "#flange"
+        },
+        "down": {
+          "uv": [
+            5,
+            2.6,
+            11,
+            4.0
+          ],
+          "texture": "#flange"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        7,
+        2
+      ],
+      "to": [
+        9,
+        9,
+        2.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            7,
+            9,
+            9
+          ],
+          "texture": "#dark"
+        },
+        "east": {
+          "uv": [
+            2,
+            7,
+            2.6,
+            9
+          ],
+          "texture": "#dark"
+        },
+        "west": {
+          "uv": [
+            2,
+            7,
+            2.6,
+            9
+          ],
+          "texture": "#dark"
+        },
+        "up": {
+          "uv": [
+            7,
+            2,
+            9,
+            2.6
+          ],
+          "texture": "#dark"
+        },
+        "down": {
+          "uv": [
+            7,
+            2,
+            9,
+            2.6
+          ],
+          "texture": "#dark"
+        }
+      }
+    }
+  ]
+}

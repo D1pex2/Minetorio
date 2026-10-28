@@ -202,6 +202,21 @@ Game rules (Settings → Game rules on world creation, or `/gamerule`): `minetor
 - [ ] Die with items in the inventory, hotbar, offhand and armour: nothing scatters; a chest-like "Character corpse: <name>" stands where you died. Right-click opens it (anyone can), sneak + right-click takes everything that fits. Once empty it disappears. It survives save/reload; after `minetorio:corpseMinutes` of world time it disappears with what is left.
 - [ ] A full day-night cycle lasts about 7 minutes (the sun moves smoothly, no jumps). `/gamerule minetorio:daySeconds 1200` gives a vanilla-length day, `0` resets to vanilla.
 
+### Fluids: pipes in 3D, underground pipes, tank, pump (oil stage foundation)
+
+Fluids follow Factorio 2.0: connected pipes, underground pipes and tanks form one **segment** with one fluid and one shared amount (all at the same fill level); machines only exchange through their ports.
+
+- [ ] Pipes connect on all six sides: run one up a wall, across a ceiling and down again. Each connected side shows an arm; nothing else is drawn on free sides.
+- [ ] **Shift + right-click with an empty hand** on a pipe side closes it: a small round blind flange (cap) appears and the action bar says which side was closed; again opens it. Closing a side in the middle of a line splits it (look at both halves: two segments).
+- [ ] Two lines side by side: fill one with water (offshore pump), close its sides toward the other line, build a steam line next to it: allowed. Opening a closed side between them, or placing a pipe that touches both, is refused with "Would mix water with steam".
+- [ ] Looking at a pipe or tank shows the segment in the action bar: fluid, amount/capacity, number of pieces, flow and the segment's throughput limit (6000/s for a single pipe, about 1100/s at 150 pipes; pumps ignore it).
+- [ ] Pipe to ground: place one looking along the line (its open end faces you), walk up to 10 blocks on and place the second looking the same way: it turns into the exit. Also vertically: look down, place the entrance on a floor, the exit below; fluid passes through the floors. Breaking one end cuts the tunnel.
+- [ ] Storage tank (3×3×2, 25 000): connections at two opposite corners (front-right: forward and right; back-left: back and left), drawn as pipe stubs with valve wheels. It fills with the line at the same fill level (a tank and one pipe hold 25 000 : 100).
+- [ ] Pump (1×2, needs power, 30 kW): placed looking the way the fluid should go; it takes from the back and pushes out of the front at up to 12 000/s. Without power it moves nothing; the right-click status shows its box and power.
+- [ ] Steam still works after the rework: offshore pump → long pipe (also with vertical runs) → boiler → steam engine powers a load. Chained boilers and engines pass water/steam on through their ports.
+- [ ] Alt mode: small gauges above pipes (within 16 blocks), tanks and fluid machines: the fluid's colour, filled from the bottom up to the level.
+- [ ] Save and reload: pipes, tanks and machine boxes keep their contents.
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
 1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.

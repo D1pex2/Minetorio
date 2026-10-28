@@ -62,6 +62,9 @@ public final class ModItems {
     // Steam power
     public static final DeferredItem<BlockItem> OFFSHORE_PUMP = multiblock(ModBlocks.OFFSHORE_PUMP);
     public static final DeferredItem<BlockItem> PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE);
+    public static final DeferredItem<BlockItem> PIPE_TO_GROUND = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE_TO_GROUND);
+    public static final DeferredItem<BlockItem> STORAGE_TANK = multiblock(ModBlocks.STORAGE_TANK);
+    public static final DeferredItem<BlockItem> PUMP = multiblock(ModBlocks.PUMP);
     public static final DeferredItem<BlockItem> BOILER = multiblock(ModBlocks.BOILER);
     public static final DeferredItem<BlockItem> STEAM_ENGINE = multiblock(ModBlocks.STEAM_ENGINE);
     public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE);
@@ -95,7 +98,7 @@ public final class ModItems {
             "underground_belt", "fast_underground_belt", "express_underground_belt",
             "splitter", "fast_splitter", "express_splitter",
             "burner_inserter", "inserter", "long_handed_inserter", "fast_inserter", "filter_inserter", "stack_inserter",
-            "offshore_pump", "pipe", "boiler", "steam_engine", "small_electric_pole",
+            "offshore_pump", "pipe", "pipe_to_ground", "storage_tank", "pump", "boiler", "steam_engine", "small_electric_pole",
             "roboport", "construction_robot", "ghost_item", "blueprint", "deconstruction_planner", "upgrade_planner",
             "raw_fish");
 

@@ -1,6 +1,7 @@
 package dev.minetorio.content.power;
 
 import com.mojang.serialization.MapCodec;
+import dev.minetorio.content.fluid.FluidPort;
 import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.multiblock.ModelPoint;
 import dev.minetorio.content.multiblock.MultiblockShape;
@@ -31,10 +32,10 @@ import net.minecraft.world.phys.BlockHitResult;
 public class BoilerBlock extends SteamMachineBlock {
     public static final MapCodec<BoilerBlock> CODEC = simpleCodec(BoilerBlock::new);
     /** Port indices: 0, 1 water (left, right), 2 steam. */
-    private static final List<FluidPorts.Spec> PORTS = List.of(
-            new FluidPorts.Spec(0, 0, FluidPorts.Side.LEFT, "water"),
-            new FluidPorts.Spec(2, 0, FluidPorts.Side.RIGHT, "water"),
-            new FluidPorts.Spec(1, 1, FluidPorts.Side.FRONT, "steam"));
+    private static final List<FluidPort> PORTS = List.of(
+            FluidPort.inputOutput(0, 0, FluidPort.Side.LEFT, "water"),
+            FluidPort.inputOutput(2, 0, FluidPort.Side.RIGHT, "water"),
+            FluidPort.output(1, 1, FluidPort.Side.FRONT, "steam"));
 
     public BoilerBlock(Properties properties) {
         super(properties);
@@ -47,7 +48,7 @@ public class BoilerBlock extends SteamMachineBlock {
     public MultiblockShape shape() { return MultiblockShape.BOILER; }
 
     @Override
-    public List<FluidPorts.Spec> fluidPorts() { return PORTS; }
+    public List<FluidPort> fluidPorts() { return PORTS; }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {

@@ -1,6 +1,11 @@
 package dev.minetorio.content.power;
 
+import dev.minetorio.content.fluid.FluidGaugeSource;
+import dev.minetorio.content.fluid.FluidMachine;
+import dev.minetorio.content.fluid.FluidMachineHelper;
+import dev.minetorio.content.fluid.FluidNode;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.core.fluid.FluidGauge;
 import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.core.alt.AltInfo;
@@ -19,18 +24,20 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Block entity shared by the steam-power machines: flows its ports with touching machine ports
- * each tick ({@link FluidPorts#flowToMachines}; pipes flow on their own), then runs the machine.
+ * Block entity shared by the steam-power machines: a {@link FluidMachine} registered with the fluid
+ * network (which moves fluid through its ports after the tick), and the machine's own tick.
  *
  * <p><b>Client sync.</b> Besides the alt-mode info ({@link dev.minetorio.content.alt.AltSource}, on change), only {@link #isWorking()} is synced, when it changes; the client advances
  * an animation angle while it is set (engine flywheel; the boiler shows its fire).
  */
-public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockEntity implements FluidPorts.Box {
+public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockEntity implements FluidMachine, FluidGaugeSource {
     private static final String KEY_WORKING = "working";
 
     /** Idle ticks before the working flag turns off. */
     private static final int IDLE_GRACE = 10;
 
+    private final FluidMachineHelper fluids = new FluidMachineHelper(this);
+    private FluidGauge clientGauge = FluidGauge.EMPTY;
     private boolean working;
     private int idleTicks;
     /** Alt-mode throttle and last received info (used by machines implementing {@link dev.minetorio.content.alt.AltSource}). */
@@ -61,9 +68,6 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
     protected float animationDegreesPerTick() { return 0; }
 
     final void tickServer(Level level) {
-        if (getBlockState().getBlock() instanceof FluidPorts.Machine machine) {
-            FluidPorts.flowToMachines(level, worldPosition, facing(), machine, this);
-        }
         tickMachine(level);
         if (this instanceof dev.minetorio.content.alt.AltSource) dev.minetorio.content.alt.AltSource.tickAlt(this, altSync);
     }
@@ -90,6 +94,27 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
     @Override
     public void fluidChanged() { setChanged(); }
 
+    @Override
+    public FluidGauge fluidGauge() { return clientGauge; }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        fluids.onLoad();
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        fluids.onRemoved();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        fluids.onRemoved();
+    }
+
     /** Client: animation angle in degrees, interpolated between the last two ticks. */
     public float renderAngle(float partialTick) {
         return prevAngle + (angle - prevAngle) * partialTick;
@@ -99,6 +124,7 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_WORKING)) working = tag.getBoolean(KEY_WORKING); // client update
+        clientGauge = FluidNode.readGauge(tag, clientGauge);
         if (this instanceof dev.minetorio.content.alt.AltSource) clientAlt = dev.minetorio.content.alt.AltSource.read(tag, clientAlt);
     }
 
@@ -107,6 +133,7 @@ public abstract class SteamMachineBlockEntity extends MultiblockControllerBlockE
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(KEY_WORKING, working);
+        FluidNode.writeGauge(tag, FluidGauge.of(altBox()));
         if (this instanceof dev.minetorio.content.alt.AltSource source) dev.minetorio.content.alt.AltSource.write(tag, source, altSync);
         return tag;
     }
