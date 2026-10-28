@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.minetorio.Minetorio;
 import dev.minetorio.client.ModKeys;
+import dev.minetorio.client.camera.BuildCamera;
 import dev.minetorio.client.machine.MultiblockPlacementPreview;
 import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.BeltGeometry;
@@ -236,17 +237,21 @@ public final class DragClient {
     }
 
     /** The column the line heads for: the cell a click would place into, or the player's own. */
-    private static int[] target(Minecraft mc, LocalPlayer player) {
+    private static int[] target(Minecraft mc, LocalPlayer player, Drag d) {
         if (mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
             BlockPos p = new BlockPlaceContext(new UseOnContext(player, InteractionHand.MAIN_HAND, hit)).getClickedPos();
             return new int[] {p.getX(), p.getZ()};
+        }
+        if (BuildCamera.isRemote()) { // the cursor is off the remote area: the line waits (the body is far away)
+            DragCell head = d.line.head();
+            return new int[] {head.x(), head.z()};
         }
         BlockPos feet = player.blockPosition();
         return new int[] {feet.getX(), feet.getZ()};
     }
 
     private static void grow(Minecraft mc, LocalPlayer player, Drag d) {
-        int[] t = target(mc, player);
+        int[] t = target(mc, player, d);
         int drop = d.line.retraction(t[0], t[1], TURN_THRESHOLD, d.sent + 1);
         if (drop > 0) d.truncate(d.line.size() - drop); // turning behind the ghost's head: move the corner back
         PoleSpacer spacer = null;

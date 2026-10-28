@@ -6,6 +6,8 @@ import dev.minetorio.client.ModKeys;
 import dev.minetorio.content.map.ClientMapData;
 import dev.minetorio.content.map.ClientWatchedChunks;
 import dev.minetorio.content.orefield.ClientOreInfo;
+import dev.minetorio.client.camera.BuildCamera;
+import dev.minetorio.client.camera.RemoteViewClient;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
@@ -45,7 +47,9 @@ public final class MapKeys {
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         while (MAP.consumeClick()) {
-            if (mc.screen == null && mc.player != null) mc.setScreen(new MapScreen());
+            if (mc.screen != null || mc.player == null) continue;
+            if (BuildCamera.isRemote()) RemoteViewClient.leaveToMap(); // back to the map over the remote place
+            else mc.setScreen(new MapScreen());
         }
         while (MINIMAP.consumeClick()) MinimapHud.toggle();
         while (ZOOM_IN.consumeClick()) MinimapHud.zoom(1);

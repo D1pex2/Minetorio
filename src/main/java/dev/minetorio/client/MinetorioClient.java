@@ -1,6 +1,7 @@
 package dev.minetorio.client;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.client.camera.RemoteViewClient;
 import dev.minetorio.client.belt.BeltRenderer;
 import dev.minetorio.client.belt.SplitterRenderer;
 import dev.minetorio.client.belt.UndergroundBeltRenderer;
@@ -60,6 +61,7 @@ public final class MinetorioClient {
     public static void setup(FMLClientSetupEvent event) {
         OreFieldHover.register();
         ConstructionAreaOverlay.register();
+        RemoteViewClient.register();
     }
 
     @SubscribeEvent

@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.minetorio.Minetorio;
 import dev.minetorio.client.ModKeys;
+import dev.minetorio.core.camera.RemoteArea;
 import dev.minetorio.core.camera.TopDownCamera;
 import javax.annotation.Nullable;
 import net.minecraft.Util;
@@ -18,10 +19,12 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -63,6 +66,12 @@ import org.lwjgl.glfw.GLFW;
  * <p>Hooks into vanilla: {@code CameraMixin} places the camera, {@code GameRendererMixin} replaces
  * the pick and turns off view bobbing, {@code MouseHandlerMixin} keeps the cursor free,
  * {@code MinecraftMixin} lets a held left button keep breaking without a grabbed mouse.
+ *
+ * <p><b>Remote view</b> ({@link RemoteViewClient}): the same camera hangs over a remote focus
+ * instead of the player; WASD fly the focus (over eligible chunks only, {@link RemoteArea#step})
+ * while the player's own input is zeroed, Q/E and the wheel work as here, Esc goes back to the map.
+ * {@code mc.hitResult} then holds the cursor target only when it is in the remote area, and every
+ * click is handled by {@link RemoteViewClient} (ghosts, ghost removal, machine GUIs), never by vanilla.
  */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
 public final class BuildCamera {
@@ -104,6 +113,10 @@ public final class BuildCamera {
     @Nullable
     private static HitResult cursorHit;
     private static boolean cursorInReach;
+    /** Remote view: the camera hangs over {@code focus} instead of the player. */
+    private static boolean remote;
+    private static double focusX, focusY, focusZ;
+    private static float sentYaw = Float.NaN, sentPitch = Float.NaN;
 
     private BuildCamera() {}
 
@@ -137,6 +150,19 @@ public final class BuildCamera {
         return active && cursorInReach;
     }
 
+    /** Whether the camera is the remote view's (over a remote focus, see {@link RemoteViewClient}). */
+    public static boolean isRemote() {
+        return active && remote;
+    }
+
+    public static double focusX() {
+        return focusX;
+    }
+
+    public static double focusZ() {
+        return focusZ;
+    }
+
     /** Current (animated) camera yaw in degrees. */
     public static double yaw() {
         return yaw;
@@ -150,6 +176,7 @@ public final class BuildCamera {
     // --- switching ------------------------------------------------------------------------------
 
     public static void toggle() {
+        if (remote) return; // the remote view is left with Esc (back to the map)
         if (active) exit();
         else enter();
     }
@@ -169,12 +196,53 @@ public final class BuildCamera {
     }
 
     public static void exit() {
-        if (!active) return;
+        if (!active || remote) return;
         active = false;
         exitRequested = false;
         cursorHit = null;
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen == null && mc.player != null) mc.mouseHandler.grabMouse();
+    }
+
+    /**
+     * Switches to the remote view over {@code (x, y, z)} (the build camera, if on, becomes it). The
+     * caller ({@link RemoteViewClient}) has the server's go-ahead.
+     */
+    public static void enterRemote(double x, double y, double z) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        if (player == null) return;
+        if (!active) {
+            targetYaw = TopDownCamera.snapYaw(player.getYRot());
+            yaw = targetYaw;
+            height = targetHeight;
+        }
+        active = true;
+        remote = true;
+        exitRequested = false;
+        focusX = x;
+        focusY = y;
+        focusZ = z;
+        sentYaw = sentPitch = Float.NaN;
+        cursorHit = null;
+        cursorInReach = false;
+        lastFrameNanos = Util.getNanos();
+        mc.mouseHandler.releaseMouse();
+    }
+
+    /** Puts the remote focus at {@code (x, z)} (the server refused a move). */
+    public static void setFocus(double x, double z) {
+        focusX = x;
+        focusZ = z;
+    }
+
+    /** Leaves the remote view (the camera is off afterwards; the caller decides what screen comes next). */
+    public static void exitRemote() {
+        if (!remote) return;
+        remote = false;
+        active = false;
+        exitRequested = false;
+        cursorHit = null;
     }
 
     // --- input ----------------------------------------------------------------------------------
@@ -192,7 +260,8 @@ public final class BuildCamera {
         if (!active) return;
         // spectating another entity ends the view; a respawn or dimension change keeps it
         if (exitRequested || (mc.getCameraEntity() != null && !(mc.getCameraEntity() instanceof LocalPlayer))) {
-            exit();
+            if (remote) RemoteViewClient.leaveToMap();
+            else exit();
             return;
         }
         LocalPlayer player = mc.player;
@@ -201,7 +270,25 @@ public final class BuildCamera {
         // instead, so swallow the clicks of whatever else shares their key before vanilla sees them.
         rotate(mc, ROTATE_LEFT, -90);
         rotate(mc, ROTATE_RIGHT, 90);
-        if (mc.screen == null) aimPlayer(player);
+        if (remote) faceScreenUp(player);
+        else if (mc.screen == null) aimPlayer(player);
+    }
+
+    /**
+     * Remote view: the player faces up the screen, so ghosts and drag lines get the facing the
+     * camera shows. His body does not tick while its chunk is away, so the turn is sent explicitly
+     * (the server plans ghosts with his facing).
+     */
+    private static void faceScreenUp(LocalPlayer player) {
+        float y = (float) targetYaw, p = (float) TopDownCamera.PITCH;
+        player.setYRot(y);
+        player.setXRot(p);
+        player.setYHeadRot(y);
+        if (y != sentYaw || p != sentPitch) {
+            sentYaw = y;
+            sentPitch = p;
+            player.connection.send(new ServerboundMovePlayerPacket.Rot(y, p, player.onGround()));
+        }
     }
 
     private static void rotate(Minecraft mc, KeyMapping key, double by) {
@@ -246,6 +333,14 @@ public final class BuildCamera {
     public static void onMovementInput(MovementInputUpdateEvent event) {
         if (!active || event.getEntity() != Minecraft.getInstance().player) return;
         Input in = event.getInput();
+        if (remote) { // the body stays home; WASD fly the camera (onFrame)
+            in.forwardImpulse = 0;
+            in.leftImpulse = 0;
+            in.up = in.down = in.left = in.right = false;
+            in.jumping = false;
+            in.shiftKeyDown = false;
+            return;
+        }
         double[] r = TopDownCamera.remapInput(in.forwardImpulse, in.leftImpulse, targetYaw, event.getEntity().getYRot());
         in.forwardImpulse = (float) r[0];
         in.leftImpulse = (float) r[1];
@@ -272,6 +367,7 @@ public final class BuildCamera {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         active = false;
+        remote = false;
         exitRequested = false;
         cursorHit = null;
     }
@@ -287,6 +383,29 @@ public final class BuildCamera {
         yaw = TopDownCamera.approachAngle(yaw, targetYaw, YAW_RATE, dt, 0.01);
         if (Math.abs(TopDownCamera.wrap(yaw - targetYaw)) < 0.01) yaw = targetYaw;
         height = TopDownCamera.approach(height, targetHeight, HEIGHT_RATE, dt, 0.01);
+        if (remote) fly(Minecraft.getInstance(), dt);
+    }
+
+    /** Remote view: WASD move the focus relative to the screen (sprint doubles it); its height follows the ground. */
+    private static void fly(Minecraft mc, double dt) {
+        if (mc.level == null) return;
+        if (mc.screen == null) {
+            double forward = (mc.options.keyUp.isDown() ? 1 : 0) - (mc.options.keyDown.isDown() ? 1 : 0);
+            double strafe = (mc.options.keyLeft.isDown() ? 1 : 0) - (mc.options.keyRight.isDown() ? 1 : 0);
+            if (forward != 0 || strafe != 0) {
+                double len = Math.sqrt(forward * forward + strafe * strafe);
+                double dist = RemoteArea.panSpeed(height) * dt * (mc.options.keySprint.isDown() ? 2 : 1) / len;
+                double[] m = TopDownCamera.worldMove(forward * dist, strafe * dist, targetYaw);
+                double[] to = RemoteArea.step(focusX, focusZ, m[0], m[1], RemoteViewClient::eligible);
+                focusX = to[0];
+                focusZ = to[1];
+            }
+        }
+        int bx = Mth.floor(focusX), bz = Mth.floor(focusZ);
+        if (mc.level.hasChunk(bx >> 4, bz >> 4)) {
+            double ground = mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz);
+            focusY = TopDownCamera.approach(focusY, ground, HEIGHT_RATE / 2, dt, 0.01);
+        }
     }
 
     /** Records the field of view the world is drawn with, for the cursor ray. */
@@ -334,6 +453,10 @@ public final class BuildCamera {
 
     /** The camera position for the player at {@code partialTick}. */
     public static Vec3 cameraPosition(Entity entity, float partialTick) {
+        if (remote) {
+            double[] p = TopDownCamera.orbit(focusX, focusY + CENTER_Y, focusZ, yaw, TopDownCamera.PITCH, height);
+            return new Vec3(p[0], p[1], p[2]);
+        }
         double cx = Mth.lerp(partialTick, entity.xo, entity.getX());
         double cy = Mth.lerp(partialTick, entity.yo, entity.getY()) + CENTER_Y;
         double cz = Mth.lerp(partialTick, entity.zo, entity.getZ());
@@ -366,6 +489,14 @@ public final class BuildCamera {
         Vec3 from = cameraPosition(player, partialTick);
         Vec3 to = from.add(dir.scale(RAY_LENGTH));
         BlockHitResult block = mc.level.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        if (remote) { // blocks only; acting is limited to the remote area
+            cursorHit = block;
+            cursorInReach = block.getType() == HitResult.Type.BLOCK && RemoteViewClient.inArea(block.getBlockPos());
+            mc.hitResult = cursorInReach ? block
+                    : BlockHitResult.miss(block.getLocation(), block.getDirection(), block.getBlockPos());
+            mc.crosshairPickEntity = null;
+            return;
+        }
         double blockDist = block.getType() == HitResult.Type.MISS ? RAY_LENGTH : block.getLocation().distanceTo(from);
         Vec3 end = from.add(dir.scale(blockDist));
         EntityHitResult entity = ProjectileUtil.getEntityHitResult(player, from, end, new AABB(from, end).inflate(1.0),

@@ -1,5 +1,6 @@
 package dev.minetorio.content.machine;
 
+import dev.minetorio.content.map.RemoteView;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -82,6 +83,7 @@ public abstract class MachineMenu extends AbstractContainerMenu {
     /** After every click, stacks the machine could not store go back to the player (see {@link MachineContainer.View#setItem}). */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (RemoteView.blocksTransfer(player)) return; // a GUI open from the remote view only shows (and sets the recipe)
         super.clicked(slotId, button, clickType, player);
         returnOverflow(player);
     }
@@ -97,5 +99,5 @@ public abstract class MachineMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public boolean stillValid(Player player) { return machine.stillValid(player); }
+    public boolean stillValid(Player player) { return machine.stillValid(player) || RemoteView.menuValid(player, this); }
 }

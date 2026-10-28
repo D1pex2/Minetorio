@@ -11,6 +11,7 @@ import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.nbt.CoreNbt;
 import dev.minetorio.content.power.ElectricConsumerHelper;
 import dev.minetorio.content.registry.ModBlockEntities;
+import dev.minetorio.content.map.RemoteView;
 import dev.minetorio.content.research.RecipeLocks;
 import dev.minetorio.core.Units;
 import dev.minetorio.core.belt.LaneItem;
@@ -168,14 +169,17 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
      * Handles a player's recipe choice for the assembler at {@code pos}: the player must not be a
      * spectator and must have this assembler's GUI open (still valid), the assembler must be within
      * {@value #SELECT_DISTANCE} blocks, and the recipe a known, unlocked CRAFTING recipe. On success what the machine gave up goes into the player's inventory (the
-     * rest is dropped at the player).
+     * rest is dropped at the player). From the remote view ({@link RemoteView}) the assembler must be in
+     * the view's area instead of near, and what it gave up spills at the assembler.
      */
     public static SelectResult select(ServerPlayer player, BlockPos pos, String recipeId) {
         if (player.isSpectator()) return SelectResult.SPECTATOR;
         Level level = player.level();
         if (!level.isLoaded(pos) || !(level.getBlockEntity(pos) instanceof AssemblerBlockEntity be)) return SelectResult.NOT_ASSEMBLER;
         double reach = SELECT_DISTANCE * SELECT_DISTANCE;
-        if (ElectricConsumerHelper.box(be.shape().footprint(pos, be.facing())).distanceToSqr(player.position()) > reach) {
+        boolean remote = RemoteView.isRemote(player);
+        if (remote ? !RemoteView.inArea(player, pos)
+                : ElectricConsumerHelper.box(be.shape().footprint(pos, be.facing())).distanceToSqr(player.position()) > reach) {
             return SelectResult.TOO_FAR;
         }
         if (!(player.containerMenu instanceof AssemblerMenu menu) || !menu.pos().equals(pos) || !menu.stillValid(player)) {
@@ -185,7 +189,10 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         if (recipe.isEmpty()) return SelectResult.UNKNOWN_RECIPE;
         if (recipe.get().category() != RecipeCategory.CRAFTING) return SelectResult.NOT_CRAFTING;
         if (!RecipeLocks.isUnlocked(player.server, recipeId)) return SelectResult.LOCKED;
-        MachineItems.give(player, be.setRecipe(recipe.get()));
+        Map<String, Integer> returned = be.setRecipe(recipe.get());
+        // from the remote view nothing moves between the machine and the player: it spills at the machine
+        if (remote) MachineItems.drop(level, pos, returned);
+        else MachineItems.give(player, returned);
         return SelectResult.OK;
     }
 

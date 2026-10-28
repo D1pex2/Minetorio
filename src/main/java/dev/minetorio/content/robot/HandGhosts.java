@@ -1,6 +1,7 @@
 package dev.minetorio.content.robot;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.map.RemoteView;
 import dev.minetorio.content.research.RecipeLocks;
 import dev.minetorio.core.data.Phase1Data;
 import dev.minetorio.core.recipe.Recipe;
@@ -144,7 +145,7 @@ public final class HandGhosts {
         ItemStack stack = effective(player.getMainHandItem());
         BlockPos clicked = hit.getBlockPos();
         if (!canGhost(stack) || !player.mayBuild() || !level.isLoaded(clicked) || !hitInside(hit)
-                || !player.canInteractWithBlock(clicked, REACH_TOLERANCE)) {
+                || !RemoteView.canReach(player, clicked, REACH_TOLERANCE)) {
             return false;
         }
         if (!budget(player)) return false;
@@ -156,6 +157,7 @@ public final class HandGhosts {
     public static boolean commit(ServerPlayer player, ServerLevel level, Plan p) {
         for (BlockPos c : p.cells()) {
             if (!level.isLoaded(c) || !level.mayInteract(player, c)) return false;
+            if (RemoteView.isRemote(player) && !RemoteView.inArea(player, c)) return false;
         }
         return Ghosts.placePlanned(level, p.pos(), p.state(), p.facing());
     }
@@ -207,7 +209,7 @@ public final class HandGhosts {
     public static GiveResult pipette(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.serverLevel();
         if (player.isSpectator() || !player.isAlive() || player.getAbilities().instabuild) return GiveResult.NOT_ALLOWED;
-        if (!level.isLoaded(pos) || !player.canInteractWithBlock(pos, REACH_TOLERANCE)) return GiveResult.TOO_FAR;
+        if (!level.isLoaded(pos) || !RemoteView.canReach(player, pos, REACH_TOLERANCE)) return GiveResult.TOO_FAR;
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return GiveResult.UNKNOWN;
         ItemStack target = state.getCloneItemStack(new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false), level, pos, player);
