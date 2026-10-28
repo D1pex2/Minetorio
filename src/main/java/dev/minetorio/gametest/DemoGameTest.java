@@ -8,7 +8,13 @@ import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.ElectricDrillBlockEntity;
 import dev.minetorio.content.map.RadarBlockEntity;
+import dev.minetorio.content.orefield.OreFieldPayloads;
 import dev.minetorio.content.orefield.OreFields;
+import dev.minetorio.content.orefield.OrePatchLedger;
+import dev.minetorio.core.orefield.OrePatch;
+import dev.minetorio.core.orefield.PatchKind;
+import dev.minetorio.core.orefield.PatchLedger;
+import dev.minetorio.core.orefield.PatchShape;
 import dev.minetorio.content.power.SteamEngineBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.content.research.LabBlockEntity;
@@ -136,6 +142,27 @@ public class DemoGameTest {
         h.assertTrue(OreFields.typeOf(level.getBlockState(layout.ironField())) == OreType.IRON, "no iron field: " + level.getBlockState(layout.ironField()));
         h.assertTrue(OreFields.remaining(level, layout.ironField()) == DemoBuilder.FIELD_AMOUNT, "iron field amount " + OreFields.remaining(level, layout.ironField()));
         h.assertTrue(OreFields.typeOf(level.getBlockState(layout.coalField())) == OreType.COAL, "no coal field: " + level.getBlockState(layout.coalField()));
+        // each demo field reports 10 000 × its cells as its patch total, from any of its blocks
+        List<OrePatch> demoPatches = List.of(
+                new OrePatch(OreType.IRON, layout.ironField().getX(), layout.ironField().getZ(), DemoBuilder.IRON_RADIUS),
+                new OrePatch(OreType.COAL, layout.coalField().getX(), layout.coalField().getZ(), DemoBuilder.COAL_RADIUS));
+        for (OrePatch disk : demoPatches) {
+            int fieldY = layout.ironField().getY();
+            int cells = PatchShape.of(disk).cells(), blocks = 0;
+            for (PatchShape.Run r : PatchShape.of(disk).runs()) {
+                for (int x = r.x0(); x <= r.x1(); x++) {
+                    if (OreFields.typeOf(level.getBlockState(new BlockPos(x, fieldY, r.z()))) == disk.type()) blocks++;
+                }
+            }
+            h.assertTrue(blocks == cells, disk + ": " + blocks + " field blocks of " + cells + " cells");
+            long key = PatchLedger.key(PatchKind.DEMO, disk);
+            for (int[] at : List.of(new int[] {disk.centerX(), disk.centerZ()}, new int[] {disk.centerX() - disk.radius(), disk.centerZ()})) {
+                OreFieldPayloads.Info info = OreFieldPayloads.lookup(level, at[0], at[1]);
+                h.assertTrue(info.patch() == key && info.radius() == disk.radius() && info.centerX() == disk.centerX()
+                        && info.centerZ() == disk.centerZ(), "patch at " + at[0] + "," + at[1] + ": " + info);
+                h.assertTrue(info.total() == DemoBuilder.FIELD_AMOUNT * cells, disk + " total " + info.total() + " vs " + DemoBuilder.FIELD_AMOUNT * cells);
+            }
+        }
         h.assertTrue(level.getBlockEntity(layout.radar()) instanceof RadarBlockEntity, "no radar at " + layout.radar().subtract(o)
                 + ": " + level.getBlockState(layout.radar()));
         ResearchState state = research.state();
@@ -188,6 +215,9 @@ public class DemoGameTest {
             h.assertTrue(data == null || data.isEmpty(), "demo data left after off");
             for (BlockPos f : List.of(layout.ironField(), layout.coalField(), layout.ironField().offset(-7, 0, -4))) {
                 h.assertTrue(level.getBlockState(f).is(Blocks.DIRT), "field left after off at " + f.subtract(o));
+            }
+            for (OrePatch disk : demoPatches) {
+                h.assertTrue(OrePatchLedger.get(level).total(PatchLedger.key(PatchKind.DEMO, disk)) == -1, "demo patch left in the ledger: " + disk);
             }
             h.succeed();
         });

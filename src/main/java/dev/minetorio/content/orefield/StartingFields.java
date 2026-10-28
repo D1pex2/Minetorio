@@ -4,6 +4,8 @@ import com.mojang.logging.LogUtils;
 import dev.minetorio.core.orefield.FieldStamp;
 import dev.minetorio.core.orefield.OrePatch;
 import dev.minetorio.core.orefield.PatchGenerator;
+import dev.minetorio.core.orefield.PatchKind;
+import dev.minetorio.core.orefield.PatchLedger;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -77,6 +79,7 @@ public final class StartingFields extends SavedData {
         int n = 0;
         for (OrePatch p : new PatchGenerator(level.getSeed(), 0, 0).patchesInStartingArea(spawnX, spawnZ)) {
             n += OreFields.unstamp(level, p);
+            OrePatchLedger.get(level).remove(PatchLedger.key(PatchKind.GENERATED, p)); // gone whole
         }
         return n;
     }
@@ -88,7 +91,8 @@ public final class StartingFields extends SavedData {
             int r = p.radius();
             List<FieldStamp.Cell> cells = FieldStamp.plan(List.of(p), p.centerX() - r, p.centerZ() - r, p.centerX() + r, p.centerZ() + r,
                     spawnX, spawnZ);
-            n += OreFields.stamp(level, cells);
+            long key = OrePatchLedger.get(level).register(PatchKind.STARTING, p, spawnX, spawnZ);
+            n += OreFields.stamp(level, cells, key);
         }
         return n;
     }

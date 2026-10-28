@@ -3,6 +3,8 @@ package dev.minetorio.content.orefield;
 import dev.minetorio.core.orefield.FieldStamp;
 import dev.minetorio.core.orefield.OrePatch;
 import dev.minetorio.core.orefield.PatchGenerator;
+import dev.minetorio.core.orefield.PatchKind;
+import dev.minetorio.core.orefield.PatchLedger;
 import java.util.List;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.WorldGenLevel;
@@ -39,9 +41,19 @@ public class OreFieldFeature extends Feature<NoneFeatureConfiguration> {
         List<OrePatch> patches = new PatchGenerator(level.getSeed(), 0, 0).patchesTouching(x0, z0, x0 + 15, z0 + 15);
         if (patches.isEmpty()) return false;
         boolean any = false;
-        for (FieldStamp.Cell c : FieldStamp.plan(patches, x0, z0, x0 + 15, z0 + 15, 0, 0)) {
-            int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, c.x(), c.z()) - 1;
-            any |= OreFields.stampColumn(level, c.x(), c.z(), top, level.getMinBuildHeight(), c.type(), c.amount());
+        // generated patches never overlap: each is stamped on its own, its blocks and total tagged with its key
+        for (OrePatch p : patches) {
+            long key = PatchLedger.key(PatchKind.GENERATED, p);
+            long sum = 0;
+            for (FieldStamp.Cell c : FieldStamp.plan(List.of(p), x0, z0, x0 + 15, z0 + 15, 0, 0)) {
+                int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, c.x(), c.z()) - 1;
+                if (OreFields.stampColumn(level, c.x(), c.z(), top, level.getMinBuildHeight(), c.type(), c.amount(), key)) {
+                    sum += c.amount();
+                    any = true;
+                }
+            }
+            // also when every column was skipped: the chunk then no longer counts with its formula amount
+            OrePatchLedger.chunkStamped(level.getLevel(), p, x0 >> 4, z0 >> 4, sum);
         }
         return any;
     }

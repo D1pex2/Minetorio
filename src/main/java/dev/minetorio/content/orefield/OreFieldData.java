@@ -17,9 +17,12 @@ public final class OreFieldData implements INBTSerializable<CompoundTag> {
     private static final String KEY_POS = "pos";
     private static final String KEY_REMAINING = "remaining";
     private static final String KEY_INITIAL = "initial";
+    private static final String KEY_PATCH = "patch";
 
     private final Long2LongOpenHashMap remaining = new Long2LongOpenHashMap();
     private final Long2LongOpenHashMap initial = new Long2LongOpenHashMap();
+    /** Patch key ({@code PatchLedger.key}) per block stamped for a patch; absent for blocks of no patch. */
+    private final Long2LongOpenHashMap owner = new Long2LongOpenHashMap();
 
     /** Key of a block inside its chunk: y in the high bits, local x and z in the low byte. */
     static long key(BlockPos pos) {
@@ -34,6 +37,16 @@ public final class OreFieldData implements INBTSerializable<CompoundTag> {
     /** Initial ore, or -1 without an entry. */
     public long initial(BlockPos pos) { return initial.getOrDefault(key(pos), -1L); }
 
+    /** Key of the patch the block was stamped for ({@link OrePatchLedger}), or 0 for none. */
+    public long owner(BlockPos pos) { return owner.get(key(pos)); }
+
+    /** Sets the block's patch (0: none). */
+    public void setOwner(BlockPos pos, long patchKey) {
+        if (patchKey == 0) owner.remove(key(pos));
+        else owner.put(key(pos), patchKey);
+    }
+
+    /** Sets the amounts; the block's patch stays. */
     public void set(BlockPos pos, long initialAmount, long remainingAmount) {
         long k = key(pos);
         initial.put(k, initialAmount);
@@ -45,6 +58,7 @@ public final class OreFieldData implements INBTSerializable<CompoundTag> {
         if (!remaining.containsKey(k)) return false;
         initial.remove(k);
         remaining.remove(k);
+        owner.remove(k);
         return true;
     }
 
@@ -55,14 +69,17 @@ public final class OreFieldData implements INBTSerializable<CompoundTag> {
         long[] keys = remaining.keySet().toLongArray();
         long[] rem = new long[keys.length];
         long[] init = new long[keys.length];
+        long[] patch = new long[keys.length];
         for (int i = 0; i < keys.length; i++) {
             rem[i] = remaining.get(keys[i]);
             init[i] = initial.get(keys[i]);
+            patch[i] = owner.get(keys[i]);
         }
         CompoundTag tag = new CompoundTag();
         tag.putLongArray(KEY_POS, keys);
         tag.putLongArray(KEY_REMAINING, rem);
         tag.putLongArray(KEY_INITIAL, init);
+        tag.putLongArray(KEY_PATCH, patch);
         return tag;
     }
 
@@ -70,13 +87,16 @@ public final class OreFieldData implements INBTSerializable<CompoundTag> {
     public void deserializeNBT(HolderLookup.Provider provider, @UnknownNullability CompoundTag tag) {
         remaining.clear();
         initial.clear();
+        owner.clear();
         long[] keys = tag.getLongArray(KEY_POS);
         long[] rem = tag.getLongArray(KEY_REMAINING);
         long[] init = tag.getLongArray(KEY_INITIAL);
+        long[] patch = tag.getLongArray(KEY_PATCH); // empty in chunks saved before patches were tracked
         int n = Math.min(keys.length, Math.min(rem.length, init.length));
         for (int i = 0; i < n; i++) {
             remaining.put(keys[i], rem[i]);
             initial.put(keys[i], init[i]);
+            if (i < patch.length && patch[i] != 0) owner.put(keys[i], patch[i]);
         }
     }
 }

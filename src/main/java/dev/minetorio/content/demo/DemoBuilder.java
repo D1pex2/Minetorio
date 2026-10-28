@@ -9,7 +9,9 @@ import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.power.BoilerBlockEntity;
 import dev.minetorio.content.registry.ModItems;
 import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.content.orefield.OrePatchLedger;
 import dev.minetorio.core.orefield.OrePatch;
+import dev.minetorio.core.orefield.PatchKind;
 import dev.minetorio.core.orefield.OreType;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,8 +70,10 @@ public final class DemoBuilder {
     public static final int CLEAR_HEIGHT = 20;
     /** Ore per block of the demo fields. */
     public static final long FIELD_AMOUNT = 10_000;
-    private static final int IRON_X = 58, IRON_Z = 34, IRON_RADIUS = 10;
-    private static final int COAL_X = 70, COAL_Z = 26, COAL_RADIUS = 3;
+    private static final int IRON_X = 58, IRON_Z = 34;
+    public static final int IRON_RADIUS = 10;
+    private static final int COAL_X = 70, COAL_Z = 26;
+    public static final int COAL_RADIUS = 3;
     private static final String IRON = "minetorio:iron_plate";
     private static final String COPPER = "minetorio:copper_plate";
     private static final String COAL = "minecraft:coal";
@@ -207,10 +211,11 @@ public final class DemoBuilder {
     private void field(OreType type, int x, int z, int radius) {
         BlockPos center = origin.offset(x, 0, z);
         OrePatch disk = new OrePatch(type, center.getX(), center.getZ(), radius);
+        long key = OrePatchLedger.get(level).register(PatchKind.DEMO, disk, center.getX(), center.getZ());
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int fx = center.getX() - radius; fx <= center.getX() + radius; fx++) {
             for (int fz = center.getZ() - radius; fz <= center.getZ() + radius; fz++) {
-                if (disk.contains(fx, fz)) OreFields.place(level, p.set(fx, center.getY(), fz).immutable(), type, FIELD_AMOUNT);
+                if (disk.contains(fx, fz)) OreFields.placeOwned(level, p.set(fx, center.getY(), fz).immutable(), type, FIELD_AMOUNT, key);
             }
         }
         pending.add(d -> d.addField(type, center, radius));

@@ -4,7 +4,10 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
 import dev.minetorio.content.orefield.OreFields;
 import dev.minetorio.content.research.ResearchSavedData;
+import dev.minetorio.content.orefield.OrePatchLedger;
 import dev.minetorio.core.orefield.OrePatch;
+import dev.minetorio.core.orefield.PatchKind;
+import dev.minetorio.core.orefield.PatchLedger;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
@@ -85,6 +88,7 @@ public final class DemoCommand {
             for (DemoSavedData.Field f : data.fields()) {
                 OrePatch disk = new OrePatch(f.type(), f.center().getX(), f.center().getZ(), f.radius());
                 OreFields.clear(overworld, disk, f.center().getY());
+                OrePatchLedger.get(overworld).remove(PatchLedger.key(PatchKind.DEMO, disk));
                 fields++;
             }
             data.clear();
