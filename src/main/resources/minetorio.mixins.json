@@ -8,7 +8,10 @@
     "CameraMixin",
     "GameRendererMixin",
     "MinecraftMixin",
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "RenderChunkRegionMixin",
+    "BlockEntityRenderDispatcherMixin",
+    "EntityRenderDispatcherMixin"
   ],
   "injectors": {
     "defaultRequire": 1

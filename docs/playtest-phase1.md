@@ -145,6 +145,20 @@ Check these once in English and once with the game language set to Russian (the 
 - [ ] Hold or look at a burner drill (2×2) or an electric drill (5×5): a green square shows the mining area. Hold or look at a radar: a blue outline marks its 7×7-chunk continuous scan area.
 - [ ] The highlights follow steps in the terrain, do not flicker against the ground, and are not drawn on top of belts or machines.
 
+### Top-down view: free orbit and layer cut (multi-floor factories)
+
+Build a two- or three-floor structure first (e.g. a stone box with floors 4 blocks apart, belts and an assembler on each floor). Keys are under Controls → Minetorio and can be rebound.
+
+- [ ] **V** for the top-down view. Hold the **middle mouse button** and drag: left/right turns the camera around the point at the screen centre by any angle, down tilts it to straight down, up flattens it to almost a side view (it stops at both ends). Movement is smooth, the picture does not jump when the drag starts.
+- [ ] At any angle, the outline under the cursor matches the block the cursor is on (check at the steepest and the flattest angle, near the screen edges); left/right click break/place there.
+- [ ] WASD walk relative to the screen at any free yaw. **Q/E** still turn in 90° steps; from a free angle they snap to the next quarter in that direction.
+- [ ] Double-click the middle button, or press **End**: back to the default tilt and the nearest quarter-turn yaw. A single middle click without dragging is still pick-block.
+- [ ] The same works in the remote view (from the map).
+- [ ] **PgDn**: a "Layer: Y=…" box appears top left; everything above that height disappears (blocks, water, machines, belts, chests, robots, items, mobs; also the player if he stands higher). The cut faces are drawn lit, not black. Lower floors are now visible from above, also when the ceiling was solid.
+- [ ] PgDn/PgUp move the cut one block down/up; the hidden part updates within a frame or two, without stutter. **Home** clears the cut.
+- [ ] With a cut, the cursor goes "through" the hidden blocks: you can place, break and open machines on the lower floor. Hidden mobs and items cannot be clicked.
+- [ ] Leave the view (V or Esc) with a cut set: everything comes back exactly as before (no missing blocks, machines or entities). Entering again starts without a cut.
+
 ## 2. Bootstrap: pickaxe to green science (brief Step 4)
 
 1. [ ] Walk to the starting fields (48 blocks east, west, south and north of spawn). With a pickaxe, mine some iron and copper ore, coal and stone (cobblestone) from them, one ore per break.
