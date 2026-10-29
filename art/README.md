@@ -1,5 +1,9 @@
 # Minetorio art
 
+Oil-stage assets: `python art/gen_oil.py` builds the pumpjack, refinery, chemical plant and steel furnace from local Factorio 1.1 entity references. It writes bounded model pieces, `OilModelParts.java`, `oil-model-parts.json` (the shared renderer/checker placements) and `oil-preview.png`. The pumpjack walking beam is animated separately; real machines and ghosts share `OilRender.assemble`.
+
+`python art/gen_oil_items.py` builds original intermediate/barrel/science icons, the steel chest assets, drops and mining tags. `python -I art/check_zfight.py` checks both individual pieces and the assembled oil machines, including walking-beam poses. External reference images and comparison sheets stay in `.superpowers/reference/factorio`.
+
 Everything here is procedural (Python 3 + Pillow + numpy) and deterministic. Re-run a script after
 editing it. No fal or other generated images are used: hand-placed pixels read better than
 downscaled diffusion output at 16×16.

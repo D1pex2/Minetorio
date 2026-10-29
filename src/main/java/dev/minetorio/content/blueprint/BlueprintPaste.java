@@ -1,5 +1,6 @@
 package dev.minetorio.content.blueprint;
 
+import dev.minetorio.content.belt.BeltBlock;
 import dev.minetorio.content.belt.UndergroundBeltBlock;
 import dev.minetorio.content.map.RemoteView;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
@@ -53,10 +54,11 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  *   <li>{@link Status#SAME} (skipped) when the same block stands there already (or its ghost);</li>
  *   <li>{@link Status#LOCKED} (red, skipped) when its machine is not researched;</li>
  *   <li>{@link Status#UPGRADE}: the same kind of block of another tier stands there facing the
- *       same way (a yellow belt where the blueprint has a red one, assembler 1 for 2): it is marked
+ *       same way (a yellow belt where the blueprint has a red one, assembler 1 for 2), or a regular
+ *       belt faces another way: it is marked
  *       for upgrade ({@code ConstructionMarks#markUpgrade}) and robots fast-replace it;</li>
- *   <li>{@link Status#BLOCKED} (red, skipped) when its cells are taken (another block, a belt
- *       facing another way), hold fluid, overlap another part or ghost, lack support
+ *   <li>{@link Status#BLOCKED} (red, skipped) when its cells are taken by an incompatible block,
+ *       hold fluid, overlap another part or ghost, lack support
  *       ({@link Blueprints#supported}) or are out of reach;</li>
  *   <li>{@link Status#OK}: planned exactly like a hand ghost ({@link HandGhosts#planAt});</li>
  *   <li>{@link Status#FORCED} (Shift paste): it fits once the vanilla blocks in its way
@@ -71,7 +73,7 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 public final class BlueprintPaste {
     /** Pastes: a burst, refilled per tick. */
     static final int BURST = 4;
-    static final double REFILL_PER_TICK = 0.1;
+    static final double REFILL_PER_TICK = 0.25;
 
     private static final Map<UUID, RateBudget> BUDGETS = new HashMap<>();
 
@@ -238,17 +240,19 @@ public final class BlueprintPaste {
     /**
      * Whether a real block at {@code origin} can be fast-replaced by {@code block}: another tier of
      * the same fast-replace group ({@code UpgradeGroups}), facing the same way (an underground belt
-     * also the same entrance/exit). Not a ghost.
+     * also the same entrance/exit), or a regular belt whose direction differs. Not a ghost.
      */
     static boolean upgradable(Level level, BlockPos origin, Block block, Direction facing, int variant) {
         BlockState s = level.getBlockState(origin);
-        if (s.is(ModBlocks.GHOST.get()) || s.is(block)) return false;
+        if (s.is(ModBlocks.GHOST.get())) return false;
+        boolean belts = s.getBlock() instanceof BeltBlock && block instanceof BeltBlock;
+        if (s.is(block)) return belts && s.getValue(BeltBlock.FACING) != facing;
         var items = net.minecraft.core.registries.BuiltInRegistries.ITEM;
         if (!dev.minetorio.core.data.UpgradeGroups.compatible(items.getKey(s.getBlock().asItem()).toString(),
                 items.getKey(block.asItem()).toString())) {
             return false;
         }
-        if (s.hasProperty(BlockStateProperties.HORIZONTAL_FACING) && s.getValue(BlockStateProperties.HORIZONTAL_FACING) != facing) return false;
+        if (!belts && s.hasProperty(BlockStateProperties.HORIZONTAL_FACING) && s.getValue(BlockStateProperties.HORIZONTAL_FACING) != facing) return false;
         return !s.hasProperty(UndergroundBeltBlock.TYPE)
                 || (s.getValue(UndergroundBeltBlock.TYPE) == UndergroundBeltBlock.Type.OUTPUT) == (variant == 1);
     }
@@ -308,14 +312,15 @@ public final class BlueprintPaste {
                     String to = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(plan.block().asItem()).toString();
                     var marks = dev.minetorio.content.robot.ConstructionMarks.get(level);
                     var order = marks.upgradeOrder(level, plan.origin());
-                    if (order != null && order.toItem().equals(to)) return true;
+                    int facing = plan.block() instanceof BeltBlock ? DragDir.valueOf(plan.facing().name()).id() : -1;
+                    if (order != null && order.toItem().equals(to) && order.facing() == facing) return true;
                     // a paired underground belt is swapped as a pair: one order for both
                     BlockPos partner = UndergroundBeltBlock.pairedPartner(level, plan.origin());
                     if (partner != null) {
                         var po = marks.upgradeOrder(level, partner);
                         if (po != null && po.toItem().equals(to)) return true;
                     }
-                    return marks.markUpgrade(level, plan.origin(), to, dev.minetorio.content.robot.RobotWork.piecesFor(level, plan.origin()));
+                    return marks.markUpgrade(level, plan.origin(), to, dev.minetorio.content.robot.RobotWork.piecesFor(level, plan.origin()), facing);
                 }
                 for (BlockPos o : plan.obstacles()) if (DeconstructionMarking.mark(level, o)) marked[0]++;
                 if (plan.obstacles().contains(plan.origin())) {

@@ -14,6 +14,9 @@ public final class MachineItemHandler implements IItemHandler {
     public interface Slots {
         int getContainerSize();
 
+        /** Advertised capacity for automation; machines with larger recipe buffers can override it. */
+        default int slotLimit(int slot) { return 64; }
+
         ItemStack getItem(int slot);
 
         /** How many more of {@code stack} {@code slot} takes now (0 if not allowed there). */
@@ -62,7 +65,7 @@ public final class MachineItemHandler implements IItemHandler {
     }
 
     @Override
-    public int getSlotLimit(int slot) { return 64; }
+    public int getSlotLimit(int slot) { return slots.slotLimit(slot); }
 
     @Override
     public boolean isItemValid(int slot, ItemStack stack) {

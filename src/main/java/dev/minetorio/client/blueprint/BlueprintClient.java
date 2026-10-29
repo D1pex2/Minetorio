@@ -19,9 +19,11 @@ import dev.minetorio.content.blueprint.BlueprintRecord;
 import dev.minetorio.content.blueprint.BlueprintStacks;
 import dev.minetorio.content.research.RecipeLocks;
 import dev.minetorio.core.blueprint.BlueprintTransform;
+import dev.minetorio.core.blueprint.BlueprintDrag;
 import dev.minetorio.core.blueprint.Blueprints;
 import dev.minetorio.core.robot.GhostReach;
 import java.util.List;
+import java.util.ArrayDeque;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.minecraft.client.KeyMapping;
@@ -89,7 +91,8 @@ import org.lwjgl.glfw.GLFW;
  * cursor (first person: on top of the block looked at; top-down: under the cursor, out to ghost
  * reach), red where a part cannot go, yellow boxes on blocks a Shift paste would mark for
  * deconstruction. R turns it, F mirrors it left-right, G front-back. Right-click pastes the ghosts
- * (one packet; the server re-plans everything); Shift+right-click pastes through vanilla obstacles.
+ * (one packet; the server re-plans everything); holding it repeats whole blueprints along the
+ * cursor's path, spaced by the transformed footprint. Shift+right-click pastes through vanilla obstacles.
  * While a blueprint is held, R, F and G act on it only (hand crafting and swap-hands wait).
  */
 @EventBusSubscriber(modid = Minetorio.MODID, value = Dist.CLIENT)
@@ -140,6 +143,15 @@ public final class BlueprintClient {
     private static BlockPos dragStart;
     /** A held right button acts once: armed again when released. */
     private static boolean armed = true;
+    private static final int PASTE_REPEAT_TICKS = 4;
+    private static final int MAX_PENDING_PASTES = 64;
+    private static final ArrayDeque<BlockPos> pendingPastes = new ArrayDeque<>();
+    @Nullable private static BlueprintDrag pasteDrag;
+    @Nullable private static BlueprintData dragData;
+    @Nullable private static BlockPos pasteAnchor;
+    private static BlueprintTransform dragTransform = BlueprintTransform.IDENTITY;
+    private static long lastPasteTick;
+    private static boolean dragForce;
 
     // paste preview cache
     @Nullable
@@ -208,6 +220,7 @@ public final class BlueprintClient {
             if (selecting(held) && boxMin != null) confirmBox();
         }
         if (!mc.options.keyUse.isDown()) armed = true;
+        tickPasteDrag(mc, data);
         if (dragStart != null && selecting(held) && !mc.options.keyUse.isDown()) {
             BlockPos end = cursorCell(mc, false);
             PacketDistributor.sendToServer(new BlueprintPayloads.Capture(dragStart, end == null ? dragStart : end, true));
@@ -251,6 +264,7 @@ public final class BlueprintClient {
         event.setSwingHand(false);
         BlueprintData data = BlueprintStacks.activeData(held);
         if (event.isAttack()) {
+            clearPasteDrag();
             corner = null;
             boxMin = boxMax = null;
             dragStart = null;
@@ -261,6 +275,14 @@ public final class BlueprintClient {
         if (data != null) {
             BlockPos anchor = cursorCell(mc, true);
             if (anchor != null) {
+                clearPasteDrag();
+                int[] size = Blueprints.size(BlueprintPaste.transformed(data, transform));
+                pasteDrag = new BlueprintDrag(anchor.getX(), anchor.getZ(), size[0], size[2]);
+                dragData = data;
+                dragTransform = transform;
+                pasteAnchor = anchor;
+                dragForce = mc.options.keyShift.isDown();
+                lastPasteTick = mc.level.getGameTime();
                 PacketDistributor.sendToServer(new BlueprintPayloads.Paste(anchor, (byte) transform.bits(), mc.options.keyShift.isDown()));
                 planKey = null; // re-plan against the new ghosts
             }
@@ -282,6 +304,40 @@ public final class BlueprintClient {
             setBox(corner, hit.getBlockPos());
             corner = null;
         }
+    }
+
+    /** Samples every tick so a quick cursor move does not leave holes; sends at the server's repeat budget. */
+    private static void tickPasteDrag(Minecraft mc, @Nullable BlueprintData data) {
+        if (pasteDrag == null) return;
+        if (data != dragData || mc.level == null || !transform.equals(dragTransform)) {
+            clearPasteDrag();
+            return;
+        }
+        boolean held = mc.options.keyUse.isDown();
+        if (held) {
+            BlockPos target = cursorCell(mc, true);
+            if (target != null) pasteAnchor = target;
+            dragForce = mc.options.keyShift.isDown();
+        }
+        if (pasteAnchor != null && pendingPastes.size() < MAX_PENDING_PASTES) {
+            for (BlueprintDrag.Cell cell : pasteDrag.extend(pasteAnchor.getX(), pasteAnchor.getZ(), MAX_PENDING_PASTES - pendingPastes.size())) {
+                pendingPastes.add(new BlockPos(cell.x(), pasteAnchor.getY(), cell.z()));
+            }
+        }
+        long now = mc.level.getGameTime();
+        if (!pendingPastes.isEmpty() && (now < lastPasteTick || now - lastPasteTick >= PASTE_REPEAT_TICKS)) {
+            PacketDistributor.sendToServer(new BlueprintPayloads.Paste(pendingPastes.removeFirst(), (byte) dragTransform.bits(), dragForce));
+            lastPasteTick = now;
+            planKey = null;
+        }
+        if (!held && pendingPastes.isEmpty()) clearPasteDrag();
+    }
+
+    private static void clearPasteDrag() {
+        pasteDrag = null;
+        dragData = null;
+        pasteAnchor = null;
+        pendingPastes.clear();
     }
 
     private static void setBox(BlockPos a, BlockPos b) {

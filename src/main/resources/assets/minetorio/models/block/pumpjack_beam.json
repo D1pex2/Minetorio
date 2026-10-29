@@ -1,0 +1,17 @@
+{
+  "textures": {
+    "oil_steel": "minetorio:block/oil_steel",
+    "oil_dark": "minetorio:block/oil_dark",
+    "oil_green": "minetorio:block/oil_green",
+    "oil_yellow": "minetorio:block/oil_yellow",
+    "oil_rust": "minetorio:block/oil_rust",
+    "oil_grate": "minetorio:block/oil_grate",
+    "oil_fire": "minetorio:block/oil_fire",
+    "particle": "minetorio:block/oil_steel"
+  },
+  "elements": [
+    {"from": [-12, -1.6, 6], "to": [25, 1.6, 10], "faces": {"north": {"uv": [0, 6.4, 16, 9.6], "texture": "#oil_green"}, "south": {"uv": [0, 6.4, 16, 9.6], "texture": "#oil_green"}, "east": {"uv": [6, 6.4, 10, 9.6], "texture": "#oil_green"}, "west": {"uv": [6, 6.4, 10, 9.6], "texture": "#oil_green"}, "up": {"uv": [0, 6, 16, 10], "texture": "#oil_green"}, "down": {"uv": [0, 6, 16, 10], "texture": "#oil_green"}}},
+    {"from": [-13, -5, 5], "to": [-9, 5, 11], "faces": {"north": {"uv": [6, 3, 10, 13], "texture": "#oil_green"}, "south": {"uv": [6, 3, 10, 13], "texture": "#oil_green"}, "east": {"uv": [5, 3, 11, 13], "texture": "#oil_green"}, "west": {"uv": [5, 3, 11, 13], "texture": "#oil_green"}, "up": {"uv": [6, 5, 10, 11], "texture": "#oil_green"}, "down": {"uv": [6, 5, 10, 11], "texture": "#oil_green"}}},
+    {"from": [20, -4, 4.5], "to": [26, -1.7, 11.5], "faces": {"north": {"uv": [5, 6.85, 11, 9.15], "texture": "#oil_dark"}, "south": {"uv": [5, 6.85, 11, 9.15], "texture": "#oil_dark"}, "east": {"uv": [4.5, 6.85, 11.5, 9.15], "texture": "#oil_dark"}, "west": {"uv": [4.5, 6.85, 11.5, 9.15], "texture": "#oil_dark"}, "up": {"uv": [5, 4.5, 11, 11.5], "texture": "#oil_dark"}, "down": {"uv": [5, 4.5, 11, 11.5], "texture": "#oil_dark"}}}
+  ]
+}

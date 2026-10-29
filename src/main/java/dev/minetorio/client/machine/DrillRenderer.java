@@ -78,7 +78,7 @@ public class DrillRenderer implements BlockEntityRenderer<MiningDrillBlockEntity
     @Override
     public void render(MiningDrillBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
         assemble(parts, be.facing(), be.shape(), be.renderHeadAngle(partialTick), be.isWorking(), pose,
-                MachineRender.sink(modelRenderer, buffers, light, overlay));
+                MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /** Lays out the drill's parts at rest-or-turned {@code angle}, idle (nothing lit); what a ghost shows at angle 0. */

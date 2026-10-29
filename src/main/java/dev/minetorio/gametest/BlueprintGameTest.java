@@ -375,6 +375,103 @@ public class BlueprintGameTest {
 
     // --- robots ---------------------------------------------------------------------------------
 
+    /** Held blueprint repetition must keep working after the initial server burst is exhausted. */
+    @GameTest(template = "empty16", batch = "blueprint_drag", timeoutTicks = 100)
+    public static void heldBlueprintCanRepeatEveryFourTicks(GameTestHelper h) {
+        floor(h);
+        ServerPlayer p = player(h, new BlockPos(7, 1, 7));
+        beltBlueprint(p);
+        for (int i = 0; i < 10; i++) {
+            final int n = i;
+            h.runAfterDelay(i * 4L + 1, () -> {
+                BlockPos at = new BlockPos(1 + n, 1, 13);
+                var result = BlueprintPaste.paste(p, h.absolutePos(at), 0, false);
+                h.assertTrue(result.accepted() && result.placed() == 1, "held repeat " + n + " refused: " + result);
+                if (n == 9) done(h);
+            });
+        }
+    }
+
+    /** Hand construction obeys the same bottom-up dependency as robot construction. */
+    @GameTest(template = "empty16", batch = BATCH)
+    public static void upperBlueprintGhostWaitsForLowerWhenBuiltByHand(GameTestHelper h) {
+        floor(h);
+        ServerPlayer p = player(h, new BlockPos(7, 1, 7));
+        ItemStack bp = BlueprintItem.empty();
+        bp.set(ModDataComponents.BLUEPRINT.get(), new BlueprintData(List.of(
+                new BlueprintData.Entry("minetorio:transport_belt", 0, 0, 0, DragDir.EAST.id(), 0, Optional.empty()),
+                new BlueprintData.Entry("minetorio:transport_belt", 0, 1, 0, DragDir.EAST.id(), 0, Optional.empty()))));
+        p.setItemInHand(InteractionHand.MAIN_HAND, bp);
+        BlockPos lower = h.absolutePos(new BlockPos(5, 1, 5)), upper = lower.above();
+        var result = paste(h, p, new BlockPos(5, 1, 5), BlueprintTransform.IDENTITY, false);
+        h.assertTrue(result.placed() == 2, "stacked blueprint refused: " + result);
+        ItemStack belt = new ItemStack(ModItems.TRANSPORT_BELT.get());
+        h.assertFalse(Ghosts.build(h.getLevel(), upper, p, belt), "upper ghost built on an unbuilt ghost");
+        h.assertTrue(Ghosts.build(h.getLevel(), lower, p, belt), "lower ghost not built");
+        h.assertTrue(Ghosts.build(h.getLevel(), upper, p, belt), "upper ghost not built after its support");
+        done(h);
+    }
+
+    /** A top-down rectangle must refuse a too-tall build instead of silently losing its top. */
+    @GameTest(template = "empty16", batch = BATCH)
+    public static void topDownCaptureRefusesHeightOverflow(GameTestHelper h) {
+        floor(h);
+        BlockPos low = new BlockPos(5, 1, 5), high = new BlockPos(5, 33, 5);
+        h.setBlock(low, ModBlocks.TRANSPORT_BELT.get());
+        h.setBlock(high, ModBlocks.TRANSPORT_BELT.get());
+        ServerPlayer p = player(h, new BlockPos(7, 1, 7));
+        BlueprintCapture.Result result = BlueprintCapture.capture(p, h.absolutePos(low), h.absolutePos(low), true);
+        h.assertTrue(result == BlueprintCapture.Result.TOO_BIG, "tall rectangle was truncated: " + result);
+        h.assertTrue(BlueprintItem.isEmptyBlueprint(p.getMainHandItem()), "a refused capture filled the blueprint");
+        h.setBlock(high, Blocks.AIR);
+        done(h);
+    }
+
+    /** A same-tier belt facing the wrong way is a replacement order, which a robot can complete. */
+    @GameTest(template = "empty16", batch = BATCH)
+    public static void pasteReorientsExistingBelt(GameTestHelper h) {
+        research(h);
+        floor(h);
+        ServerPlayer p = player(h, new BlockPos(7, 1, 7));
+        beltBlueprint(p);
+        BlockPos rel = new BlockPos(5, 1, 5), at = h.absolutePos(rel);
+        build(h, ModItems.TRANSPORT_BELT.get(), rel, Direction.NORTH);
+        BlueprintPaste.Result result = paste(h, p, rel, BlueprintTransform.IDENTITY, false);
+        h.assertTrue(result.placed() == 1 && result.blocked() == 0, "wrong-facing belt was refused: " + result);
+        var marks = dev.minetorio.content.robot.ConstructionMarks.get(h.getLevel());
+        var order = marks.upgradeOrder(h.getLevel(), at);
+        h.assertTrue(order != null, "no replacement order");
+        var loaded = dev.minetorio.content.robot.ConstructionMarks.load(marks.save(new CompoundTag(), h.getLevel().registryAccess()), h.getLevel().registryAccess());
+        h.assertTrue(order.equals(loaded.upgradeOrder(h.getLevel(), at)), "replacement changed after save/load");
+        var replaced = dev.minetorio.content.robot.RobotWork.upgrade(h.getLevel(), at, ModItems.TRANSPORT_BELT.get(), 1);
+        h.assertTrue(replaced != null && replaced.used() == 1, "robot could not reorient a same-tier belt");
+        h.assertTrue(h.getBlockState(rel).getValue(BeltBlock.FACING) == Direction.EAST, "robot lost blueprint orientation");
+        marks.unmarkUpgrade(h.getLevel(), at);
+        done(h);
+    }
+
+    /** A tier replacement also applies the direction shown by the blueprint. */
+    @GameTest(template = "empty16", batch = BATCH)
+    public static void pasteUpgradesAndReorientsBelt(GameTestHelper h) {
+        research(h, "logistics_2");
+        floor(h);
+        ServerPlayer p = player(h, new BlockPos(7, 1, 7));
+        ItemStack bp = BlueprintItem.empty();
+        bp.set(ModDataComponents.BLUEPRINT.get(), new BlueprintData(List.of(
+                new BlueprintData.Entry("minetorio:fast_transport_belt", 0, 0, 0, DragDir.EAST.id(), 0, Optional.empty()))));
+        p.setItemInHand(InteractionHand.MAIN_HAND, bp);
+        BlockPos rel = new BlockPos(5, 1, 5), at = h.absolutePos(rel);
+        build(h, ModItems.TRANSPORT_BELT.get(), rel, Direction.NORTH);
+        BlueprintPaste.Result result = paste(h, p, rel, BlueprintTransform.IDENTITY, false);
+        h.assertTrue(result.placed() == 1 && result.blocked() == 0, "wrong-facing upgrade was refused: " + result);
+        h.assertTrue(dev.minetorio.content.robot.RobotWork.upgrade(h.getLevel(), at, ModItems.FAST_TRANSPORT_BELT.get(), 1) != null,
+                "robot could not replace the belt");
+        h.assertTrue(h.getBlockState(rel).is(ModBlocks.FAST_TRANSPORT_BELT.get()) && h.getBlockState(rel).getValue(BeltBlock.FACING) == Direction.EAST,
+                "robot lost blueprint tier/direction");
+        dev.minetorio.content.robot.ConstructionMarks.get(h.getLevel()).unmarkUpgrade(h.getLevel(), at);
+        done(h);
+    }
+
     /** Roboport controller (facing SOUTH: footprint x 2..5, z 2..5), as in the robot tests. */
     private static final BlockPos PORT = new BlockPos(5, 1, 2);
     private static final BlockPos POLE = new BlockPos(6, 1, 3);

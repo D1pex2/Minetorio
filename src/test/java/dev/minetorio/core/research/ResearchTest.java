@@ -9,6 +9,35 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class ResearchTest {
+    @Test void blueScienceStartsAndRestoresARealAdvancedOilResearchUnit() {
+        String blue="minetorio:chemical_science_pack";
+        ResearchState research=state();
+        research.load(Set.of("chemical_science_pack"),"advanced_oil_processing",Map.of());
+        LabLogic original=lab();
+        for(String id:List.of("minetorio:automation_science_pack","minetorio:logistic_science_pack",blue))
+            assertEquals(1,original.insertPack(id,1,true),id);
+        for(int i=0;i<200;i++) original.tick(research,1);
+        assertTrue(original.unitPacks().containsKey(blue));
+        LabLogic restored=lab();
+        restored.load(original.packs(),original.unitTech(),original.unitPacks(),original.progress());
+        assertEquals(original.unitPacks(),restored.unitPacks());
+        for(int i=0;i<400;i++) restored.tick(research,1);
+        assertEquals(1,research.unitsDone());
+        assertTrue(restored.packs().isEmpty());
+        assertTrue(restored.unitPacks().isEmpty());
+    }
+
+    @Test void implementedScienceTypesHaveTheSameInsertionAndReloadRules() {
+        LabLogic original=lab();
+        for(String id:List.of("chemical","production","utility")) {
+            String item="minetorio:"+id+"_science_pack";
+            assertEquals(2,original.insertPack(item,3,true),item);
+            assertEquals(0,original.insertPack(item,1,true),item);
+        }
+        LabLogic restored=lab();
+        restored.load(original.packs(),null,Map.of(),0);
+        assertEquals(original.packs(),restored.packs());
+    }
     private static final String R = "minetorio:automation_science_pack";
     private static final String G = "minetorio:logistic_science_pack";
 
@@ -32,7 +61,13 @@ class ResearchTest {
         assertTrue(s.isRecipeUnlocked("assembling_machine_1"));
         assertTrue(s.isRecipeUnlocked("long_handed_inserter"));
         assertTrue(s.current().isEmpty());
+        assertTrue(s.canResearch("electronics"));
+        assertFalse(s.canResearch("fast_inserter"));
+        s.setCurrent("electronics");
+        for(int i=0;i<30;i++) s.completeUnit();
         assertTrue(s.canResearch("fast_inserter"));
+        s.setCurrent("logistics");
+        for(int i=0;i<20;i++) s.completeUnit();
         s.completeUnit(); // no current: no-op
         assertEquals(0, s.unitsDone());
     }
@@ -137,7 +172,7 @@ class ResearchTest {
     @Test void allTreeRecipesExist() {
         for (Technology t : Phase1Data.techTree().all())
             for (String r : t.unlocksRecipes())
-                assertTrue(Phase1Data.recipes().get(r).isPresent(), r);
+                assertTrue(Phase1Data.recipes().get(r).isPresent() || dev.minetorio.core.data.OilData.recipe(r)!=null, r);
     }
 
     @Test void everyLockedRecipeHasTech() {
@@ -198,7 +233,7 @@ class ResearchTest {
 
     @Test void switchingResearchMidUnitKeepsPackTotal() {
         ResearchState s = state();
-        s.load(Set.of("automation", "logistic_science_pack"), "automation_2", Map.of());
+        s.load(Set.of("automation", "electronics", "steel_processing", "logistic_science_pack"), "automation_2", Map.of());
         LabLogic l = lab();
         l.insertPack(R, 3, false);
         l.insertPack(G, 2, false);

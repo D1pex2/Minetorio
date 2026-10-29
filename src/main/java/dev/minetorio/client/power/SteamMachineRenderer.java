@@ -57,7 +57,7 @@ public abstract class SteamMachineRenderer implements BlockEntityRenderer<SteamM
 
     @Override
     public void render(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        renderParts(be, partialTick, pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
+        renderParts(be, partialTick, pose, MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /** Draws the machine's parts from the controller block's corner. */

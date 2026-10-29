@@ -145,6 +145,7 @@ public final class DemoBuilder {
         research();
         handcraft();
         radar();
+        OilDemoBuilder.build(level, origin.offset(4, 0, 64));
         discardBlockers(AABB.of(area).inflate(0, 2, 0)); // any that became visible during the build
         DemoSavedData data = DemoSavedData.get(level);
         data.removeIn(area);

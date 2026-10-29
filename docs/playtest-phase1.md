@@ -231,7 +231,7 @@ Fluids follow Factorio 2.0: connected pipes, underground pipes and tanks form on
 
 ### Solar power, accumulators and poles
 
-All five are in the creative tab; in survival they are locked behind research (red + green packs): **Electric energy distribution 1** (medium and big pole), **Electric energy distribution 2** (substation, after EED 1), **Solar energy** (solar panel), **Electric energy accumulators** (accumulator, after EED 1). Their recipes are TEMP until steel, batteries and advanced circuits exist (iron plates stand in for steel and iron sticks, iron + copper plates for batteries, circuits + cable for advanced circuits).
+All five are in the creative tab. Survival recipes and research now follow Factorio 1.1: medium/big poles require Electric energy distribution 1; the substation also requires chemical science and Electric energy distribution 2; solar panels require Solar energy; accumulators require battery processing and Electric energy accumulators. The oil stage supplies real steel, iron sticks, batteries and advanced circuits; temporary material substitutes have been removed.
 
 | Machine | Size | Look for | Animation |
 |---|---|---|---|

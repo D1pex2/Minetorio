@@ -519,6 +519,20 @@ COMPOSITES = [
 ]
 
 
+# Generated part offsets are the same ones OilRender and the software preview use.
+_oil_manifest = os.path.join(HERE, "oil-model-parts.json")
+if os.path.isfile(_oil_manifest):
+    with open(_oil_manifest) as _f:
+        for _name, _parts in json.load(_f).items():
+            _assembly = [(p, M(p), [[t(x, y, z)]]) for p, x, y, z in _parts]
+            if _name == "pumpjack":
+                _assembly.append(("walking_beam", M("pumpjack_beam"),
+                                  [[("z", a, (8, 0, 8)), t(0, 26, 0)] for a in (-12, 0, 12)]))
+            if _name == "steel_furnace":
+                _assembly.append(("fire", M("steel_furnace_fire"), [[]]))
+            COMPOSITES.append((_name, _assembly))
+
+
 def part_poses(part):
     label, model, poses = part[:3]
     if callable(model):

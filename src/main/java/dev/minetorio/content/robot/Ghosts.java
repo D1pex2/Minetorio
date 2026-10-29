@@ -153,14 +153,27 @@ public final class Ghosts {
     public static boolean canBuild(ServerLevel level, BlockPos pos) {
         GhostBlockEntity be = GhostBlock.at(level, pos);
         if (be == null || !be.isValid() || !(be.item() instanceof BlockItem bi)) return false;
-        for (BlockPos c : footprint(be.target(), pos)) {
+        if (!supported(level, pos, be.target(), false)) return false;
+        return bi.getBlock().getStateForPlacement(context(level, pos, null, new ItemStack(bi), be.facing())) != null;
+    }
+
+    /** Whether every bottom cell has support; planned support is sufficient only for previews. */
+    public static boolean supported(Level level, BlockPos pos, BlockState target, boolean allowPlannedSupport) {
+        for (BlockPos c : footprint(target, pos)) {
             if (c.getY() != pos.getY()) continue;
             BlockPos below = c.below();
-            if (level.getBlockState(below).is(ModBlocks.GHOST.get())) return false;
+            if (!level.isLoaded(below)) return false;
+            GhostBlockEntity under = GhostBlock.at(level, below);
             BlockPos owner = GhostReservations.owner(level, below);
-            if (owner != null && !owner.equals(pos) && level.getBlockState(owner).is(ModBlocks.GHOST.get())) return false;
+            GhostBlockEntity reserving = owner == null || owner.equals(pos) ? null : GhostBlock.at(level, owner);
+            if ((under != null && under.isValid()) || (reserving != null && reserving.isValid())) {
+                if (!allowPlannedSupport) return false;
+                continue;
+            }
+            BlockState support = level.getBlockState(below);
+            if (support.canBeReplaced() || !support.getFluidState().isEmpty()) return false;
         }
-        return bi.getBlock().getStateForPlacement(context(level, pos, null, new ItemStack(bi), be.facing())) != null;
+        return true;
     }
 
     /**
@@ -176,6 +189,7 @@ public final class Ghosts {
     public static boolean build(ServerLevel level, BlockPos pos, @Nullable Player player, ItemStack stack) {
         GhostBlockEntity be = GhostBlock.at(level, pos);
         if (be == null || !be.isValid() || !stack.is(be.item()) || !(stack.getItem() instanceof BlockItem item)) return false;
+        if (!canBuild(level, pos)) return false;
         BlockState target = be.target();
         Direction facing = be.facing();
         long seq = be.seq();

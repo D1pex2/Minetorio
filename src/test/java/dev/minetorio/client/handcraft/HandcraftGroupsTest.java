@@ -30,10 +30,10 @@ class HandcraftGroupsTest {
     @Test
     void recipesOfAGroupKeepBookOrder() {
         List<String> science = HandcraftGroups.recipes(HandcraftGroups.Group.SCIENCE, Phase1Data.recipes(), id -> true);
-        assertEquals(List.of("automation_science_pack", "logistic_science_pack"), science);
+        assertEquals(List.of("automation_science_pack", "logistic_science_pack", "chemical_science_pack"), science);
         List<String> unlockedScience = HandcraftGroups.recipes(HandcraftGroups.Group.SCIENCE, Phase1Data.recipes(),
                 id -> !id.equals("logistic_science_pack"));
-        assertEquals(List.of("automation_science_pack"), unlockedScience);
+        assertEquals(List.of("automation_science_pack", "chemical_science_pack"), unlockedScience);
         assertFalse(HandcraftGroups.recipes(HandcraftGroups.Group.PRODUCTION, Phase1Data.recipes(), id -> true)
                 .contains("iron_plate"), "smelting recipe listed");
     }

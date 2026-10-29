@@ -30,7 +30,7 @@ public class RadarRenderer implements BlockEntityRenderer<RadarBlockEntity> {
 
     @Override
     public void render(RadarBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        assemble(be.facing(), be.shape(), be.renderDishAngle(partialTick), pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
+        assemble(be.facing(), be.shape(), be.renderDishAngle(partialTick), pose, MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /** Lays out the radar from the controller block's corner, the dish turned by {@code dishAngle}. */

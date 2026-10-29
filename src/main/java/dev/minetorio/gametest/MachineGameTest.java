@@ -441,30 +441,30 @@ public class MachineGameTest {
         be.machine().load(gear, Map.of(), Map.of(GEAR, 5), Map.of(), false, 0);
         FakePlayer p = player(h, new BlockPos(3, 1, 7));
         Inventory inv = p.getInventory();
-        inv.setItem(0, new ItemStack(ModItems.IRON_PLATE.get(), 20)); // menu 32
-        inv.setItem(1, named(ModItems.IRON_PLATE.get(), 1));           // menu 33
-        inv.setItem(9, new ItemStack(ModItems.IRON_PLATE.get(), 64)); // menu 5
+        inv.setItem(0, new ItemStack(ModItems.IRON_PLATE.get(), 20)); // first hotbar slot
+        inv.setItem(1, named(ModItems.IRON_PLATE.get(), 1));           // first hotbar slot
+        inv.setItem(9, new ItemStack(ModItems.IRON_PLATE.get(), 64)); // menu 6
         AbstractContainerMenu menu = be.createMenu(1, inv, p);
         ToIntFunction<String> m = id -> inMachine(be, id);
         int out = AssemblerBlockEntity.OUTPUT_SLOT;
 
-        click(h, menu, p, m, 32, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.machine().inputs().equals(Map.of(PLATE, 20)), "inputs " + be.machine().inputs());
-        click(h, menu, p, m, 5, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.machine().inputs().get(PLATE) == 64 && inv.getItem(9).getCount() == 20, "partial move");
-        click(h, menu, p, m, 5, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(inv.getItem(9).getCount() == 20, "spilled: " + inv.getItem(9));
         click(h, menu, p, m, 33, 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.machine().inputs().equals(Map.of(PLATE, 20)), "inputs " + be.machine().inputs());
+        click(h, menu, p, m, 6, 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.machine().inputs().get(PLATE) == 64 && inv.getItem(9).getCount() == 20, "partial move");
+        click(h, menu, p, m, 6, 0, ClickType.QUICK_MOVE);
+        h.assertTrue(inv.getItem(9).getCount() == 20, "spilled: " + inv.getItem(9));
+        click(h, menu, p, m, 34, 0, ClickType.QUICK_MOVE);
         h.assertTrue(namedInInventory(p) == 1, "named plate moved in");
         click(h, menu, p, m, out, 0, ClickType.QUICK_MOVE);
         h.assertTrue(be.machine().outputs().isEmpty() && inInventory(p, ModItems.IRON_GEAR_WHEEL.get()) == 5, "output not taken");
 
         // inactive slot and output refuse placing
-        click(h, menu, p, m, 5, 0, ClickType.PICKUP); // carry 20 plates
+        click(h, menu, p, m, 6, 0, ClickType.PICKUP); // carry 20 plates
         click(h, menu, p, m, 1, 0, ClickType.PICKUP);
         click(h, menu, p, m, out, 0, ClickType.PICKUP);
         h.assertTrue(menu.getCarried().getCount() == 20, "placed into an inactive/output slot");
-        click(h, menu, p, m, 5, 0, ClickType.PICKUP);
+        click(h, menu, p, m, 6, 0, ClickType.PICKUP);
 
         // swaps: out to an empty hotbar slot and back, partial, full
         click(h, menu, p, m, 0, 2, ClickType.SWAP);
@@ -480,7 +480,7 @@ public class MachineGameTest {
         h.assertTrue(be.machine().inputs().get(PLATE) == 7 && inv.getItem(3).getCount() == 10, "swap partial");
 
         // drag and pick-all
-        click(h, menu, p, m, 36, 0, ClickType.PICKUP); // carry 54
+        click(h, menu, p, m, 37, 0, ClickType.PICKUP); // carry 54
         drag(h, menu, p, m, 0, 20, 21);
         h.assertTrue(be.machine().inputs().get(PLATE) == 25, "drag into input " + be.machine().inputs());
         click(h, menu, p, m, 20, 0, ClickType.PICKUP);

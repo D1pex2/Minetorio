@@ -19,6 +19,7 @@ class Phase1DataTest {
     void everyIngredientIsProducibleOrBase() {
         Set<String> produced = new HashSet<>();
         for (Recipe r : book.all()) r.outputs().forEach(o -> produced.add(o.item()));
+        for (var r : OilData.recipes()) r.itemOutputs().forEach(o -> produced.add(o.item()));
         for (Recipe r : book.all())
             for (var in : r.inputs())
                 assertTrue(produced.contains(in.item()) || BASE.contains(in.item()),
@@ -54,12 +55,12 @@ class Phase1DataTest {
         assertTrue(Phase1Data.startRecipes().contains("radar"));
     }
 
-    /** Construction robotics (temporary red + green) unlocks the roboport and the robot; both locked at start. */
+    /** Construction robotics needs blue science and unlocks the basic logistic chests too. */
     @Test
     void constructionRoboticsUnlocksRobots() {
         var tech = Phase1Data.techTree().get("construction_robotics").orElseThrow();
-        assertEquals(java.util.List.of("roboport", "construction_robot"), tech.unlocksRecipes());
-        assertEquals(java.util.Set.of("minetorio:automation_science_pack", "minetorio:logistic_science_pack"), tech.packsPerUnit().keySet());
+        assertEquals(java.util.List.of("roboport", "passive_provider_chest", "storage_chest", "construction_robot"), tech.unlocksRecipes());
+        assertEquals(java.util.Set.of("minetorio:automation_science_pack", "minetorio:logistic_science_pack", "minetorio:chemical_science_pack"), tech.packsPerUnit().keySet());
         assertFalse(Phase1Data.startRecipes().contains("roboport"));
         assertFalse(Phase1Data.startRecipes().contains("construction_robot"));
         assertEquals(new dev.minetorio.core.recipe.Ingredient("minetorio:roboport", 1), book.get("roboport").orElseThrow().outputs().get(0));
@@ -72,7 +73,7 @@ class Phase1DataTest {
         assertEquals(java.util.List.of("medium_electric_pole", "big_electric_pole"),
                 tree.get("electric_energy_distribution_1").orElseThrow().unlocksRecipes());
         assertEquals(java.util.List.of("substation"), tree.get("electric_energy_distribution_2").orElseThrow().unlocksRecipes());
-        assertEquals(java.util.List.of("electric_energy_distribution_1"),
+        assertEquals(java.util.List.of("electric_energy_distribution_1", "chemical_science_pack"),
                 tree.get("electric_energy_distribution_2").orElseThrow().prerequisites());
         assertEquals(java.util.List.of("solar_panel"), tree.get("solar_energy").orElseThrow().unlocksRecipes());
         var acc = tree.get("electric_energy_accumulators").orElseThrow();

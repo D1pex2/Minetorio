@@ -54,6 +54,8 @@ public class RobotGameTest {
 
     /** A roboport placed like a player would (via a ghost), with {@code robots} robots, powered from a test pole if asked. */
     private static RoboportBlockEntity roboport(GameTestHelper h, int robots, boolean powered) {
+        // The 4x4 footprint and the construction destinations need real ground at y=0.
+        HandGhostGameTest.floor(h, 0, 15, 0, 15);
         BlockPos abs = h.absolutePos(PORT);
         ghost(h, PORT, ModItems.ROBOPORT.get(), Direction.SOUTH);
         h.assertTrue(Ghosts.build(h.getLevel(), abs, null, new ItemStack(ModItems.ROBOPORT.get())), "roboport not placed");
@@ -84,6 +86,7 @@ public class RobotGameTest {
 
     @GameTest(template = "empty16")
     public static void playerBuildsAGhostWithTheMatchingItem(GameTestHelper h) {
+        HandGhostGameTest.floor(h, 0, 15, 0, 15);
         BlockPos belt = new BlockPos(4, 1, 4);
         BlockPos furnace = new BlockPos(8, 1, 8);
         ghost(h, belt, ModItems.TRANSPORT_BELT.get(), Direction.EAST);

@@ -4,9 +4,13 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import dev.minetorio.Minetorio;
+import dev.minetorio.content.multiblock.MultiblockControllerBlock;
+import dev.minetorio.content.multiblock.MultiblockControllerBlockEntity;
 import dev.minetorio.content.multiblock.MultiblockShape;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
@@ -24,6 +28,28 @@ import net.neoforged.neoforge.client.model.data.ModelData;
  */
 public final class MachineRender {
     private MachineRender() {}
+
+    /** A fixed set of probes outside the machine's own filled volume. */
+    public static List<BlockPos> lightSamplePositions(BlockPos origin, Direction facing, MultiblockShape shape) {
+        BlockPos far = origin.relative(facing, shape.depth() - 1).relative(facing.getClockWise(), shape.width() - 1);
+        int minX = Math.min(origin.getX(), far.getX()), maxX = Math.max(origin.getX(), far.getX());
+        int minZ = Math.min(origin.getZ(), far.getZ()), maxZ = Math.max(origin.getZ(), far.getZ());
+        int centerX = minX + (maxX - minX) / 2, centerZ = minZ + (maxZ - minZ) / 2;
+        int sideY = origin.getY() + (shape.height() - 1) / 2;
+        return List.of(new BlockPos(centerX, origin.getY() + shape.height(), centerZ),
+                new BlockPos(minX - 1, sideY, centerZ), new BlockPos(maxX + 1, sideY, centerZ),
+                new BlockPos(centerX, sideY, minZ - 1), new BlockPos(centerX, sideY, maxZ + 1));
+    }
+
+    /** Combines real surrounding block and sky light, without introducing an emissive minimum. */
+    public static int exteriorLight(int fallback, int... samples) {
+        int block = LightTexture.block(fallback), sky = LightTexture.sky(fallback);
+        for (int sample : samples) {
+            block = Math.max(block, LightTexture.block(sample));
+            sky = Math.max(sky, LightTexture.sky(sample));
+        }
+        return LightTexture.pack(block, sky);
+    }
 
     public static ModelResourceLocation model(String path) {
         return ModelResourceLocation.standalone(ResourceLocation.fromNamespaceAndPath(Minetorio.MODID, path));
@@ -93,6 +119,26 @@ public final class MachineRender {
             if (translucent) renderTranslucentModel(renderer, model, pose, buffers, l, overlay);
             else renderModel(renderer, model, pose, buffers, l, overlay);
         };
+    }
+
+    /**
+     * Lit parts sample their exposed surroundings rather than only the controller buried inside
+     * the multiblock. Five real-light probes keep sky/day-night shading and nearby block lights;
+     * missing chunks are skipped, and only explicitly emissive parts still use full brightness.
+     */
+    public static PartSink sink(ModelBlockRenderer renderer, MultiBufferSource buffers,
+                                MultiblockControllerBlockEntity machine, int light, int overlay) {
+        var level = machine.getLevel();
+        if (level != null && machine.getBlockState().getBlock() instanceof MultiblockControllerBlock block) {
+            var positions = lightSamplePositions(machine.getBlockPos(), machine.getBlockState().getValue(MultiblockControllerBlock.FACING), block.shape());
+            int[] samples = new int[positions.size()];
+            for (int i = 0; i < positions.size(); i++) {
+                BlockPos sample = positions.get(i);
+                samples[i] = level.hasChunkAt(sample) ? LevelRenderer.getLightColor(level, sample) : light;
+            }
+            light = exteriorLight(light, samples);
+        }
+        return sink(renderer, buffers, light, overlay);
     }
 
     /** The whole footprint of a machine (models extend past the controller block). */

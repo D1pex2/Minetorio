@@ -11,6 +11,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Assembling machine GUI: recipe list (drawn by the screen), one input slot per recipe input
@@ -21,10 +22,10 @@ public class AssemblerMenu extends MachineMenu {
     /** Every recipe in book order; data slot {@link AssemblerBlockEntity#DATA_RECIPE} indexes it. */
     public static final List<Recipe> RECIPES = List.copyOf(Phase1Data.recipes().all());
     /** Recipes an assembler can be set to (CRAFTING), unlocked or not. */
-    public static final List<Recipe> CRAFTING = RECIPES.stream().filter(r -> r.category() == RecipeCategory.CRAFTING).toList();
+    public static final List<Recipe> CRAFTING = RECIPES.stream().filter(r -> r.category() != RecipeCategory.SMELTING).toList();
     public static final int SLOTS_Y = 80;
     public static final int OUTPUT_X = 116;
-    public static final int INVENTORY_Y = 118;
+    public static final int INVENTORY_Y = 136;
 
     private final BlockPos pos;
 
@@ -39,6 +40,17 @@ public class AssemblerMenu extends MachineMenu {
                 public boolean isActive() {
                     Recipe r = recipe();
                     return r != null && slot < r.inputs().size();
+                }
+                @Override
+                public int getMaxStackSize() {
+                    Recipe r=recipe();
+                    return r==null || slot>=r.inputs().size()?64:Math.max(64,r.inputs().get(slot).count());
+                }
+                @Override
+                public int getMaxStackSize(ItemStack stack) {
+                    // Exact express underground recipes need 80 gears in one ingredient buffer.
+                    // Player inventory stacks retain Minecraft's limit; this is only a machine buffer.
+                    return Math.min(getMaxStackSize(),getItem().getCount()+Math.max(0,assembler.room(slot,stack)));
                 }
             });
         }
@@ -56,7 +68,7 @@ public class AssemblerMenu extends MachineMenu {
         MachineContainer container = MachineContainer.client(AssemblerBlockEntity.SLOTS, (slot, stack) -> {
             Recipe r = byIndex(data.get(AssemblerBlockEntity.DATA_RECIPE));
             if (r == null || slot >= r.inputs().size() || !MachineItems.isPlain(stack)) return 0;
-            return r.inputs().get(slot).item().equals(MachineItems.id(stack)) ? 64 : 0; // capped to a stack by MachineSlot
+            return r.inputs().get(slot).item().equals(MachineItems.id(stack)) ? Math.max(64,r.inputs().get(slot).count()) : 0;
         });
         return new AssemblerMenu(id, inventory, container, data, pos);
     }
@@ -81,4 +93,7 @@ public class AssemblerMenu extends MachineMenu {
     public float satisfaction() { return data.get(AssemblerBlockEntity.DATA_POWER) / 1000f; }
 
     public boolean isWorking() { return data.get(AssemblerBlockEntity.DATA_WORKING) != 0; }
+    public boolean supportsFluids() { return data.get(AssemblerBlockEntity.DATA_TIER)==2; }
+    public int inputFluidAmount() { return data.get(AssemblerBlockEntity.DATA_FLUID_IN); }
+    public int outputFluidAmount() { return data.get(AssemblerBlockEntity.DATA_FLUID_OUT); }
 }

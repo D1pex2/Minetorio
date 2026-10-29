@@ -47,7 +47,9 @@ public final class FluidBoxHandler implements IFluidHandler {
 
     @Override
     public boolean isFluidValid(int tank, FluidStack stack) {
-        return stack.is(Fluids.WATER) && FluidPorts.passes(filter, WATER);
+        FluidStore box = store.get();
+        return stack.is(Fluids.WATER) && FluidPorts.passes(filter, WATER)
+                && (!(box instanceof dev.minetorio.core.fluid.FluidBox typed) || typed.accepts(WATER));
     }
 
     @Override

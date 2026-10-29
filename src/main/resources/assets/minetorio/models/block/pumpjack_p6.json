@@ -1,0 +1,20 @@
+{
+  "textures": {
+    "oil_steel": "minetorio:block/oil_steel",
+    "oil_dark": "minetorio:block/oil_dark",
+    "oil_green": "minetorio:block/oil_green",
+    "oil_yellow": "minetorio:block/oil_yellow",
+    "oil_rust": "minetorio:block/oil_rust",
+    "oil_grate": "minetorio:block/oil_grate",
+    "oil_fire": "minetorio:block/oil_fire",
+    "particle": "minetorio:block/oil_steel"
+  },
+  "elements": [
+    {"from": [-16, 8.017, -16], "to": [-0.987, 10.017, -0.981], "faces": {"south": {"uv": [0, 7, 16, 9], "texture": "#oil_dark"}, "east": {"uv": [0, 7, 16, 9], "texture": "#oil_dark"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_dark"}, "down": {"uv": [0, 0, 16, 16], "texture": "#oil_dark"}}},
+    {"from": [-3.961, 10.051, -16], "to": [-1.961, 11.051, -1.943], "faces": {"south": {"uv": [7, 7.5, 9, 8.5], "texture": "#oil_steel"}, "east": {"uv": [0, 7.5, 16, 8.5], "texture": "#oil_steel"}, "west": {"uv": [0, 7.5, 16, 8.5], "texture": "#oil_steel"}, "up": {"uv": [7, 0, 9, 16], "texture": "#oil_steel"}, "down": {"uv": [7, 0, 9, 16], "texture": "#oil_steel"}}},
+    {"from": [-16, 10.085, -3.905], "to": [-3.935, 11.085, -1.905], "faces": {"north": {"uv": [0, 7.5, 16, 8.5], "texture": "#oil_steel"}, "south": {"uv": [0, 7.5, 16, 8.5], "texture": "#oil_steel"}, "east": {"uv": [7, 7.5, 9, 8.5], "texture": "#oil_steel"}, "up": {"uv": [0, 7, 16, 9], "texture": "#oil_steel"}, "down": {"uv": [0, 7, 16, 9], "texture": "#oil_steel"}}},
+    {"from": [-14.014, 11.374, -16], "to": [-11.414, 15.374, -15.282], "faces": {"south": {"uv": [6.7, 6, 9.3, 10], "texture": "#oil_green"}, "east": {"uv": [6.7, 6, 9.3, 10], "texture": "#oil_green"}, "west": {"uv": [6.7, 6, 9.3, 10], "texture": "#oil_green"}, "up": {"uv": [6.7, 6.7, 9.3, 9.3], "texture": "#oil_green"}, "down": {"uv": [6.7, 6.7, 9.3, 9.3], "texture": "#oil_green"}}},
+    {"from": [-15.701, 15.391, -16], "to": [-13.101, 16, -15.263], "faces": {"south": {"uv": [6.7, 6, 9.3, 10], "texture": "#oil_green"}, "east": {"uv": [6.7, 6, 9.3, 10], "texture": "#oil_green"}, "west": {"uv": [6.7, 6, 9.3, 10], "texture": "#oil_green"}, "down": {"uv": [6.7, 6.7, 9.3, 9.3], "texture": "#oil_green"}}},
+    {"from": [-16, 12.595, -13.335], "to": [-15.545, 15.595, -12.135], "faces": {"north": {"uv": [1, 6.5, 15, 9.5], "texture": "#oil_green"}, "south": {"uv": [1, 6.5, 15, 9.5], "texture": "#oil_green"}, "east": {"uv": [7.4, 6.5, 8.6, 9.5], "texture": "#oil_green"}, "up": {"uv": [1, 7.4, 15, 8.6], "texture": "#oil_green"}, "down": {"uv": [1, 7.4, 15, 8.6], "texture": "#oil_green"}}}
+  ]
+}

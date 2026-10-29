@@ -22,7 +22,7 @@ public final class Phase1Data {
 
     /**
      * Recipe ids available at game start: all crafting recipes except the locked ones.
-     * Smelting recipe ids are included too (smelting is unlocked by category anyway).
+     * Smelting recipes also respect technology locks (steel is not available initially).
      */
     public static Set<String> startRecipes() { return START; }
 
@@ -36,41 +36,16 @@ public final class Phase1Data {
     }
 
     private static TechTree buildTech() {
-        return new TechTree(List.of(
+        List<Technology> technologies = new ArrayList<>(List.of(
                 tech("automation", "", "automation", 10, 10, "assembling_machine_1,long_handed_inserter"),
                 tech("logistics", "", "automation", 20, 15, "underground_belt,splitter"),
-                tech("fast_inserter", "automation", "automation", 30, 15, "fast_inserter,filter_inserter"),
+                tech("fast_inserter", "electronics", "automation", 30, 15, "fast_inserter,filter_inserter"),
                 tech("logistic_science_pack", "", "automation", 75, 5, "logistic_science_pack"),
-                // TEMP: Factorio 1.1 fluid handling also needs engine (oil stage); unlocks barrels too, later
-                tech("fluid_handling", "automation_2", "automation,logistic", 50, 15, "storage_tank,pump"),
-                tech("automation_2", "automation,logistic_science_pack", "automation,logistic", 40, 15,
-                        "assembling_machine_2"),
+                tech("automation_2", "electronics,steel_processing,logistic_science_pack", "automation,logistic", 40, 15, "assembling_machine_2"),
                 tech("logistics_2", "logistics,logistic_science_pack", "automation,logistic", 200, 30,
-                        "fast_transport_belt,fast_underground_belt,fast_splitter"),
-                // TEMP: Factorio 1.1 also requires advanced electronics (oil stage)
-                tech("stack_inserter", "fast_inserter,logistics_2", "automation,logistic", 150, 30, "stack_inserter"),
-                // TEMP: red + green until the oil stage; Factorio's construction robotics needs more
-                tech("construction_robotics", "automation,logistic_science_pack", "automation,logistic", 100, 30,
-                        "roboport,construction_robot"),
-                // TEMP prerequisites: Factorio 1.1 also needs electronics and steel processing (not in the game yet)
-                tech("electric_energy_distribution_1", "logistic_science_pack", "automation,logistic", 120, 30,
-                        "medium_electric_pole,big_electric_pole"),
-                // TEMP: Factorio 1.1 needs chemical (blue) science packs too, and the chemical science pack research
-                tech("electric_energy_distribution_2", "electric_energy_distribution_1", "automation,logistic", 100, 45,
-                        "substation"),
-                // TEMP prerequisites: Factorio 1.1 also needs optics, electronics and steel processing
-                tech("solar_energy", "logistic_science_pack", "automation,logistic", 100, 30, "solar_panel"),
-                // TEMP prerequisites: Factorio 1.1 also needs battery (oil stage)
-                tech("electric_energy_accumulators", "electric_energy_distribution_1", "automation,logistic", 150, 30,
-                        "accumulator"),
-                // Stage 4 logistic network. TEMP: red + green until the oil stage (Factorio 1.1: logistic
-                // robotics and personal roboport need chemical science, logistic system also utility science;
-                // logistic robotics' prerequisite "robotics" is stood in for by construction robotics)
-                tech("logistic_robotics", "construction_robotics", "automation,logistic", 250, 30,
-                        "logistic_robot,passive_provider_chest,storage_chest"),
-                tech("logistic_system", "logistic_robotics", "automation,logistic", 500, 30,
-                        "active_provider_chest,requester_chest,buffer_chest"),
-                tech("personal_roboport", "construction_robotics", "automation,logistic", 50, 30, "personal_roboport")));
+                        "fast_transport_belt,fast_underground_belt,fast_splitter")));
+        technologies.addAll(OilData.technologies());
+        return new TechTree(technologies);
     }
 
     private static Ingredient ing(String spec) {
@@ -107,10 +82,6 @@ public final class Phase1Data {
         r.add(craft("electronic_circuit", "1 iron_plate, 3 copper_cable", 1, 0.5));
         r.add(craft("pipe", "1 iron_plate", 1, 0.5));
         r.add(craft("pipe_to_ground", "10 pipe, 5 iron_plate", 2, 0.5));
-        // TEMP until steel and engine units: Factorio's storage tank is 20 iron + 5 steel, the pump 1 engine unit,
-        // 1 steel, 1 pipe
-        r.add(craft("storage_tank", "20 iron_plate, 5 iron_gear_wheel", 1, 3));
-        r.add(craft("pump", "1 pipe, 2 iron_gear_wheel, 2 iron_plate, 1 electronic_circuit", 1, 2));
         r.add(craft("stone_furnace", "5 minecraft:cobblestone", 1, 0.5));
         r.add(craft("burner_mining_drill", "3 iron_gear_wheel, 1 stone_furnace, 3 iron_plate", 1, 2));
         r.add(craft("electric_mining_drill", "3 electronic_circuit, 5 iron_gear_wheel, 10 iron_plate", 1, 2));
@@ -125,46 +96,21 @@ public final class Phase1Data {
         r.add(craft("long_handed_inserter", "1 inserter, 1 iron_gear_wheel, 1 iron_plate", 1, 0.5));
         r.add(craft("fast_inserter", "2 electronic_circuit, 2 iron_plate, 1 inserter", 1, 0.5));
         r.add(craft("filter_inserter", "1 fast_inserter, 4 electronic_circuit", 1, 0.5));
-        // TEMP until the oil stage: Factorio's 1 advanced circuit becomes 2 more electronic circuits
-        r.add(craft("stack_inserter", "15 iron_gear_wheel, 17 electronic_circuit, 1 fast_inserter", 1, 0.5));
         r.add(craft("assembling_machine_1", "3 electronic_circuit, 5 iron_gear_wheel, 9 iron_plate", 1, 0.5));
         r.add(craft("assembling_machine_2",
-                "2 iron_plate, 3 electronic_circuit, 5 iron_gear_wheel, 1 assembling_machine_1", 1, 0.5));
+                "2 steel_plate, 3 electronic_circuit, 5 iron_gear_wheel, 1 assembling_machine_1", 1, 0.5));
         r.add(craft("lab", "10 electronic_circuit, 10 iron_gear_wheel, 4 transport_belt", 1, 2));
         r.add(craft("radar", "5 electronic_circuit, 5 iron_gear_wheel, 10 iron_plate", 1, 0.5));
         r.add(craft("offshore_pump", "2 electronic_circuit, 1 pipe, 1 iron_gear_wheel", 1, 0.5));
         r.add(craft("boiler", "1 stone_furnace, 4 pipe", 1, 0.5));
         r.add(craft("steam_engine", "8 iron_gear_wheel, 5 pipe, 10 iron_plate", 1, 0.5));
         r.add(craft("small_electric_pole", "1 minecraft:stick, 2 copper_cable", 2, 0.5));
-        // TEMP recipes from phase 1 intermediates until the oil stage (Factorio: 45 steel, 45 gears,
-        // 45 advanced circuits; and 1 flying robot frame + 2 circuits)
-        r.add(craft("roboport", "45 electronic_circuit, 45 iron_gear_wheel, 45 iron_plate", 1, 5));
-        r.add(craft("construction_robot", "3 electronic_circuit, 2 iron_gear_wheel, 2 iron_plate", 1, 0.5));
-        // Solar power and electric network. TEMP recipes until steel, iron sticks, batteries and
-        // advanced circuits exist; raw cost kept: 1 steel = 5 iron plates, 2 iron sticks = 1 iron plate,
-        // 1 battery = 1 iron + 1 copper plate, 1 advanced circuit = 2 electronic circuits + 4 copper cable.
-        // Factorio 1.1: 5 copper plate, 15 steel plate, 15 electronic circuit (10 s)
-        r.add(craft("solar_panel", "5 copper_plate, 75 iron_plate, 15 electronic_circuit", 1, 10)); // TEMP
-        // Factorio 1.1: 2 iron plate, 5 battery (10 s)
-        r.add(craft("accumulator", "7 iron_plate, 5 copper_plate", 1, 10)); // TEMP
-        // Factorio 1.1: 2 copper plate, 4 iron stick, 2 steel plate (0.5 s)
-        r.add(craft("medium_electric_pole", "2 copper_plate, 12 iron_plate", 1, 0.5)); // TEMP
-        // Factorio 1.1: 5 copper plate, 8 iron stick, 5 steel plate (0.5 s)
-        r.add(craft("big_electric_pole", "5 copper_plate, 29 iron_plate", 1, 0.5)); // TEMP
-        // Factorio 1.1: 5 copper plate, 5 advanced circuit, 10 steel plate (0.5 s)
-        r.add(craft("substation", "5 copper_plate, 50 iron_plate, 10 electronic_circuit, 20 copper_cable", 1, 0.5)); // TEMP
-        // Stage 4. TEMP until the oil stage: Factorio's logistic robot is 1 flying robot frame + 2 advanced
-        // circuits (as the construction robot's TEMP recipe here); each logistic chest 1 steel chest (8 steel)
-        // + 3 electronic + 1 advanced circuit (iron instead of steel, 2 more electronic circuits); the personal
-        // roboport 10 advanced circuits, 45 batteries, 20 gears, 20 steel (no batteries: more circuits)
-        r.add(craft("logistic_robot", "3 electronic_circuit, 2 iron_gear_wheel, 2 iron_plate", 1, 0.5));
-        for (String chest : List.of("passive_provider_chest", "active_provider_chest", "storage_chest", "requester_chest", "buffer_chest")) {
-            r.add(craft(chest, "8 iron_plate, 5 electronic_circuit", 1, 0.5));
-        }
-        r.add(craft("personal_roboport", "40 electronic_circuit, 20 iron_gear_wheel, 20 iron_plate, 20 copper_cable", 1, 10));
         r.add(craft("automation_science_pack", "1 copper_plate, 1 iron_gear_wheel", 1, 5));
         r.add(craft("logistic_science_pack", "1 inserter, 1 transport_belt", 1, 6));
-        return new RecipeBook(r);
+        Map<String, Recipe> merged = new LinkedHashMap<>();
+        for (Recipe recipe : r) merged.put(recipe.id(), recipe);
+        for (Recipe recipe : OilData.itemRecipes()) merged.put(recipe.id(), recipe);
+        return new RecipeBook(merged.values());
     }
 
     private static Map<String, Long> buildFuel() {
@@ -178,19 +124,18 @@ public final class Phase1Data {
         }
         f.put("minecraft:bamboo_planks", Units.mj(0.5));
         f.put("minecraft:stick", Units.mj(0.25));
+        f.put(M + "solid_fuel", Units.mj(12));
         return Collections.unmodifiableMap(f);
     }
 
     private static Set<String> buildStart() {
-        Set<String> locked = Set.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
-                "fast_inserter", "filter_inserter", "stack_inserter", "underground_belt", "splitter", "logistic_science_pack", "roboport", "construction_robot",
-                "solar_panel", "accumulator", "medium_electric_pole", "big_electric_pole", "substation",
-                "logistic_robot", "passive_provider_chest", "active_provider_chest", "storage_chest", "requester_chest",
-                "buffer_chest", "personal_roboport");
+        Set<String> locked = new HashSet<>();
+        for (Technology technology : OilData.technologies()) locked.addAll(technology.unlocksRecipes());
+        locked.addAll(List.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
+                "fast_inserter", "filter_inserter", "underground_belt", "splitter", "logistic_science_pack"));
         Set<String> s = new LinkedHashSet<>();
         for (Recipe r : BOOK.all()) {
-            if (r.category() == RecipeCategory.CRAFTING
-                    && (locked.contains(r.id()) || r.id().startsWith("fast_") || r.id().startsWith("express_")))
+            if (locked.contains(r.id()) || r.id().startsWith("fast_") || r.id().startsWith("express_"))
                 continue;
             s.add(r.id());
         }

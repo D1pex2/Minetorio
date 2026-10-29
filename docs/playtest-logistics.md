@@ -28,12 +28,11 @@ What Minetorio does like Factorio 1.1:
 | Personal roboport | an item (no armor in Minetorio): kept in the inventory it makes you a mobile roboport for the construction robots in your inventory; radius 15 (30×30), 10 robots per personal roboport. |
 
 Minetorio adaptations: chests have 27 slots (Factorio 48); trash is taken straight from the inventory
-(no trash slots); personal robots need no charging (no armor energy). Recipes and research packs are
-**TEMP** (red + green, no steel/advanced circuits/batteries yet).
+(no trash slots); personal robots need no charging (no armor energy). Recipes and research now follow Factorio 1.1: logistic robotics needs chemical science, the logistic system needs utility science, and personal roboports retain their equipment prerequisites. Later-science production is implemented in its own roadmap stage.
 
 ## 1. Research and crafting
 
-- [ ] Research tree shows **Logistic Robotics** (after Construction Robotics), **Logistic System** (after Logistic Robotics) and **Personal Roboport**.
+- [ ] Research tree shows **Logistic Robotics** (after Robotics), **Logistic System** (after Logistic Robotics) and **Personal Roboport**.
 - [ ] Logistic Robotics unlocks logistic robot, passive provider and storage chests; Logistic System unlocks active provider, requester and buffer chests; Personal Roboport unlocks the personal roboport.
 - [ ] All seven items have icons and names (English and Russian); chests look like the Factorio chests (coloured top plate with the round porthole, louvred sides).
 

@@ -61,7 +61,7 @@ public final class FluidNetwork {
         }
 
         public boolean passes(String fluid) {
-            return filter == null || fluid == null || filter.equals(fluid);
+            return fluid == null || (filter == null || filter.equals(fluid)) && box.accepts(fluid);
         }
 
         double limit(double connection) {
@@ -545,7 +545,9 @@ public final class FluidNetwork {
         double x = Math.min(Math.min(max, from.box().amount()), to.box().room());
         x = Math.min(x, Math.min(from.limit(connectionLimit), to.limit(connectionLimit)));
         if (x <= EPS) return;
-        to.box().insert(f, from.box().extract(x));
+        double moved = to.box().insert(f, x);
+        if (moved <= EPS) return;
+        from.box().extract(moved);
         from.onChange().run();
         to.onChange().run();
     }

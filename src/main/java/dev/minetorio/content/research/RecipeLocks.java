@@ -20,14 +20,13 @@ public final class RecipeLocks {
 
     /**
      * Client-side view used only to decide what the recipe list shows ({@link ClientResearch}); the
-     * server re-checks with {@link #isUnlocked(MinecraftServer, String)} on every selection.
+ * server re-checks with {@link #isUnlocked(MinecraftServer, String)} on every selection.
      */
     public static boolean isUnlockedOnClient(String recipeId) {
         return isUnlocked(ClientResearch.state(), recipeId);
     }
 
     private static boolean isUnlocked(ResearchState state, String recipeId) {
-        boolean smelting = Phase1Data.recipes().get(recipeId).map(r -> r.category() == RecipeCategory.SMELTING).orElse(false);
-        return smelting || state.isRecipeUnlocked(recipeId);
+        return state.isRecipeUnlocked(recipeId);
     }
 }

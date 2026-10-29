@@ -65,7 +65,7 @@ public class AssemblerRenderer implements BlockEntityRenderer<AssemblerBlockEnti
     @Override
     public void render(AssemblerBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
         assemble(be.getBlockState(), be.facing(), be.shape(), be.renderAnimPhase(partialTick), be.isWorking(), pose,
-                MachineRender.sink(modelRenderer, buffers, light, overlay));
+                MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /**

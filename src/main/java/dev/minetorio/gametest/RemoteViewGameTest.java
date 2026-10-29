@@ -108,6 +108,28 @@ public class RemoteViewGameTest {
         for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) h.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
     }
 
+    /** New production machines use the same remote inspection path as assemblers. */
+    @GameTest(template = "empty16", batch = BATCH)
+    public static void oilMachinesAndSteelFurnaceOpenRemotely(GameTestHelper h) {
+        floor(h);
+        BlockPos chemical = new BlockPos(3, 1, 3), furnace = new BlockPos(8, 1, 3);
+        BlueprintGameTest.build(h, dev.minetorio.content.oil.OilRegistry.CHEMICAL_PLANT_ITEM.get(), chemical, Direction.EAST);
+        BlueprintGameTest.build(h, dev.minetorio.content.oil.OilRegistry.STEEL_FURNACE_ITEM.get(), furnace, Direction.EAST);
+        ServerPlayer p = farPlayer(h, null);
+        BlockPos at = h.absolutePos(chemical);
+        ChunkPos chunk = new ChunkPos(at);
+        watchOnly(h, chunk, 1);
+        h.assertTrue(RemoteView.enter(p, centerX(chunk), centerZ(chunk)) == RemoteView.Result.OK, "remote view refused");
+        h.assertTrue(at.equals(RemoteView.menuTarget(p, at)), "chemical plant is absent from remote machine targets");
+        BlockPos steel = h.absolutePos(furnace);
+        h.assertTrue(steel.equals(RemoteView.menuTarget(p, steel)), "steel furnace is absent from remote machine targets");
+        var be = (dev.minetorio.content.oil.OilProcessingBlockEntity) h.getLevel().getBlockEntity(at);
+        p.containerMenu = be.createMenu(9, p.getInventory(), p);
+        h.assertTrue(RemoteView.attachMenu(p, at) && p.containerMenu.stillValid(p), "remote oil menu invalid");
+        RemoteView.endForTests(p);
+        h.succeed();
+    }
+
     /** Entering is refused over a chunk no radar watches and the player cannot see; nothing is loaded for it. */
     @GameTest(template = "empty16", batch = BATCH)
     public static void enteringIsRefusedOverAnUnwatchedChunk(GameTestHelper h) {

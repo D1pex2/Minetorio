@@ -21,14 +21,12 @@ class TechLayoutTest {
             TechLayout.Cell c = layout.cell(t.id());
             assertNotNull(c, t.id());
             assertTrue(used.add(c), "two technologies share " + c);
-            for (String pre : t.prerequisites()) assertTrue(layout.cell(pre).column() < c.column(), t.id() + " after " + pre);
+            assertTrue(c.column() >= 0 && c.row() >= 0, "negative tree position for " + t.id());
+            for (String pre : t.prerequisites()) {
+                if (tree.get(pre).isPresent()) assertTrue(layout.cell(pre).column() < c.column(), t.id() + " after " + pre);
+                else assertTrue(layout.futurePrerequisites(t.id()).contains(pre), t.id() + " must explain unavailable " + pre);
+            }
         }
-        assertEquals(new TechLayout.Cell(0, 0), layout.cell("automation"));
-        assertEquals(1, layout.cell("automation_2").column());
-        assertEquals(4, layout.columns()); // logistic_system after logistic_robotics after construction_robotics
-        // column 1: fast inserter, automation 2, logistics 2, construction robotics, electric energy distribution 1, solar energy;
-        // column 2: stack inserter, fluid handling, EED 2, accumulators, logistic robotics, personal roboport
-        assertEquals(6, layout.rows());
     }
 
     @Test
@@ -42,6 +40,39 @@ class TechLayoutTest {
         assertEquals(3, layout.cell("d").column());
         assertEquals(4, layout.columns());
         assertEquals(1, layout.rows());
+        assertEquals(List.of("missing"), layout.futurePrerequisites("d"));
+        assertEquals(List.of(), layout.futurePrerequisites("b"));
+    }
+
+    @Test
+    void wideTreeCanExposeBothItsFirstAndLastColumns() {
+        var view = new TechLayout.Viewport(320, 180, 700, 300, 0, 0);
+        assertEquals(0, view.originX(), "the first column must start inside the viewport");
+        var end = view.scrolled(1000, 1000);
+        assertEquals(-380, end.originX());
+        assertEquals(-120, end.originY());
+        assertEquals(320, end.originX() + 700, "the last column must end at the viewport edge");
+        assertEquals(180, end.originY() + 300, "the last row must end at the viewport edge");
+        assertEquals(view, end.scrolled(-1000, -1000), "panning back must expose the first column again");
+    }
+
+    @Test
+    void fittingTreeStaysCenteredWithoutScrollingPastItsEdges() {
+        var view = new TechLayout.Viewport(500, 180, 300, 100, 0, 0);
+        assertEquals(100, view.originX());
+        assertEquals(0, view.originY(), "rows remain top-aligned");
+        assertEquals(view, view.scrolled(1000, -1000));
+    }
+
+    @Test
+    void horizontalPanPreservesVerticalPositionAndResizeClampsOffsets() {
+        var start = new TechLayout.Viewport(320, 180, 700, 300, 0, 50);
+        var moved = start.scrolled(125, 0);
+        assertEquals(-125, moved.originX());
+        assertEquals(-50, moved.originY());
+        var resized = new TechLayout.Viewport(800, 400, 700, 300, moved.scrollX(), moved.scrollY());
+        assertEquals(50, resized.originX());
+        assertEquals(0, resized.originY());
     }
 
     private static Technology tech(String id, String... prereqs) {

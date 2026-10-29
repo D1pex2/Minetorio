@@ -41,7 +41,7 @@ public class OffshorePumpRenderer implements BlockEntityRenderer<SteamMachineBlo
     @Override
     public void render(SteamMachineBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
         assemble(be.facing(), be.shape(), be.renderAngle(partialTick), be.isWorking(), pose,
-                MachineRender.sink(modelRenderer, buffers, light, overlay));
+                MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /** Lays out the pump's moving parts from the controller block's corner: the cogs at {@code angle}, the flow while {@code working}. */

@@ -45,6 +45,7 @@ public final class HandcraftGroups {
             Map.entry("pipe_to_ground", Group.LOGISTICS),
             Map.entry("storage_tank", Group.LOGISTICS),
             Map.entry("pump", Group.LOGISTICS),
+            Map.entry("steel_chest", Group.LOGISTICS),
             Map.entry("small_electric_pole", Group.LOGISTICS),
             Map.entry("medium_electric_pole", Group.LOGISTICS),
             Map.entry("big_electric_pole", Group.LOGISTICS),
@@ -70,11 +71,20 @@ public final class HandcraftGroups {
             Map.entry("offshore_pump", Group.PRODUCTION),
             Map.entry("boiler", Group.PRODUCTION),
             Map.entry("steam_engine", Group.PRODUCTION),
+            Map.entry("pumpjack", Group.PRODUCTION),
+            Map.entry("oil_refinery", Group.PRODUCTION),
+            Map.entry("chemical_plant", Group.PRODUCTION),
+            Map.entry("steel_furnace", Group.PRODUCTION),
             Map.entry("iron_gear_wheel", Group.INTERMEDIATES),
             Map.entry("copper_cable", Group.INTERMEDIATES),
             Map.entry("electronic_circuit", Group.INTERMEDIATES),
+            Map.entry("iron_stick", Group.INTERMEDIATES),
+            Map.entry("advanced_circuit", Group.INTERMEDIATES),
+            Map.entry("flying_robot_frame", Group.INTERMEDIATES),
+            Map.entry("empty_barrel", Group.INTERMEDIATES),
             Map.entry("automation_science_pack", Group.SCIENCE),
-            Map.entry("logistic_science_pack", Group.SCIENCE));
+            Map.entry("logistic_science_pack", Group.SCIENCE),
+            Map.entry("chemical_science_pack", Group.SCIENCE));
 
     private HandcraftGroups() {}
 

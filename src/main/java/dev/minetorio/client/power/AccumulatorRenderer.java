@@ -33,7 +33,7 @@ public class AccumulatorRenderer implements BlockEntityRenderer<AccumulatorBlock
         if (be.flow() == Accumulator.Flow.DISCHARGING && blink >= 0) lit = blink; // the blinking one is drawn by blink
         long time = be.getLevel() == null ? 0 : be.getLevel().getGameTime();
         EnergyRender.assembleAccumulator(be.facing(), be.shape(), lit, blink, time, pose,
-                MachineRender.sink(modelRenderer, buffers, light, overlay));
+                MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     @Override

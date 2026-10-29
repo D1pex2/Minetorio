@@ -42,6 +42,11 @@
     "minetorio:active_provider_chest",
     "minetorio:storage_chest",
     "minetorio:requester_chest",
-    "minetorio:buffer_chest"
+    "minetorio:buffer_chest",
+    "minetorio:pumpjack",
+    "minetorio:oil_refinery",
+    "minetorio:chemical_plant",
+    "minetorio:steel_furnace",
+    "minetorio:steel_chest"
   ]
 }

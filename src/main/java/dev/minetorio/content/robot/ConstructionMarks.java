@@ -143,12 +143,17 @@ public final class ConstructionMarks extends SavedData {
 
     /** Marks the block at {@code pos} to be upgraded to {@code count} × {@code toItem}; false when marked for deconstruction. */
     public boolean markUpgrade(ServerLevel level, BlockPos pos, String toItem, int count) {
+        return markUpgrade(level, pos, toItem, count, -1);
+    }
+
+    /** A blueprint's belt replacement also carries its desired direction (DragDir id). */
+    public boolean markUpgrade(ServerLevel level, BlockPos pos, String toItem, int count, int facing) {
         BlockPos at = markPos(level, pos);
         Cell c = ConstructionManager.cell(at);
         if (deconstruction.isMarked(c)) return false;
         BlockState s = level.getBlockState(at);
         if (s.isAir()) return false;
-        return upgrades.mark(c, blockId(s), toItem, count);
+        return upgrades.mark(c, blockId(s), toItem, count, facing);
     }
 
     public boolean unmarkUpgrade(Level level, BlockPos pos) {
@@ -256,6 +261,7 @@ public final class ConstructionMarks extends SavedData {
             e.putString("block", o.fromBlock());
             e.putString("to", o.toItem());
             e.putInt("count", o.count());
+            if (o.facing() >= 0) e.putInt("facing", o.facing());
             up.add(e);
         }
         tag.put("upgrade", up);
@@ -284,7 +290,8 @@ public final class ConstructionMarks extends SavedData {
             CompoundTag e = (CompoundTag) t;
             String to = e.getString("to");
             if (to.isEmpty()) continue;
-            m.upgrades.mark(cellOf(e), e.getString("block"), to, Math.max(1, e.getInt("count")));
+            int facing = e.contains("facing", Tag.TAG_INT) ? e.getInt("facing") : -1;
+            m.upgrades.mark(cellOf(e), e.getString("block"), to, Math.max(1, e.getInt("count")), facing >= 0 && facing < 4 ? facing : -1);
         }
         m.dirty.clear();
         return m;

@@ -38,6 +38,9 @@ public final class MinetorioClient {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.PUMPJACK_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
+        event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.PROCESSING_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
+        event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.STEEL_FURNACE_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.TRANSPORT_BELT.get(), BeltRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.UNDERGROUND_BELT.get(), UndergroundBeltRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.SPLITTER.get(), SplitterRenderer::new);
@@ -65,6 +68,7 @@ public final class MinetorioClient {
     @SubscribeEvent
     public static void setup(FMLClientSetupEvent event) {
         OreFieldHover.register();
+        dev.minetorio.client.oilmap.OilMapHover.register();
         ConstructionAreaOverlay.register();
         RemoteViewClient.register();
         dev.minetorio.client.robot.PlannerClient.register();
@@ -72,6 +76,7 @@ public final class MinetorioClient {
 
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
+        dev.minetorio.client.oil.OilClient.registerScreens(event);
         event.register(ModMenus.STONE_FURNACE.get(), StoneFurnaceScreen::new);
         event.register(ModMenus.ASSEMBLING_MACHINE.get(), AssemblerScreen::new);
         event.register(ModMenus.ROBOPORT.get(), RoboportScreen::new);
@@ -81,6 +86,7 @@ public final class MinetorioClient {
     /** Models drawn by block entity renderers rather than through a blockstate. */
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
+        dev.minetorio.client.oilrender.OilRender.models().forEach(event::register);
         for (var m : DrillRenderer.MODELS) event.register(m);
         for (var m : SteamMachineRenderer.MODELS) event.register(m);
         for (var m : dev.minetorio.client.power.OffshorePumpRenderer.MODELS) event.register(m);

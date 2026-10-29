@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minetorio:item/petroleum_gas_barrel"
+  }
+}

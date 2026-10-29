@@ -185,7 +185,7 @@ public class DemoGameTest {
                 consumers++;
                 h.assertTrue(s >= 0.99, be.getType() + " at " + be.getBlockPos().subtract(o) + " has satisfaction " + s);
             }
-            h.assertTrue(consumers == 19, "electric consumers: " + consumers);
+            h.assertTrue(consumers == 25, "electric consumers, including the oil showcase inserters: " + consumers);
             for (BlockPos e : layout.engines()) {
                 SteamEngineBlockEntity engine = (SteamEngineBlockEntity) level.getBlockEntity(e);
                 h.assertTrue(engine.isWorking(), "engine at " + e.subtract(o) + " not working");

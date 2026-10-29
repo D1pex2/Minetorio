@@ -4,6 +4,9 @@ import com.mojang.serialization.MapCodec;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockShape;
 import dev.minetorio.content.registry.ModBlockEntities;
+import dev.minetorio.content.fluid.FluidPortBlock;
+import dev.minetorio.content.fluid.FluidPort;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
@@ -21,7 +24,7 @@ import net.minecraft.world.phys.BlockHitResult;
  * block model is empty (particle texture only): body and spinning gear are drawn by a block entity
  * renderer at the footprint's center (R19). Right-click (any piece) opens the GUI.
  */
-public class AssemblerBlock extends MultiblockControllerBlock {
+public class AssemblerBlock extends MultiblockControllerBlock implements FluidPortBlock {
     private final MapCodec<AssemblerBlock> codec;
     private final double speed;
     private final long power;
@@ -43,6 +46,15 @@ public class AssemblerBlock extends MultiblockControllerBlock {
     public double speed() { return speed; }
 
     public long power() { return power; }
+
+    /** Factorio 1.1 tier 1 supports advanced crafting (engines), tier 2 also handles fluids. */
+    public boolean supportsFluids() { return speed > AssemblerBlockEntity.SPEED_1; }
+
+    @Override
+    public List<FluidPort> fluidPorts() {
+        return supportsFluids() ? List.of(FluidPort.input(1,0,FluidPort.Side.BACK,null),
+                FluidPort.output(1,2,FluidPort.Side.FRONT,null)) : List.of();
+    }
 
     @Override
     public MultiblockShape shape() { return MultiblockShape.ASSEMBLING_MACHINE; }

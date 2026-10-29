@@ -24,6 +24,7 @@ import dev.minetorio.content.power.ElectricPoleBlock;
 import dev.minetorio.content.power.SteamEngineBlock;
 import dev.minetorio.content.research.LabBlock;
 import dev.minetorio.content.robot.GhostBlockEntity;
+import dev.minetorio.content.robot.Ghosts;
 import dev.minetorio.content.robot.RoboportBlock;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
@@ -61,8 +62,9 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
 
     @Override
     public void render(GhostBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        if (!be.isValid()) return;
-        draw(be.target(), facing(be), pose, buffers, R, G, B, A);
+        if (!be.isValid() || be.getLevel() == null) return;
+        boolean supported = Ghosts.supported(be.getLevel(), be.getBlockPos(), be.target(), true);
+        draw(be.target(), facing(be), pose, buffers, supported ? R : 1.0f, supported ? G : 0.35f, supported ? B : 0.3f, A);
     }
 
     /**
@@ -107,6 +109,10 @@ public class GhostRenderer implements BlockEntityRenderer<GhostBlockEntity> {
      */
     private static void assemble(BlockState target, Direction facing, MultiblockShape shape, PoseStack pose, MachineRender.PartSink sink) {
         Block block = target.getBlock();
+        if (dev.minetorio.client.oilrender.OilModelParts.PARTS.containsKey(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).getPath())) {
+            dev.minetorio.client.oilrender.OilRender.assemble(target, 0, false, pose, sink);
+            return;
+        }
         if (block instanceof ElectricDrillBlock) DrillRenderer.assemble(DrillRenderer.ELECTRIC, facing, shape, 0, pose, sink);
         else if (block instanceof BurnerDrillBlock) DrillRenderer.assemble(DrillRenderer.BURNER, facing, shape, 0, pose, sink);
         else if (block instanceof AssemblerBlock) AssemblerRenderer.assemble(target, facing, shape, 0, false, pose, sink);

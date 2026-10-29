@@ -46,6 +46,8 @@ public class LogisticsGameTest {
     private static final String GEAR = "minetorio:iron_gear_wheel";
 
     private static RoboportBlockEntity roboport(GameTestHelper h, BlockPos rel, int logisticRobots) {
+        // Covers the full SOUTH-facing footprint for either port, including the one at x=13.
+        HandGhostGameTest.floor(h, 0, 15, 0, 15);
         BlockPos abs = h.absolutePos(rel);
         h.assertTrue(Ghosts.place(h.getLevel(), abs, ModItems.ROBOPORT.get(), Direction.SOUTH), "no roboport ghost");
         h.assertTrue(Ghosts.build(h.getLevel(), abs, null, new ItemStack(ModItems.ROBOPORT.get())), "roboport not placed");
@@ -249,6 +251,7 @@ public class LogisticsGameTest {
 
     @GameTest(template = "empty16", batch = "logistics_personal_roboport", timeoutTicks = 800)
     public static void personalRoboportBuildsAGhostNearThePlayer(GameTestHelper h) {
+        HandGhostGameTest.floor(h, 0, 15, 0, 15);
         ServerPlayer p = player(h, new BlockPos(3, 1, 3));
         p.getInventory().add(new ItemStack(LogisticsRegistry.PERSONAL_ROBOPORT.get()));
         p.getInventory().add(new ItemStack(ModItems.CONSTRUCTION_ROBOT.get()));

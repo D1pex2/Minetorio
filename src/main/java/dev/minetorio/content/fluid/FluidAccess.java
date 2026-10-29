@@ -53,7 +53,9 @@ public final class FluidAccess {
         double x = Math.min(Math.min(amount, from.amount()), to.room());
         if (to.fluid() != null && !to.fluid().equals(f)) return 0;
         if (x <= 0) return 0;
-        return to.insert(f, from.extract(x));
+        double inserted = to.insert(f, x);
+        from.extract(inserted);
+        return inserted;
     }
 
     /** The box behind port {@code port} of the machine at {@code controller}, or null. */

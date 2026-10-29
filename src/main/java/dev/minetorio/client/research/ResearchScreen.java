@@ -7,6 +7,8 @@ import dev.minetorio.content.research.ResearchSavedData;
 import dev.minetorio.content.research.SelectResearchPayload;
 import dev.minetorio.core.Units;
 import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.core.data.OilData;
+import dev.minetorio.core.fluid.FluidData;
 import dev.minetorio.core.recipe.Recipe;
 import dev.minetorio.core.research.ResearchState;
 import dev.minetorio.core.research.TechTree;
@@ -41,6 +43,7 @@ public class ResearchScreen extends Screen {
     private static final int GAP_Y = 10;
     private static final int TOP = 40;
     private static final int MARGIN = 8;
+    private static final int BOTTOM = 18;
     private static final int MIN_NODE_W = 100;
     private static final int MIN_GAP_X = 14;
 
@@ -74,6 +77,8 @@ public class ResearchScreen extends Screen {
     private int nodeW = NODE_W;
     private int gapX = GAP_X;
     private int originY;
+    private TechLayout.Viewport viewport = new TechLayout.Viewport(0, 0, 0, 0, 0, 0);
+    private int panButton = -1;
 
     public ResearchScreen() {
         super(Component.translatable("minetorio.research.title"));
@@ -90,26 +95,27 @@ public class ResearchScreen extends Screen {
             nodeW = Math.max(MIN_NODE_W, (width - 2 * MARGIN - Math.max(0, cols - 1) * gapX) / Math.max(1, cols));
         }
         int w = cols * nodeW + Math.max(0, cols - 1) * gapX;
-        originX = (width - w) / 2;
-        scrollY = Math.min(scrollY, maxScroll());
-        originY = TOP - scrollY;
+        int h = Math.max(0, layout.rows() * (NODE_H + GAP_Y) - GAP_Y);
+        viewport = new TechLayout.Viewport(width - 2 * MARGIN, height - TOP - BOTTOM, w, h, viewport.scrollX(), viewport.scrollY());
+        updateOrigin();
     }
 
-    /** Pixels the tree is scrolled up (mouse wheel) when it is taller than the screen. */
-    private int scrollY;
-
-    private int maxScroll() {
-        int h = layout.rows() * (NODE_H + GAP_Y) - GAP_Y;
-        return Math.max(0, TOP + h + MARGIN - height);
+    private void updateOrigin() {
+        originX = MARGIN + viewport.originX();
+        originY = TOP + viewport.originY();
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double deltaY) {
-        int max = maxScroll();
-        if (max == 0) return super.mouseScrolled(mouseX, mouseY, scrollX, deltaY);
-        scrollY = (int) Math.max(0, Math.min(max, scrollY - deltaY * (NODE_H + GAP_Y) / 2));
-        originY = TOP - scrollY;
+        if (!inViewport(mouseX, mouseY)) return super.mouseScrolled(mouseX, mouseY, scrollX, deltaY);
+        double step = (NODE_H + GAP_Y) / 2.0;
+        viewport = viewport.scrolled(-(scrollX + (hasShiftDown() ? deltaY : 0)) * step, hasShiftDown() ? 0 : -deltaY * step);
+        updateOrigin();
         return true;
+    }
+
+    private boolean inViewport(double x, double y) {
+        return x >= MARGIN && x < width - MARGIN && y >= TOP && y < height - BOTTOM;
     }
 
     @Override
@@ -119,8 +125,9 @@ public class ResearchScreen extends Screen {
 
     private int nodeY(Technology t) { return originY + layout.cell(t.id()).row() * (NODE_H + GAP_Y); }
 
-    private static NodeState stateOf(ResearchState s, Technology t) {
+    private NodeState stateOf(ResearchState s, Technology t) {
         if (s.isResearched(t.id())) return NodeState.RESEARCHED;
+        if (!layout.futurePrerequisites(t.id()).isEmpty()) return NodeState.LOCKED;
         if (s.current().map(c -> c.id().equals(t.id())).orElse(false)) return NodeState.CURRENT;
         return s.canResearch(t.id()) ? NodeState.AVAILABLE : NodeState.LOCKED;
     }
@@ -128,6 +135,7 @@ public class ResearchScreen extends Screen {
     /** Technology under the mouse, or null. */
     @Nullable
     private Technology techAt(double mouseX, double mouseY) {
+        if (!inViewport(mouseX, mouseY)) return null;
         for (Technology t : tree.all()) {
             int x = nodeX(t);
             int y = nodeY(t);
@@ -136,13 +144,34 @@ public class ResearchScreen extends Screen {
         return null;
     }
 
-    /** Output of the technology's first unlocked recipe. */
-    private static ItemStack icon(Technology t) {
+    private record Icon(ItemStack item, @Nullable String fluid) {}
+
+    /** Output of the first recipe: a normal item, a mixed-recipe item, or the produced fluid. */
+    private static Icon icon(Technology t) {
         for (String id : t.unlocksRecipes()) {
             Optional<Recipe> r = Phase1Data.recipes().get(id);
-            if (r.isPresent() && !r.get().outputs().isEmpty()) return MachineItems.stack(r.get().outputs().get(0).item(), 1);
+            if (r.isPresent() && !r.get().outputs().isEmpty()) return new Icon(MachineItems.stack(r.get().outputs().get(0).item(), 1), null);
+            var oil = OilData.recipe(id);
+            if (oil == null) continue;
+            if (!oil.itemOutputs().isEmpty()) return new Icon(MachineItems.stack(oil.itemOutputs().getFirst().item(), 1), null);
+            if (!oil.fluidOutputs().isEmpty()) return new Icon(ItemStack.EMPTY, oil.fluidOutputs().keySet().iterator().next());
         }
-        return ItemStack.EMPTY;
+        return new Icon(ItemStack.EMPTY, null);
+    }
+
+    /** A small fluid drop in the same palette used by tank and pipe gauges. */
+    private static void drawIcon(GuiGraphics g, Icon icon, int x, int y) {
+        if (icon.fluid() == null) {
+            g.renderItem(icon.item(), x, y);
+            return;
+        }
+        int color = 0xFF000000 | FluidData.color(icon.fluid());
+        for (int row = 0; row < 14; row++) {
+            int half = row < 8 ? Math.max(1, row / 2) : row < 12 ? 5 : 3;
+            g.fill(x + 8 - half, y + 1 + row, x + 8 + half, y + 2 + row, color);
+        }
+        var fluid = FluidData.fluid(icon.fluid());
+        if (fluid != null) g.fill(x + 5, y + 9, x + 6, y + 12, 0xFF000000 | fluid.flow());
     }
 
     private static String seconds(int ticks) {
@@ -158,12 +187,15 @@ public class ResearchScreen extends Screen {
         ResearchState s = ClientResearch.state();
         g.drawCenteredString(font, title, width / 2, 10, TEXT);
         g.drawCenteredString(font, header(s), width / 2, 22, TEXT_DIM);
+        g.drawString(font, Component.translatable("minetorio.research.pan_hint"), MARGIN, height - font.lineHeight - 4, TEXT_DIM, false);
+        g.enableScissor(MARGIN, TOP, width - MARGIN, height - BOTTOM);
         for (Technology t : tree.all()) {
             for (String pre : t.prerequisites()) tree.get(pre).ifPresent(p -> drawLink(g, p, t, s.isResearched(p.id())));
         }
         Technology hovered = techAt(mouseX, mouseY);
         for (Technology t : tree.all()) drawNode(g, s, t, t == hovered);
-        if (hovered != null) g.renderComponentTooltip(font, tooltip(s, hovered), mouseX, mouseY);
+        g.disableScissor();
+        if (hovered != null && panButton < 0) g.renderComponentTooltip(font, tooltip(s, hovered), mouseX, mouseY);
     }
 
     private Component header(ResearchState s) {
@@ -192,7 +224,7 @@ public class ResearchScreen extends Screen {
         int border = hovered && state == NodeState.AVAILABLE ? TEXT : state.border;
         g.fill(x, y, x + nodeW, y + NODE_H, border);
         g.fill(x + 1, y + 1, x + nodeW - 1, y + NODE_H - 1, state.fill);
-        g.renderItem(icon(t), x + 4, y + 4);
+        drawIcon(g, icon(t), x + 4, y + 4);
         int textColor = state == NodeState.LOCKED ? TEXT_DIM : TEXT;
         g.drawString(font, font.plainSubstrByWidth(name(t).getString(), nodeW - 28), x + 24, y + 5, textColor, false);
         // cost: a half-size icon per pack, then "units × seconds"
@@ -234,17 +266,33 @@ public class ResearchScreen extends Screen {
             MutableComponent missing = Component.empty();
             boolean first = true;
             for (String pre : t.prerequisites()) {
-                if (s.isResearched(pre)) continue;
+                if (s.isResearched(pre) || tree.get(pre).isEmpty()) continue;
                 if (!first) missing.append(", ");
                 missing.append(Component.translatable(ResearchSavedData.nameKey(pre)));
                 first = false;
             }
-            lines.add(Component.translatable("minetorio.research.requires", missing).withStyle(ChatFormatting.RED));
+            if (!first) lines.add(Component.translatable("minetorio.research.requires", missing).withStyle(ChatFormatting.RED));
+            List<String> future = layout.futurePrerequisites(t.id());
+            if (!future.isEmpty()) {
+                MutableComponent later = Component.empty();
+                for (String pre : future) {
+                    if (!later.getString().isEmpty()) later.append(", ");
+                    later.append(Component.translatable(ResearchSavedData.nameKey(pre)));
+                }
+                lines.add(Component.translatable("minetorio.research.future_requires", later).withStyle(ChatFormatting.RED));
+            }
         }
         lines.add(Component.translatable("minetorio.research.unlocks").withStyle(ChatFormatting.GRAY));
         for (String id : t.unlocksRecipes()) {
-            Phase1Data.recipes().get(id).filter(r -> !r.outputs().isEmpty()).ifPresent(r -> lines.add(
-                    Component.literal("  ").append(MachineItems.stack(r.outputs().get(0).item(), 1).getHoverName())));
+            Optional<Recipe> r = Phase1Data.recipes().get(id);
+            if (r.isPresent() && !r.get().outputs().isEmpty()) {
+                lines.add(Component.literal("  ").append(MachineItems.stack(r.get().outputs().getFirst().item(), 1).getHoverName()));
+            } else {
+                var oil = OilData.recipe(id);
+                if (oil == null) continue;
+                for (var item : oil.itemOutputs()) lines.add(Component.literal("  ").append(MachineItems.stack(item.item(), 1).getHoverName()));
+                for (String fluid : oil.fluidOutputs().keySet()) lines.add(Component.literal("  ").append(Component.translatable("fluid.minetorio." + fluid)));
+            }
         }
         if (state == NodeState.AVAILABLE) lines.add(Component.translatable("minetorio.research.click").withStyle(ChatFormatting.YELLOW));
         return lines;
@@ -253,12 +301,31 @@ public class ResearchScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         Technology t = button == 0 ? techAt(mouseX, mouseY) : null;
+        if (inViewport(mouseX, mouseY) && (button == 2 || (button == 0 && t == null))) {
+            panButton = button;
+            return true;
+        }
         if (t != null && stateOf(ClientResearch.state(), t) == NodeState.AVAILABLE) {
             PacketDistributor.sendToServer(new SelectResearchPayload(t.id()));
             minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        if (panButton != button) return super.mouseDragged(mouseX, mouseY, button, dx, dy);
+        viewport = viewport.scrolled(-dx, -dy);
+        updateOrigin();
+        return true;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (panButton != button) return super.mouseReleased(mouseX, mouseY, button);
+        panButton = -1;
+        return true;
     }
 
     @Override

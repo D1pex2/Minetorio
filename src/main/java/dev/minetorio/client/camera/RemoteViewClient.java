@@ -249,7 +249,9 @@ public final class RemoteViewClient {
         BlockPos at = level.getBlockState(pos).getBlock() instanceof MultiblockPartBlock ? MultiblockPartBlock.controllerPos(level, pos) : pos;
         if (at == null) return false;
         BlockEntity be = level.getBlockEntity(at);
-        return be instanceof AssemblerBlockEntity || be instanceof StoneFurnaceBlockEntity;
+        return be instanceof AssemblerBlockEntity || be instanceof StoneFurnaceBlockEntity
+                || be instanceof dev.minetorio.content.oil.OilProcessingBlockEntity
+                || be instanceof dev.minetorio.content.oil.SteelFurnaceBlockEntity;
     }
 
     // --- HUD ---------------------------------------------------------------------------------------

@@ -40,7 +40,7 @@ public class LabRenderer implements BlockEntityRenderer<LabBlockEntity> {
     @Override
     public void render(LabBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
         assemble(be.facing(), be.shape(), be.renderDomeAngle(partialTick), be.isWorking(), pose,
-                MachineRender.sink(modelRenderer, buffers, light, overlay));
+                MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /**

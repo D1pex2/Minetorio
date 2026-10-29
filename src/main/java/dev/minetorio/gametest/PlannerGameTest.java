@@ -51,6 +51,9 @@ public class PlannerGameTest {
 
     private static RoboportBlockEntity roboport(GameTestHelper h, int robots) {
         BlockPos abs = h.absolutePos(PORT);
+        for (BlockPos cell : BlockPos.betweenClosed(abs.offset(-3, -1, 0), abs.offset(0, -1, 3))) {
+            h.getLevel().setBlock(cell, Blocks.STONE.defaultBlockState(), 3);
+        }
         h.assertTrue(Ghosts.place(h.getLevel(), abs, ModItems.ROBOPORT.get(), Direction.SOUTH), "no roboport ghost");
         h.assertTrue(Ghosts.build(h.getLevel(), abs, null, new ItemStack(ModItems.ROBOPORT.get())), "roboport not placed");
         RoboportBlockEntity be = (RoboportBlockEntity) h.getLevel().getBlockEntity(abs);
@@ -266,7 +269,7 @@ public class PlannerGameTest {
         h.succeed();
     }
 
-    /** A blueprint pasted over a belt of another tier facing the same way marks it for upgrade (not red). */
+    /** A blueprint marks another belt tier for replacement, including its required direction. */
     @GameTest(template = "empty16")
     public static void blueprintPasteMarksOtherTierForUpgrade(GameTestHelper h) {
         BlockPos at = new BlockPos(3, 1, 12), turned = new BlockPos(6, 1, 12);
@@ -279,9 +282,11 @@ public class PlannerGameTest {
         var o = marks(h).upgradeOrder(h.getLevel(), h.absolutePos(at));
         h.assertTrue(o != null && o.toItem().equals("minetorio:transport_belt"), "no upgrade order: " + o);
         var r2 = BlueprintGameTest.paste(h, p, turned, dev.minetorio.core.blueprint.BlueprintTransform.IDENTITY, false);
-        h.assertTrue(r2.blocked() == 1 && marks(h).upgradeOrder(h.getLevel(), h.absolutePos(turned)) == null,
-                "a belt facing another way is not upgraded: " + r2);
+        var turnedOrder = marks(h).upgradeOrder(h.getLevel(), h.absolutePos(turned));
+        h.assertTrue(r2.placed() == 1 && r2.blocked() == 0 && turnedOrder != null && turnedOrder.facing() == 1,
+                "a belt facing another way must get the blueprint's eastward replacement: " + r2);
         marks(h).unmarkUpgrade(h.getLevel(), h.absolutePos(at));
+        marks(h).unmarkUpgrade(h.getLevel(), h.absolutePos(turned));
         p.getInventory().clearContent();
         h.succeed();
     }
@@ -353,7 +358,9 @@ public class PlannerGameTest {
         var provider = logisticChest(h, new BlockPos(13, 1, 7), dev.minetorio.core.logistics.LogisticMode.PASSIVE_PROVIDER,
                 new ItemStack(ModItems.TRANSPORT_BELT.get(), 5));
         BlockPos at = new BlockPos(3, 1, 12);
+        h.setBlock(at.below(), Blocks.STONE);
         h.assertTrue(Ghosts.place(h.getLevel(), h.absolutePos(at), ModItems.TRANSPORT_BELT.get(), Direction.EAST), "no ghost");
+        h.assertTrue(Ghosts.canBuild(h.getLevel(), h.absolutePos(at)), "belt ghost lacks a buildable foundation");
         h.succeedWhen(() -> {
             h.assertTrue(h.getBlockState(at).is(ModBlocks.TRANSPORT_BELT.get()), "belt not built; " + debug(h, at, port));
             h.assertTrue(provider.counts().getOrDefault("minetorio:transport_belt", 0) == 4, "provider " + provider.counts());

@@ -97,7 +97,7 @@ public class RoboportRenderer implements BlockEntityRenderer<RoboportBlockEntity
 
     @Override
     public void render(RoboportBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        assemble(be.facing(), be.shape(), Anim.of(be, partialTick), pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
+        assemble(be.facing(), be.shape(), Anim.of(be, partialTick), pose, MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /** Lays out the roboport at rest (door closed, nothing lit) from the controller block's corner. */

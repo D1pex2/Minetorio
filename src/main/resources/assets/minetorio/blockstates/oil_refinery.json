@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/oil_refinery"
+    },
+    "facing=east": {
+      "model": "minetorio:block/oil_refinery"
+    },
+    "facing=south": {
+      "model": "minetorio:block/oil_refinery"
+    },
+    "facing=west": {
+      "model": "minetorio:block/oil_refinery"
+    }
+  }
+}

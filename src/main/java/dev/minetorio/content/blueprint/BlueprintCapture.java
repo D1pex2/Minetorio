@@ -114,8 +114,12 @@ public final class BlueprintCapture {
         if (autoHeight) {
             int[] ys = heightRange(level, x0, x1, z0, z1);
             if (ys == null) return nothing(player);
+            if (ys[1] - ys[0] >= Blueprints.MAX_HEIGHT) {
+                player.displayClientMessage(Component.translatable("minetorio.blueprint.too_big", Blueprints.MAX_SPAN, Blueprints.MAX_SPAN, Blueprints.MAX_HEIGHT), true);
+                return Result.TOO_BIG;
+            }
             y0 = ys[0];
-            y1 = Math.min(ys[1], ys[0] + Blueprints.MAX_HEIGHT - 1);
+            y1 = ys[1];
         }
         BlueprintData data = scan(level, x0, y0, z0, x1, y1, z1);
         if (data == null) return nothing(player);

@@ -9,8 +9,11 @@ import java.util.*;
  * (ignoring the insertion limits), so no pack is lost (ruling R23).
  */
 public final class LabLogic {
-    private static final Set<String> ACCEPTED = Set.of(
-            "minetorio:automation_science_pack", "minetorio:logistic_science_pack");
+    /** Implemented science types, in lab slot/display order; shared by the content layer. */
+    public static final List<String> SCIENCE_PACKS = List.of(
+            "minetorio:automation_science_pack", "minetorio:logistic_science_pack",
+            "minetorio:chemical_science_pack", "minetorio:production_science_pack", "minetorio:utility_science_pack");
+    private static final Set<String> ACCEPTED = Set.copyOf(SCIENCE_PACKS);
     private static final int AUTOMATED_LIMIT = 2;
     private static final int MANUAL_LIMIT = 64;
     private static final double EPS = 1e-9;

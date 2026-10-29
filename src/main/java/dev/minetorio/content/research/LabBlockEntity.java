@@ -56,7 +56,7 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
     public static final double SPEED = 1.0;
     public static final long POWER = Units.kw(60);
     /** Item handler slots: one per pack type. */
-    public static final List<String> PACKS = List.of("minetorio:automation_science_pack", "minetorio:logistic_science_pack");
+    public static final List<String> PACKS = LabLogic.SCIENCE_PACKS;
     private static final int IDLE_GRACE = 10;
     /** The inner ring turns once per Factorio lab animation loop (33 frames at 1/3 speed = 99 ticks). */
     private static final float DOME_DEGREES_PER_TICK = 360f / 99;
@@ -109,8 +109,12 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
 
     /** Action-bar status: stored packs and the current research. */
     public Component status() {
-        Component packs = Component.translatable("minetorio.lab.packs",
-                lab.packs().getOrDefault(PACKS.get(0), 0), lab.packs().getOrDefault(PACKS.get(1), 0));
+        var packs=Component.empty();
+        for(String id:PACKS) {
+            if(!packs.getSiblings().isEmpty()) packs.append(", ");
+            packs.append(Component.translatable("minetorio.assembler.amount",lab.packs().getOrDefault(id,0),
+                    MachineItems.stack(id,1).getHoverName()));
+        }
         Optional<Technology> cur = level == null || level.getServer() == null ? Optional.empty()
                 : ResearchSavedData.get(level.getServer()).state().current();
         Component research = cur.<Component>map(t -> Component.translatable("minetorio.lab.researching",

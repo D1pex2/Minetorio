@@ -7,6 +7,8 @@ import dev.minetorio.content.research.RecipeLocks;
 import dev.minetorio.core.Units;
 import dev.minetorio.core.recipe.Ingredient;
 import dev.minetorio.core.recipe.Recipe;
+import dev.minetorio.core.data.OilData;
+import dev.minetorio.content.machine.AssemblerBlockEntity;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -35,8 +37,8 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
     private static final int GRID_X = 8;
     private static final int GRID_Y = 18;
     private static final int SCROLL_X = GRID_X + COLS * CELL + 4;
-    private static final int BAR_X = 86;
-    private static final int BAR_W = 24;
+    private static final int BAR_X = 101;
+    private static final int BAR_W = 10;
     private static final int POWER_X = 152;
     private static final int POWER_W = 8;
 
@@ -59,7 +61,14 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
         imageWidth = 176;
         imageHeight = AssemblerMenu.INVENTORY_Y + 3 * 18 + 4 + 18 + 6;
         inventoryLabelY = AssemblerMenu.INVENTORY_Y - 11;
-        for (Recipe r : AssemblerMenu.CRAFTING) if (RecipeLocks.isUnlockedOnClient(r.id())) recipes.add(r);
+        refreshRecipes();
+    }
+
+    private void refreshRecipes() {
+        recipes.clear();
+        for(Recipe r:AssemblerMenu.CRAFTING) if(RecipeLocks.isUnlockedOnClient(r.id())
+                && (OilData.recipe(r.id())==null || menu.supportsFluids())) recipes.add(r);
+        scrollRow=Math.min(scrollRow,maxScroll());
     }
 
     private int maxScroll() { return Math.max(0, Mth.positiveCeilDiv(recipes.size(), COLS) - ROWS); }
@@ -81,6 +90,11 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        refreshRecipes();
+        if(button==0 && menu.supportsFluids() && isHovering(8,114,144,11,mouseX,mouseY)) {
+            PacketDistributor.sendToServer(new SelectRecipePayload(menu.pos(),AssemblerBlockEntity.FLUSH_RECIPE));
+            return true;
+        }
         Recipe r = button == 0 ? recipeAt(mouseX, mouseY) : null;
         if (r != null) {
             if (r != menu.recipe()) PacketDistributor.sendToServer(new SelectRecipePayload(menu.pos(), r.id()));
@@ -103,6 +117,7 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        refreshRecipes();
         super.render(g, mouseX, mouseY, partialTick);
         Recipe hovered = recipeAt(mouseX, mouseY);
         if (hovered != null) {
@@ -124,6 +139,13 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
             lines.add(Component.translatable("minetorio.assembler.amount", in.count(),
                     MachineItems.stack(in.item(), 1).getHoverName()).withStyle(ChatFormatting.GRAY));
         }
+        var oil=OilData.recipe(r.id());
+        if(oil!=null) {
+            oil.fluidInputs().forEach((id,n)->lines.add(Component.translatable("minetorio.assembler.amount",n.intValue(),
+                    Component.translatable("fluid.minetorio."+id)).withStyle(ChatFormatting.AQUA)));
+            oil.fluidOutputs().forEach((id,n)->lines.add(Component.translatable("minetorio.assembler.fluid_output",n.intValue(),
+                    Component.translatable("fluid.minetorio."+id)).withStyle(ChatFormatting.AQUA)));
+        }
         String seconds = String.valueOf(r.ticks() / (double) Units.TICKS_PER_SECOND);
         lines.add(Component.translatable("minetorio.assembler.time", seconds).withStyle(ChatFormatting.GRAY));
         return lines;
@@ -140,6 +162,13 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
         super.renderLabels(g, mouseX, mouseY);
         if (menu.recipe() == null) {
             g.drawString(font, Component.translatable("minetorio.assembler.select_recipe"), 8, AssemblerMenu.SLOTS_Y + 4, 0x404040, false);
+        }
+        var oil=menu.recipe()==null?null:OilData.recipe(menu.recipe().id());
+        if(oil!=null) {
+            String in=oil.fluidInputs().isEmpty()?"—":menu.inputFluidAmount()+"/1000";
+            String out=oil.fluidOutputs().isEmpty()?"—":menu.outputFluidAmount()+"/1000";
+            g.drawString(font,Component.translatable("minetorio.assembler.fluids",in,out),8,101,0x205060,false);
+            g.drawString(font,Component.translatable("minetorio.assembler.flush_fluids"),8,114,0x805030,false);
         }
     }
 

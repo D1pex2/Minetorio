@@ -16,7 +16,28 @@ import java.util.Map;
 public final class TechLayout {
     public record Cell(int column, int row) {}
 
+    /** Tree viewport, independent of the game's renderer and input APIs. */
+    public record Viewport(int width, int height, int contentWidth, int contentHeight, int scrollX, int scrollY) {
+        public Viewport {
+            width = Math.max(0, width);
+            height = Math.max(0, height);
+            contentWidth = Math.max(0, contentWidth);
+            contentHeight = Math.max(0, contentHeight);
+            scrollX = Math.max(0, Math.min(scrollX, Math.max(0, contentWidth - width)));
+            scrollY = Math.max(0, Math.min(scrollY, Math.max(0, contentHeight - height)));
+        }
+
+        public int originX() { return Math.max(0, (width - contentWidth) / 2) - scrollX; }
+        public int originY() { return -scrollY; }
+
+        public Viewport scrolled(double dx, double dy) {
+            return new Viewport(width, height, contentWidth, contentHeight,
+                    (int) Math.round(scrollX + dx), (int) Math.round(scrollY + dy));
+        }
+    }
+
     private final Map<String, Cell> cells = new LinkedHashMap<>();
+    private final Map<String, List<String>> futurePrerequisites = new HashMap<>();
     private final int columns;
     private final int rows;
 
@@ -30,6 +51,7 @@ public final class TechLayout {
             int row = rowsPerColumn.get(col);
             rowsPerColumn.set(col, row + 1);
             cells.put(t.id(), new Cell(col, row));
+            futurePrerequisites.put(t.id(), t.prerequisites().stream().filter(pre -> tree.get(pre).isEmpty()).toList());
         }
         columns = rowsPerColumn.size();
         rows = rowsPerColumn.stream().mapToInt(Integer::intValue).max().orElse(0);
@@ -56,4 +78,7 @@ public final class TechLayout {
     public int columns() { return columns; }
 
     public int rows() { return rows; }
+
+    /** Exact prerequisites whose technology is reserved for a later stage rather than implemented now. */
+    public List<String> futurePrerequisites(String techId) { return futurePrerequisites.getOrDefault(techId, List.of()); }
 }

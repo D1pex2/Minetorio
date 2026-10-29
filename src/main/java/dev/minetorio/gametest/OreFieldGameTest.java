@@ -41,6 +41,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -61,8 +62,24 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 public class OreFieldGameTest {
     private static ServerPlayer miner(GameTestHelper h, ItemStack tool) {
         ServerPlayer p = FakePlayerFactory.getMinecraft(h.getLevel());
+        // The factory reuses a level-wide fake player: other tests may leave it in creative mode.
+        p.setGameMode(GameType.SURVIVAL);
         p.setItemInHand(InteractionHand.MAIN_HAND, tool);
         return p;
+    }
+
+    @GameTest(template = "empty16")
+    public static void minerResetsCreativePlayerToSurvival(GameTestHelper h) {
+        ServerPlayer shared = FakePlayerFactory.getMinecraft(h.getLevel());
+        shared.setGameMode(GameType.CREATIVE);
+        ServerPlayer player = miner(h, new ItemStack(Items.IRON_PICKAXE));
+        BlockPos rel = new BlockPos(4, 1, 4), abs = h.absolutePos(rel);
+        OreFields.place(h.getLevel(), abs, OreType.IRON, 3);
+        player.gameMode.destroyBlock(abs);
+        h.assertTrue(!player.isCreative(), "miner kept creative mode");
+        h.assertTrue(OreFields.remaining(h.getLevel(), abs) == 2, "field did not survive one mining operation");
+        h.assertTrue(dropped(h, ModItems.IRON_ORE.get()) == 1, "survival mining did not drop iron ore");
+        h.succeed();
     }
 
     /**
@@ -108,11 +125,13 @@ public class OreFieldGameTest {
             BlockPos abs = h.absolutePos(new BlockPos(2 + 2 * i, 1, 2));
             OreFields.place(h.getLevel(), abs, types[i], 100);
             player.gameMode.destroyBlock(abs);
+            h.assertTrue(OreFields.remaining(h.getLevel(), abs) == 99,
+                    types[i] + " field remaining=" + OreFields.remaining(h.getLevel(), abs) + ", creative=" + player.isCreative());
         }
-        h.assertTrue(dropped(h, ModItems.IRON_ORE.get()) == 1, "iron ore");
-        h.assertTrue(dropped(h, ModItems.COPPER_ORE.get()) == 1, "copper ore");
-        h.assertTrue(dropped(h, Items.COAL) == 1, "coal");
-        h.assertTrue(dropped(h, Items.COBBLESTONE) == 1, "cobblestone");
+        h.assertTrue(dropped(h, ModItems.IRON_ORE.get()) == 1, "iron ore count=" + dropped(h, ModItems.IRON_ORE.get()));
+        h.assertTrue(dropped(h, ModItems.COPPER_ORE.get()) == 1, "copper ore count=" + dropped(h, ModItems.COPPER_ORE.get()));
+        h.assertTrue(dropped(h, Items.COAL) == 1, "coal count=" + dropped(h, Items.COAL));
+        h.assertTrue(dropped(h, Items.COBBLESTONE) == 1, "cobblestone count=" + dropped(h, Items.COBBLESTONE));
         h.assertTrue(h.getEntities(EntityType.ITEM).size() == 4, "other drops");
         h.succeed();
     }

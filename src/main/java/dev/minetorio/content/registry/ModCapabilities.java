@@ -41,6 +41,7 @@ public final class ModCapabilities {
         FluidPorts.registerCapability(event, ModBlockEntities.STEAM_ENGINE.get());
         FluidPorts.registerCapability(event, ModBlockEntities.STORAGE_TANK.get());
         FluidPorts.registerCapability(event, ModBlockEntities.PUMP.get());
+        FluidPorts.registerCapability(event, ModBlockEntities.ASSEMBLING_MACHINE.get());
 
         // Crafting machines: automated inserts into inputs/fuel, extraction from outputs only.
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.STONE_FURNACE.get(), (be, side) -> be.itemHandler());

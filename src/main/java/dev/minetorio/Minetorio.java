@@ -39,6 +39,9 @@ public class Minetorio {
     public Minetorio(IEventBus modBus) {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
+        dev.minetorio.content.registry.OilMaterials.register(modBus);
+        dev.minetorio.content.oil.OilRegistry.register(modBus);
+        dev.minetorio.content.oilmap.OilMapPayloads.register(modBus);
         dev.minetorio.content.logistics.LogisticsRegistry.register(modBus);
         ModDataComponents.register(modBus);
         ModBlockEntities.register(modBus);

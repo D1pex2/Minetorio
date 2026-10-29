@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/chemical_plant"
+    },
+    "facing=east": {
+      "model": "minetorio:block/chemical_plant"
+    },
+    "facing=south": {
+      "model": "minetorio:block/chemical_plant"
+    },
+    "facing=west": {
+      "model": "minetorio:block/chemical_plant"
+    }
+  }
+}

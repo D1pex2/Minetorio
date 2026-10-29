@@ -27,7 +27,7 @@ public class StorageTankRenderer implements BlockEntityRenderer<StorageTankBlock
 
     @Override
     public void render(StorageTankBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        assemble(be.facing(), pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
+        assemble(be.facing(), pose, MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     /** Lays the tank out from the controller block's corner (also used for ghosts). */

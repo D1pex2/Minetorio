@@ -19,7 +19,7 @@ public class SolarPanelRenderer implements BlockEntityRenderer<SolarPanelBlockEn
 
     @Override
     public void render(SolarPanelBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
-        EnergyRender.assemble(EnergyRender.SOLAR_PANEL, be.facing(), be.shape(), pose, MachineRender.sink(modelRenderer, buffers, light, overlay));
+        EnergyRender.assemble(EnergyRender.SOLAR_PANEL, be.facing(), be.shape(), pose, MachineRender.sink(modelRenderer, buffers, be, light, overlay));
     }
 
     @Override

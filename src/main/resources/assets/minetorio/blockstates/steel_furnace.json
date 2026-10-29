@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "facing=north,lit=false": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=north,lit=true": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=east,lit=false": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=east,lit=true": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=south,lit=false": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=south,lit=true": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=west,lit=false": {
+      "model": "minetorio:block/steel_furnace"
+    },
+    "facing=west,lit=true": {
+      "model": "minetorio:block/steel_furnace"
+    }
+  }
+}

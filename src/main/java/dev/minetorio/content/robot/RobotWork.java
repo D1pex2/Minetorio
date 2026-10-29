@@ -160,8 +160,13 @@ public final class RobotWork {
         Block next = bi.getBlock();
         String from = itemId(state);
         String to = BuiltInRegistries.ITEM.getKey(target).toString();
-        if (!UpgradeGroups.compatible(from, to)) return null;
+        var order = ConstructionMarks.get(level).upgradeOrder(level, at);
+        int facing = order != null && order.toItem().equals(to) ? order.facing() : -1;
+        boolean beltTurn = current instanceof BeltBlock && next instanceof BeltBlock && facing >= 0;
+        if (!UpgradeGroups.compatible(from, to) && !(beltTurn && from.equals(to))) return null;
         if (current instanceof BeltBlock && next instanceof BeltBlock nb) {
+            if (beltTurn) state = state.setValue(BeltBlock.FACING,
+                    net.minecraft.core.Direction.valueOf(dev.minetorio.core.drag.DragDir.byId(facing).name()));
             return BeltBlock.replaceTier(level, at, state, nb) == null ? null : new Upgraded(List.of(new ItemStack(current.asItem())), 1);
         }
         if (current instanceof SplitterBlock && next instanceof SplitterBlock ns) {
@@ -194,6 +199,14 @@ public final class RobotWork {
         }
         var registries = level.registryAccess();
         BlockEntity oldBe = level.getBlockEntity(pos);
+        if (oldBe instanceof dev.minetorio.content.machine.AssemblerBlockEntity assembler
+                && next instanceof dev.minetorio.content.machine.AssemblerBlock nextAssembler
+                && !nextAssembler.supportsFluids()) {
+            var recipe = assembler.machine().recipe();
+            var oil = assembler.oilMachine().snapshot();
+            if (recipe != null && dev.minetorio.core.data.OilData.recipe(recipe.id()) != null
+                    || !oil.inputFluids().isEmpty() || !oil.outputFluids().isEmpty()) return null;
+        }
         CompoundTag data = oldBe == null ? null : oldBe.saveWithoutMetadata(registries);
         List<ItemStack> extra = new ArrayList<>();
         BlockState placed = next.defaultBlockState();

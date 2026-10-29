@@ -51,6 +51,46 @@ import net.neoforged.neoforge.items.IItemHandler;
 @GameTestHolder("minetorio")
 @PrefixGameTestTemplate(false)
 public class ResearchGameTest {
+    @GameTest(template="empty16")
+    public static void labStatusIncludesEveryAcceptedSciencePack(GameTestHelper h) {
+        LabBlockEntity be=lab(h,LAB);
+        for(int i=0;i<LabBlockEntity.PACKS.size();i++) be.lab().insertPack(LabBlockEntity.PACKS.get(i),11+i,false);
+        String status=be.status().getString();
+        for(int i=2;i<LabBlockEntity.PACKS.size();i++) {
+            String name=dev.minetorio.content.machine.MachineItems.stack(LabBlockEntity.PACKS.get(i),1).getHoverName().getString();
+            h.assertTrue(status.contains(name) && status.contains(Integer.toString(11+i)),"accepted science absent from lab status: "+name+"; status="+status);
+        }
+        h.succeed();
+    }
+
+    @GameTest(template="empty16",batch="research_blue_lab",timeoutTicks=680)
+    public static void poweredLabCompletesBlueScienceResearchAfterSavedUnitReload(GameTestHelper h) {
+        ResearchSavedData data=clearedResearch(h);
+        data.restore(Set.of("chemical_science_pack"),"advanced_oil_processing",Map.of("advanced_oil_processing",74));
+        LabBlockEntity be=lab(h,LAB);
+        for(String id:java.util.List.of("minetorio:automation_science_pack","minetorio:logistic_science_pack","minetorio:chemical_science_pack")) {
+            var stack=dev.minetorio.content.machine.MachineItems.stack(id,1);
+            h.assertTrue(!stack.isEmpty(),"science item missing: "+id);
+            h.assertTrue(be.itemHandler().insertItem(LabBlockEntity.PACKS.indexOf(id),stack,false).isEmpty(),"science capability refused: "+id);
+        }
+        TestPower.powerAt(h,POLE);
+        h.runAtTickTime(30,()->{
+            h.assertTrue(be.lab().isWorking() && be.lab().unitPacks().containsKey("minetorio:chemical_science_pack"),"blue research unit did not start");
+            double progress=be.lab().progress();
+            CompoundTag saved=be.saveWithFullMetadata(h.getLevel().registryAccess());
+            be.loadWithComponents(saved,h.getLevel().registryAccess());
+            h.assertTrue(be.lab().progress()==progress && be.lab().unitPacks().containsKey("minetorio:chemical_science_pack"),"in-flight blue science lost on reload");
+        });
+        h.succeedWhen(()->{
+            h.assertTrue(data.state().isResearched("advanced_oil_processing"),"blue technology not completed");
+            h.assertTrue(h.getTick()>=600,"blue research completed too early");
+            h.assertTrue(RecipeLocks.isUnlocked(h.getLevel().getServer(),"heavy_oil_cracking"),"blue research did not unlock cracking");
+            h.assertTrue(be.lab().packs().isEmpty() && be.lab().unitPacks().isEmpty(),"science was not consumed exactly once");
+        });
+    }
+
+    @AfterBatch(batch="research_blue_lab")
+    public static void afterBlueLab(ServerLevel level) { clear(level); }
     private static final String R = "minetorio:automation_science_pack";
     private static final String G = "minetorio:logistic_science_pack";
     /** Lab at (2,1,2) facing east: footprint x 2..4, z 2..4. */
@@ -216,7 +256,7 @@ public class ResearchGameTest {
         data.restore(Set.of("automation"), null, Map.of());
         h.assertTrue(ResearchSavedData.select(p, "automation") == ResearchSavedData.SelectResult.UNAVAILABLE, "researched accepted");
         // a player may switch at most once per SWITCH_COOLDOWN_TICKS
-        h.assertTrue(ResearchSavedData.select(p, "fast_inserter") == ResearchSavedData.SelectResult.TOO_SOON, "switch not rate-limited");
+        h.assertTrue(ResearchSavedData.select(p, "electronics") == ResearchSavedData.SelectResult.TOO_SOON, "switch not rate-limited");
         h.assertTrue(data.state().current().isEmpty(), "current " + data.state().current());
         FakePlayer other = player(h, new BlockPos(4, 1, 7));
         h.assertTrue(ResearchSavedData.select(other, "logistics") == ResearchSavedData.SelectResult.OK, "other player limited");

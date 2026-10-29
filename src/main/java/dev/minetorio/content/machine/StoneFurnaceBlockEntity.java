@@ -1,6 +1,8 @@
 package dev.minetorio.content.machine;
 
 import dev.minetorio.content.alt.AltSource;
+import dev.minetorio.content.research.RecipeLocks;
+import net.minecraft.server.level.ServerLevel;
 import dev.minetorio.core.alt.AltInfo;
 import dev.minetorio.core.alt.AltRules;
 import dev.minetorio.core.alt.AltSync;
@@ -103,6 +105,11 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
     /** Smelting with fuel (synced through the block state). */
     public boolean isWorking() { return getBlockState().getValue(StoneFurnaceBlock.LIT); }
 
+    private boolean unlocked(dev.minetorio.core.recipe.Recipe recipe) {
+        return recipe != null && (!(level instanceof ServerLevel server) || RecipeLocks.isUnlocked(server.getServer(),recipe.id()));
+    }
+    private boolean inputUnlocked(String item) { return Phase1Data.recipes().smeltingFor(item).map(this::unlocked).orElse(false); }
+
     // --- ticking -----------------------------------------------------------------------------------
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, StoneFurnaceBlockEntity be) {
@@ -110,10 +117,11 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
     }
 
     private void tickServer(Level level) {
-        long demand = machine.powerDemand();
+        boolean allowed = machine.recipe() == null || unlocked(machine.recipe());
+        long demand = allowed ? machine.powerDemand() : 0;
         double satisfaction = demand > 0 ? burner.draw(demand) : 0;
         // Without fuel a smelt neither starts nor advances; an idle machine still ticks (drops carried progress).
-        if (demand == 0 || satisfaction > 0) machine.tick(satisfaction);
+        if (allowed && (demand == 0 || satisfaction > 0)) machine.tick(satisfaction);
         if (satisfaction > 0) setChanged();
         setLit(level, satisfaction > 0);
         AltSource.tickAlt(this, altSync);
@@ -193,7 +201,7 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
             String id = MachineItems.id(stack);
             return switch (slot) {
                 case FUEL_SLOT -> Phase1Data.fuelValues().containsKey(id);
-                case INPUT_SLOT -> Phase1Data.recipes().smeltingFor(id).isPresent();
+                case INPUT_SLOT -> inputUnlocked(id);
                 default -> false;
             };
         }
@@ -201,7 +209,7 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
         int room(int slot, String id, boolean automated) {
             return switch (slot) {
                 case FUEL_SLOT -> fuelRoom(id, automated);
-                case INPUT_SLOT -> machine.inputRoom(id, automated);
+                case INPUT_SLOT -> inputUnlocked(id) ? machine.inputRoom(id, automated) : 0;
                 default -> 0;
             };
         }
@@ -210,7 +218,7 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
         public int insert(int slot, String id, int n, boolean automated) {
             int accepted = switch (slot) {
                 case FUEL_SLOT -> burner.insertFuel(id, Math.min(n, fuelRoom(id, automated)), automated);
-                case INPUT_SLOT -> machine.insertInput(id, n, automated);
+                case INPUT_SLOT -> inputUnlocked(id) ? machine.insertInput(id, n, automated) : 0;
                 default -> 0;
             };
             if (accepted > 0) setChanged();

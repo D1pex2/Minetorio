@@ -58,6 +58,7 @@ public final class MapKeys {
 
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        dev.minetorio.content.oilmap.OilMapPayloads.clearClient();
         ClientMapData.reset();
         ClientWatchedChunks.reset();
         ClientOreInfo.reset();

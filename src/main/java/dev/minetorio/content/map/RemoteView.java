@@ -310,7 +310,9 @@ public final class RemoteView {
         BlockPos at = level.getBlockState(pos).getBlock() instanceof MultiblockPartBlock ? MultiblockPartBlock.controllerPos(level, pos) : pos;
         if (at == null || !level.isLoaded(at) || !inArea(player, at)) return null;
         BlockEntity be = level.getBlockEntity(at);
-        return be instanceof AssemblerBlockEntity || be instanceof StoneFurnaceBlockEntity ? at.immutable() : null;
+        return be instanceof AssemblerBlockEntity || be instanceof StoneFurnaceBlockEntity
+                || be instanceof dev.minetorio.content.oil.OilProcessingBlockEntity
+                || be instanceof dev.minetorio.content.oil.SteelFurnaceBlockEntity ? at.immutable() : null;
     }
 
     /**
