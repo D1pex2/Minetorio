@@ -629,5 +629,18 @@
   "minetorio.character.shortcut_bind": "Возьмите предмет или перетащите его сюда",
   "minetorio.character.shortcut_clear": "ПКМ: убрать привязку",
   "minetorio.character.shortcut_keys": "1–0 или колесо: выбор; X: сменить ряд",
-  "minetorio.character.creative_catalog": "Каталог креатива"
+  "minetorio.character.creative_catalog": "Каталог креатива",
+  "item.minetorio.pistol": "Пистолет",
+  "item.minetorio.submachine_gun": "Автомат",
+  "item.minetorio.firearm_magazine": "Магазин с патронами",
+  "entity.minetorio.small_biter": "Маленький кусака",
+  "entity.minetorio.biter_spawner": "Гнездо кусак",
+  "minetorio.handcraft.group.military": "Военное дело",
+  "technology.minetorio.military": "Военное дело",
+  "minetorio.combat.loaded": "В оружии: %s / 10",
+  "subtitles.minetorio.pistol_shot": "Выстрел пистолета",
+  "subtitles.minetorio.submachine_shot": "Выстрел автомата",
+  "death.attack.minetorio.bullet": "%1$s погиб от выстрела %2$s",
+  "death.attack.minetorio.bite": "%1$s съеден кусаками",
+  "minetorio.combat.single": "Для стрельбы возьмите одно оружие из стопки"
 }

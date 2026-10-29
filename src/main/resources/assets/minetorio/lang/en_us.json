@@ -629,5 +629,18 @@
   "minetorio.character.shortcut_bind": "Hold or drag an item here to bind it",
   "minetorio.character.shortcut_clear": "Right-click to clear",
   "minetorio.character.shortcut_keys": "1-0 or mouse wheel: select; X: change row",
-  "minetorio.character.creative_catalog": "Creative catalog"
+  "minetorio.character.creative_catalog": "Creative catalog",
+  "item.minetorio.pistol": "Pistol",
+  "item.minetorio.submachine_gun": "Submachine gun",
+  "item.minetorio.firearm_magazine": "Firearm magazine",
+  "entity.minetorio.small_biter": "Small biter",
+  "entity.minetorio.biter_spawner": "Biter spawner",
+  "minetorio.handcraft.group.military": "Combat",
+  "technology.minetorio.military": "Military",
+  "minetorio.combat.loaded": "Loaded: %s / 10",
+  "subtitles.minetorio.pistol_shot": "Pistol fires",
+  "subtitles.minetorio.submachine_shot": "Submachine gun fires",
+  "death.attack.minetorio.bullet": "%1$s was shot by %2$s",
+  "death.attack.minetorio.bite": "%1$s was eaten by biters",
+  "minetorio.combat.single": "Hold a single gun to fire"
 }

@@ -33,6 +33,7 @@ public final class ModPayloads {
     }
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
+        dev.minetorio.content.combat.CombatPayloads.register(event);
         event.registrar(VERSION)
                 .playToServer(SelectRecipePayload.TYPE, SelectRecipePayload.STREAM_CODEC, SelectRecipePayload::handle)
                 .playToServer(SelectResearchPayload.TYPE, SelectResearchPayload.STREAM_CODEC, SelectResearchPayload::handle)

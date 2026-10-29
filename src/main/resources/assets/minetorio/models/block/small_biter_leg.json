@@ -1,0 +1,74 @@
+{
+  "textures": {
+    "shell": "minecraft:block/green_terracotta",
+    "dark": "minecraft:block/brown_terracotta",
+    "fang": "minecraft:block/bone_block_side",
+    "eye": "minecraft:block/red_concrete"
+  },
+  "elements": [
+    {
+      "from": [
+        7,
+        0,
+        6.5
+      ],
+      "to": [
+        15,
+        2,
+        9.5
+      ],
+      "faces": {
+        "up": {
+          "texture": "#dark"
+        },
+        "down": {
+          "texture": "#dark"
+        },
+        "north": {
+          "texture": "#dark"
+        },
+        "south": {
+          "texture": "#dark"
+        },
+        "east": {
+          "texture": "#dark"
+        },
+        "west": {
+          "texture": "#dark"
+        }
+      }
+    },
+    {
+      "from": [
+        13.05,
+        -2,
+        6.55
+      ],
+      "to": [
+        14.95,
+        1,
+        9.45
+      ],
+      "faces": {
+        "up": {
+          "texture": "#fang"
+        },
+        "down": {
+          "texture": "#fang"
+        },
+        "north": {
+          "texture": "#fang"
+        },
+        "south": {
+          "texture": "#fang"
+        },
+        "east": {
+          "texture": "#fang"
+        },
+        "west": {
+          "texture": "#fang"
+        }
+      }
+    }
+  ]
+}

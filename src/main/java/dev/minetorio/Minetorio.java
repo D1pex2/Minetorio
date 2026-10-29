@@ -40,6 +40,7 @@ public class Minetorio {
     public Minetorio(IEventBus modBus) {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
+        dev.minetorio.content.combat.CombatRegistry.register(modBus);
         BaseMaterials.register(modBus);
         dev.minetorio.content.registry.ModWorld.register(modBus);
         dev.minetorio.content.world.BasicChests.register(modBus);

@@ -18,6 +18,7 @@ public final class HandcraftGroups {
         LOGISTICS("minetorio:transport_belt"),
         PRODUCTION("minetorio:assembling_machine_1"),
         INTERMEDIATES("minetorio:electronic_circuit"),
+        MILITARY("minetorio:submachine_gun"),
         SCIENCE("minetorio:automation_science_pack");
 
         /** Item shown on the tab. */
@@ -29,6 +30,9 @@ public final class HandcraftGroups {
     }
 
     private static final Map<String, Group> BY_RECIPE = Map.ofEntries(
+            Map.entry("pistol", Group.MILITARY),
+            Map.entry("submachine_gun", Group.MILITARY),
+            Map.entry("firearm_magazine", Group.MILITARY),
             Map.entry("transport_belt", Group.LOGISTICS),
             Map.entry("underground_belt", Group.LOGISTICS),
             Map.entry("splitter", Group.LOGISTICS),

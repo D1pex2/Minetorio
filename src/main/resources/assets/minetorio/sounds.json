@@ -2,5 +2,17 @@
   "music.nauvis": {
     "replace": true,
     "sounds": []
+  },
+  "pistol_shot": {
+    "subtitle": "subtitles.minetorio.pistol_shot",
+    "sounds": [
+      "minetorio:combat/pistol_shot"
+    ]
+  },
+  "submachine_shot": {
+    "subtitle": "subtitles.minetorio.submachine_shot",
+    "sounds": [
+      "minetorio:combat/submachine_shot"
+    ]
   }
 }

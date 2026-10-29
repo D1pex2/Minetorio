@@ -38,6 +38,8 @@ public final class MinetorioClient {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(dev.minetorio.content.combat.CombatRegistry.SMALL_BITER.get(), c -> new dev.minetorio.client.combat.EnemyRenderer<>(c, true));
+        event.registerEntityRenderer(dev.minetorio.content.combat.CombatRegistry.BITER_SPAWNER.get(), c -> new dev.minetorio.client.combat.EnemyRenderer<>(c, false));
         event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.PUMPJACK_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
         event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.PROCESSING_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
         event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.STEEL_FURNACE_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
@@ -87,6 +89,9 @@ public final class MinetorioClient {
     /** Models drawn by block entity renderers rather than through a blockstate. */
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
+        event.register(dev.minetorio.client.combat.EnemyRenderer.BITER);
+        event.register(dev.minetorio.client.combat.EnemyRenderer.LEG);
+        event.register(dev.minetorio.client.combat.EnemyRenderer.NEST);
         dev.minetorio.client.oilrender.OilRender.models().forEach(event::register);
         for (var m : DrillRenderer.MODELS) event.register(m);
         for (var m : SteamMachineRenderer.MODELS) event.register(m);

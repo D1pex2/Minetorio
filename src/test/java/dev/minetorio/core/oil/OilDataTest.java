@@ -2,7 +2,9 @@ package dev.minetorio.core.oil;
 
 import dev.minetorio.core.data.OilData;
 import dev.minetorio.core.data.Phase1Data;
+import dev.minetorio.core.recipe.Ingredient;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class OilDataTest {
@@ -27,6 +29,20 @@ class OilDataTest {
         assertEquals(80,OilData.recipe("explosives").ticks());
         assertEquals(20,OilData.recipe("battery").fluidInputs().get("sulfuric_acid"));
         assertEquals(40,OilData.recipe("express_underground_belt").fluidInputs().get("lubricant"));
+    }
+
+    @Test void solarPanelAndPersonalRoboportMatchFactorio11110Recipes() {
+        var solarPanel=OilData.itemRecipes().stream().filter(recipe->recipe.id().equals("solar_panel")).findFirst().orElseThrow();
+        var personalRoboport=OilData.itemRecipes().stream().filter(recipe->recipe.id().equals("personal_roboport")).findFirst().orElseThrow();
+        assertAll(
+            () -> assertAll("solar_panel",
+                () -> assertEquals(List.of(new Ingredient("minetorio:copper_plate",5),new Ingredient("minetorio:steel_plate",5),new Ingredient("minetorio:electronic_circuit",15)),solarPanel.inputs()),
+                () -> assertEquals(200,solarPanel.ticks()),
+                () -> assertEquals(List.of(new Ingredient("minetorio:solar_panel",1)),solarPanel.outputs())),
+            () -> assertAll("personal_roboport",
+                () -> assertEquals(List.of(new Ingredient("minetorio:advanced_circuit",10),new Ingredient("minetorio:battery",45),new Ingredient("minetorio:iron_gear_wheel",40),new Ingredient("minetorio:steel_plate",20)),personalRoboport.inputs()),
+                () -> assertEquals(200,personalRoboport.ticks()),
+                () -> assertEquals(List.of(new Ingredient("minetorio:personal_roboport",1)),personalRoboport.outputs())));
     }
 
     @Test void realRobotChainAndSteelAreLockedBehindResearch() {

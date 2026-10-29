@@ -13,6 +13,8 @@ public final class ItemStackSizes {
         if (!item.startsWith("minetorio:")) return 64;
         String id = item.substring("minetorio:".length());
         return switch (id) {
+            case "pistol", "submachine_gun" -> 5;
+            case "firearm_magazine" -> 200;
             case "blueprint", "blueprint_book", "deconstruction_planner", "engineer_tool", "ghost_item", "upgrade_planner" -> 1;
             case "chemical_plant", "crude_oil_barrel", "empty_barrel", "heavy_oil_barrel", "lab", "light_oil_barrel",
                  "lubricant_barrel", "oil_refinery", "petroleum_gas_barrel", "roboport", "steam_engine", "sulfuric_acid_barrel",

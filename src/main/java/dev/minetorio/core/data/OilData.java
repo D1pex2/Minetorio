@@ -84,13 +84,13 @@ public final class OilData {
         r.add(craft("roboport","45 steel_plate,45 iron_gear_wheel,45 advanced_circuit",1,5));
         r.add(craft("construction_robot","1 flying_robot_frame,2 electronic_circuit",1,.5));
         r.add(craft("logistic_robot","1 flying_robot_frame,2 advanced_circuit",1,.5));
-        r.add(craft("solar_panel","5 copper_plate,15 steel_plate,15 electronic_circuit",1,10));
+        r.add(craft("solar_panel","5 copper_plate,5 steel_plate,15 electronic_circuit",1,10));
         r.add(craft("accumulator","2 iron_plate,5 battery",1,10));
         r.add(craft("medium_electric_pole","2 copper_plate,4 iron_stick,2 steel_plate",1,.5));
         r.add(craft("big_electric_pole","5 copper_plate,8 iron_stick,5 steel_plate",1,.5));
         r.add(craft("substation","5 copper_plate,5 advanced_circuit,10 steel_plate",1,.5));
         for(var chest:List.of("passive_provider_chest","active_provider_chest","storage_chest","requester_chest","buffer_chest")) r.add(craft(chest,"1 steel_chest,3 electronic_circuit,1 advanced_circuit",1,.5));
-        r.add(craft("personal_roboport","10 advanced_circuit,45 battery,20 iron_gear_wheel,20 steel_plate",1,10));
+        r.add(craft("personal_roboport","10 advanced_circuit,45 battery,40 iron_gear_wheel,20 steel_plate",1,10));
         // UI/unlock projections only. Actual assembler execution must use OilMachine and require fluids.
         for(var recipe:RECIPES) if(recipe.kind()==MachineKind.ASSEMBLER)
             r.add(new Recipe(recipe.id(),recipe.itemInputs(),recipe.itemOutputs(),recipe.ticks(),RecipeCategory.ASSEMBLING));
