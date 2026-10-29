@@ -8,17 +8,33 @@ import java.util.function.ToIntFunction;
 
 public final class RailSlots {
     public record Slot(String key, int count, Optional<String> filter) {}
+    public record WaitSlot(Slot slot, boolean canInsert) {}
+    public List<WaitSlot> waitSnapshot() {
+        List<WaitSlot> result = new ArrayList<>(slots.size());
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
+            boolean accepts = i < bar && (slot.count() > 0 ? insert(i, slot.key(), 1, true) > 0
+                    : slot.filter().isEmpty() || insert(i, slot.filter().orElseThrow(), 1, true) > 0);
+            result.add(new WaitSlot(slot, accepts));
+        }
+        return List.copyOf(result);
+    }
     private final List<Slot> slots;
     private final ToIntFunction<String> keyLimit;
     private final Runnable changed;
+    private final Runnable inventoryChanged;
     private int bar;
 
     public RailSlots(int size, ToIntFunction<String> keyLimit) { this(size, keyLimit, () -> {}); }
 
     RailSlots(int size, ToIntFunction<String> keyLimit, Runnable changed) {
+        this(size, keyLimit, changed, () -> {});
+    }
+    RailSlots(int size, ToIntFunction<String> keyLimit, Runnable changed, Runnable inventoryChanged) {
         if (size < 0) throw new IllegalArgumentException("Отрицательное число слотов");
         this.keyLimit = Objects.requireNonNull(keyLimit);
         this.changed = Objects.requireNonNull(changed);
+        this.inventoryChanged = Objects.requireNonNull(inventoryChanged);
         slots = new ArrayList<>(size);
         for (int i = 0; i < size; i++) slots.add(new Slot("", 0, Optional.empty()));
         bar = size;
@@ -38,6 +54,7 @@ public final class RailSlots {
         int accepted = Math.min(count, Math.max(0, limit - slot.count()));
         if (accepted > 0 && !simulate) {
             slots.set(index, new Slot(key, slot.count() + accepted, slot.filter()));
+            inventoryChanged.run();
             changed.run();
         }
         return accepted;
@@ -48,6 +65,7 @@ public final class RailSlots {
         if (removed > 0 && !simulate) {
             int remaining = slot.count() - removed;
             slots.set(index, new Slot(remaining == 0 ? "" : slot.key(), remaining, slot.filter()));
+            inventoryChanged.run();
             changed.run();
         }
         return removed;

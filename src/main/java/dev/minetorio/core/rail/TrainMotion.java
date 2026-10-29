@@ -55,6 +55,11 @@ public final class TrainMotion {
                 blockedByTrackEnd ? Status.NO_PATH : stoppedStatus,bonus,brake,fuel);
     }
     private record Dynamics(double sign,double magnitude,boolean brake,List<Mover> movers) {}
+    /** Чистый расчет для регулятора прибытия; списания топлива и изменения позы здесь нет. */
+    static double previewSpeed(Train train, List<Car> cars, Control control, double bonus) {
+        checkBonus(bonus);
+        return calculate(train, cars, control, bonus).magnitude();
+    }
     private static Dynamics calculate(Train train,List<Car> cars,Control control,double bonus) {
         double weight = cars.stream().mapToDouble(c -> RailData.stock(c.kind()).weight()).sum();
         double sign = train.speed() != 0 ? Math.signum(train.speed()) : Math.signum(control.throttle());

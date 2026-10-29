@@ -228,6 +228,7 @@ public class RailwaySaveGameTest {
             var train=(CompoundTag)item;
             train.remove("headIndex"); train.remove("routeRevision"); train.remove("consistRevision"); train.remove("motionRevision");
             train.putDouble("speed",Math.abs(train.getDouble("speed")));
+            train.put("runtime",new CompoundTag());
         }
         return legacy;
     }
@@ -261,7 +262,7 @@ public class RailwaySaveGameTest {
         var migrated=RailwayNbt.read(legacy,registries);
         h.assertTrue(migrated.trains().equals(original.trains()),"Однозначная schema1 изменила layout");
         h.assertTrue(TrainMotion.carPoses(migrated,new UUID(0,20)).equals(TrainMotion.carPoses(original,new UUID(0,20))),"Миграция изменила позы");
-        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==3,"Миграция не записывает schema3");
+        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==4,"Миграция не записывает schema4");
         CompoundTag shortHistory=legacy.copy(); var train=shortHistory.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
         var shortTape=new ListTag(); shortTape.add(train.getList("tape",Tag.TAG_COMPOUND).getCompound(10).copy()); train.put("tape",shortTape);
         CompoundTag ambiguous=loopFixture(h); var ambiguousTrain=ambiguous.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
@@ -282,6 +283,7 @@ public class RailwaySaveGameTest {
     @GameTest(template="empty16")
     public static void schemaTwoSignedLoopResumesIdenticalMotion(GameTestHelper h) {
         var registries=h.getLevel().registryAccess(); var source=loopFixture(h); source.putInt("schemaVersion",2); source.remove("networkRevision");
+        for(Tag item:source.getList("trains",Tag.TAG_COMPOUND)) ((CompoundTag)item).put("runtime",new CompoundTag());
         var before=RailwayNbt.read(source,registries); var after=RailwayNbt.read(RailwayNbt.write(before,registries),registries); UUID id=new UUID(0,20);
         h.assertTrue(after.trains().get(id).headIndex()==12 && after.trains().get(id).speed()==-0.1,"Второй проход/знак потерян");
         h.assertTrue(after.trains().get(id).routeRevision()==4 && after.trains().get(id).consistRevision()==5 && after.trains().get(id).motionRevision()==6,"Ревизии потеряны");

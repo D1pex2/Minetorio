@@ -18,6 +18,13 @@ public final class RailwayState {
         ARRIVE_STATION, WAIT_STATION, MANUAL_CONTROL_STOP, MANUAL_CONTROL, DESTINATION_FULL, NO_FUEL
     }
     public record Fluid(String id, double amount, double capacity) {}
+    public record Station(UUID id, String name, Cursor stop, boolean enabled, OptionalInt trainLimit) {
+        public Station {
+            Objects.requireNonNull(id); Objects.requireNonNull(stop); Objects.requireNonNull(trainLimit);
+            if (name == null || name.isBlank() || trainLimit.isPresent() && trainLimit.getAsInt() < 0)
+                throw new IllegalArgumentException("Недопустимая станция");
+        }
+    }
     public record Train(UUID id, List<UUID> cars, Optional<Cursor> head, int headIndex, List<Traversal> tape,
                         double speed, Mode mode, Status status, long routeRevision, long consistRevision, long motionRevision) {
         public Train {
@@ -50,9 +57,9 @@ public final class RailwayState {
             this.reversed = reversed;
             var spec = RailData.stock(kind);
             hp = spec.health();
-            cargo = kind == StockKind.CARGO ? new RailSlots(spec.slots(), keyLimit, changed) : null;
+            cargo = kind == StockKind.CARGO ? new RailSlots(spec.slots(), keyLimit, changed, () -> dispatcher.inventoryChanged(id)) : null;
             fuel = kind == StockKind.LOCOMOTIVE ? new RailSlots(spec.slots(),
-                    key -> RailData.fuel(RailSlots.baseId(key)).isPresent() ? keyLimit.applyAsInt(key) : 0, changed) : null;
+                    key -> RailData.fuel(RailSlots.baseId(key)).isPresent() ? keyLimit.applyAsInt(key) : 0, changed, () -> dispatcher.inventoryChanged(id)) : null;
             fluid = kind == StockKind.FLUID ? new FluidBox(spec.fluidCapacity()) : null;
         }
         public UUID id() { return id; }
@@ -88,13 +95,13 @@ public final class RailwayState {
         public double insertFluid(String id, double amount) {
             if (fluid == null || !FluidData.isFluid(id)) return 0;
             double accepted = fluid.insert(id, amount);
-            if (accepted > 0) changed.run();
+            if (accepted > 0) { dispatcher.inventoryChanged(this.id); changed.run(); }
             return accepted;
         }
         public double extractFluid(double amount) {
             if (fluid == null) return 0;
             double removed = fluid.extract(amount);
-            if (removed > 0) changed.run();
+            if (removed > 0) { dispatcher.inventoryChanged(id); changed.run(); }
             return removed;
         }
     }
@@ -109,6 +116,27 @@ public final class RailwayState {
     private long networkRevision;
     private RailSignals signals = RailSignals.rebuild(graph,List.of(),0);
     private final TrainReservations reservations = new TrainReservations();
+    private final TrainDispatcher dispatcher = new TrainDispatcher(this);
+    public TrainDispatcher dispatcher() { return dispatcher; }
+    long railClock;
+    long stationRevision;
+    final Map<UUID, Station> stations = new LinkedHashMap<>();
+    final Map<UUID, Station> effectiveStations = new LinkedHashMap<>();
+    final Map<UUID, TrainDispatcher.Runtime> dispatchRuntime = new LinkedHashMap<>();
+    final Map<UUID, TrainWait.PassengerState> passengerInputs = new HashMap<>();
+    public long railClock() { return railClock; }
+    public long stationRevision() { return stationRevision; }
+    public Map<UUID, Station> stations() { return Collections.unmodifiableMap(stations); }
+    void dispatchChanged() { changed.run(); }
+    void dispatchTrain(UUID id, Mode mode, Status status, boolean routeChanged) {
+        Train old = Objects.requireNonNull(trains.get(id));
+        Train next = new Train(old.id(), old.cars(), old.head(), old.headIndex(), old.tape(), old.speed(), mode, status,
+                old.routeRevision() + (routeChanged ? 1 : 0), old.consistRevision(), old.motionRevision());
+        if (next.equals(old)) return;
+        trains.put(id, next);
+        if (routeChanged || mode != old.mode()) TrainReservations.releaseFuture(this, id);
+        changed.run();
+    }
 
     public RailwayState(ToIntFunction<String> keyLimit) { this(keyLimit, () -> {}); }
     public RailwayState(ToIntFunction<String> keyLimit, Runnable changed) {
@@ -169,6 +197,10 @@ public final class RailwayState {
             return nextTrain.equals(train) ? train : revisions(nextTrain, train.routeRevision()+1, train.consistRevision(), train.motionRevision()+1);
         });
         reservations.networkChanged(this,true);
+        // Станция не существует без своего рельса. Удаление проходит через того же владельца claims/runtime.
+        stations.values().stream().filter(station -> graph.piece(station.stop().traversal().piece()).isEmpty()
+                || station.stop().distance() > railLength(station.stop().traversal()))
+                .map(Station::id).toList().forEach(dispatcher::removeStation);
         changed.run();
     }
     /** Неверный сохраненный маршрут не уничтожает вагоны и груз. */
@@ -206,6 +238,7 @@ public final class RailwayState {
         trains.put(candidate.id(), revisions(candidate, expected.routeRevision() + (routeChanged ? 1 : 0),
                 expected.consistRevision(), expected.motionRevision() + 1));
         Train current=trains.get(candidate.id());
+        dispatcher.motionCommitted(expected, current, sign, distance);
         if(expected.mode()==Mode.AUTOMATIC) TrainReservations.consumed(this,expected,current,sign,distance);
         else { TrainReservations.releaseFuture(this,expected.id()); TrainReservations.refreshOccupancy(this); }
         changed.run();
@@ -253,6 +286,7 @@ public final class RailwayState {
         }
         flipCars.forEach(id -> cars.get(id).reversed = !cars.get(id).reversed);
         reservations.consistsChanged(this,oldIds);
+        dispatcher.consistsChanged(expected, canonical);
         changed.run();
         return true;
     }

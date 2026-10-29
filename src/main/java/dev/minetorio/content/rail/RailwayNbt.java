@@ -14,7 +14,7 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 
 /** Строгая схема: груз никогда не обрезается и не пропускается при ошибке. */
 public final class RailwayNbt {
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
     private RailwayNbt() {}
 
     public static CompoundTag write(RailwayState state, HolderLookup.Provider registries) {
@@ -78,13 +78,11 @@ public final class RailwayNbt {
             tag.putLong("motionRevision", train.motionRevision());
             tag.putString("mode", train.mode().name());
             tag.putString("status", train.status().name());
-            // Расписания заполнят эти части той же схемы.
-            tag.put("schedule", new ListTag());
-            tag.put("runtime", new CompoundTag());
+            RailwayScheduleNbt.writeTrain(tag, state.dispatcher().runtime(train.id()));
             trains.add(tag);
         }
         root.put("trains", trains);
-        root.put("stops", new ListTag());
+        RailwayScheduleNbt.writeStations(root, state);
         ListTag signals=new ListTag();
         for(var signal:state.signalDefinitions()) {
             CompoundTag item=new CompoundTag();
@@ -136,8 +134,8 @@ public final class RailwayNbt {
     static RailwayState read(CompoundTag tag, HolderLookup.Provider registries, Runnable changed) {
         require(tag, "schemaVersion", Tag.TAG_INT, "root");
         int schema = tag.getInt("schemaVersion");
-        if (schema != 1 && schema != 2 && schema != SCHEMA_VERSION) throw invalid("root.schemaVersion", "Неподдерживаемая версия " + tag.getInt("schemaVersion"));
-        emptyList(tag, "stops", "root");
+        if (schema < 1 || schema > SCHEMA_VERSION) throw invalid("root.schemaVersion", "Неподдерживаемая версия " + tag.getInt("schemaVersion"));
+        if (schema < 4) emptyList(tag, "stops", "root");
         if(schema<3) emptyList(tag, "signals", "root");
         RailwayState state = new RailwayState(key -> RailItemKeys.limit(key, registries), changed);
         List<Piece> pieces = new ArrayList<>();
@@ -193,8 +191,10 @@ public final class RailwayNbt {
                 Status status = Status.valueOf(string(train, "status", context));
                 double speed = number(train, "speed", context);
                 if (schema == 1 && speed < 0) throw invalid(context, "Отрицательная скорость");
-                emptyList(train, "schedule", context);
-                if (!compound(train, "runtime", context).isEmpty()) throw invalid(context + ".runtime", "Неподдерживаемые данные runtime");
+                if (schema < 4) {
+                    emptyList(train, "schedule", context);
+                    if (!compound(train, "runtime", context).isEmpty()) throw invalid(context + ".runtime", "Неподдерживаемые данные runtime");
+                }
                 Optional<Cursor> head = Optional.empty();
                 List<Traversal> tape = new ArrayList<>();
                 long routeRevision = schema == 1 ? 0 : revision(train, "routeRevision", context);
@@ -248,6 +248,7 @@ public final class RailwayNbt {
             }
             try { TrainReservations.restoreBrakingCorridors(state,corridors); } catch(RuntimeException error) { throw invalid("brakingCorridors",error); }
         }
+        if (schema >= 4) RailwayScheduleNbt.read(tag, state);
         return state;
     }
 
