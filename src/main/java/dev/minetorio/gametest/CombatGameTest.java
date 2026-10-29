@@ -206,6 +206,12 @@ public class CombatGameTest {
         h.succeedWhen(()-> {
             h.assertTrue(b.distanceToSqr(p)<start,"кусака не преследует");
             h.assertTrue(p.getHealth()<20,"кусака не атакует");
+            CompoundTag saved=b.saveWithoutId(new CompoundTag());
+            long nextBite=saved.getLong("NextBite");
+            h.assertTrue(nextBite>h.getLevel().getGameTime()*3,"после укуса не сохранен будущий NextBite");
+            var restored=CombatRegistry.SMALL_BITER.get().create(h.getLevel());restored.load(saved);
+            CompoundTag savedAgain=restored.saveWithoutId(new CompoundTag());
+            h.assertTrue(savedAgain.getLong("NextBite")==nextBite&&nextBite!=0,"NextBite изменился или обнулился после восстановления");
         });
     }
 
