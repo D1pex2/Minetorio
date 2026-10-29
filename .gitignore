@@ -28,3 +28,7 @@ repo/
 # Python generated caches
 __pycache__/
 *.py[cod]
+
+# Project-local tooling environments
+.venv/
+*.egg-info/
