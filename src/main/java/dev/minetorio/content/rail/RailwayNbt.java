@@ -12,7 +12,7 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 
 /** Строгая схема: груз никогда не обрезается и не пропускается при ошибке. */
 public final class RailwayNbt {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     private RailwayNbt() {}
 
     public static CompoundTag write(RailwayState state, HolderLookup.Provider registries) {
@@ -42,7 +42,7 @@ public final class RailwayNbt {
             car.fuel().ifPresent(slots -> {
                 tag.put("fuel", writeSlots(slots));
                 tag.putString("activeFuel", car.activeFuel());
-                tag.putString("remainingJ", car.remainingJ().toString());
+                tag.putString("remainingJ", car.remainingJ().toPlainString());
             });
             car.fluid().ifPresent(fluid -> {
                 CompoundTag box = new CompoundTag();
@@ -70,6 +70,10 @@ public final class RailwayNbt {
             train.tape().forEach(step -> tape.add(writeTraversal(step)));
             tag.put("tape", tape);
             tag.putDouble("speed", train.speed());
+            tag.putInt("headIndex", train.headIndex());
+            tag.putLong("routeRevision", train.routeRevision());
+            tag.putLong("consistRevision", train.consistRevision());
+            tag.putLong("motionRevision", train.motionRevision());
             tag.putString("mode", train.mode().name());
             tag.putString("status", train.status().name());
             // Задачи расписаний и сигналов заполнят эти части той же схемы.
@@ -113,7 +117,8 @@ public final class RailwayNbt {
 
     static RailwayState read(CompoundTag tag, HolderLookup.Provider registries, Runnable changed) {
         require(tag, "schemaVersion", Tag.TAG_INT, "root");
-        if (tag.getInt("schemaVersion") != SCHEMA_VERSION) throw invalid("root.schemaVersion", "Неподдерживаемая версия " + tag.getInt("schemaVersion"));
+        int schema = tag.getInt("schemaVersion");
+        if (schema != 1 && schema != SCHEMA_VERSION) throw invalid("root.schemaVersion", "Неподдерживаемая версия " + tag.getInt("schemaVersion"));
         emptyList(tag, "stops", "root");
         emptyList(tag, "signals", "root");
         RailwayState state = new RailwayState(key -> RailItemKeys.limit(key, registries), changed);
@@ -169,22 +174,34 @@ public final class RailwayNbt {
                 Mode mode = Mode.valueOf(string(train, "mode", context));
                 Status status = Status.valueOf(string(train, "status", context));
                 double speed = number(train, "speed", context);
-                if (speed < 0) throw invalid(context, "Отрицательная скорость");
+                if (schema == 1 && speed < 0) throw invalid(context, "Отрицательная скорость");
                 emptyList(train, "schedule", context);
                 if (!compound(train, "runtime", context).isEmpty()) throw invalid(context + ".runtime", "Неподдерживаемые данные runtime");
                 Optional<Cursor> head = Optional.empty();
                 List<Traversal> tape = new ArrayList<>();
+                long routeRevision = schema == 1 ? 0 : revision(train, "routeRevision", context);
+                long consistRevision = schema == 1 ? 0 : revision(train, "consistRevision", context);
+                long motionRevision = schema == 1 ? 0 : revision(train, "motionRevision", context);
+                int headIndex = -1;
                 try {
                     CompoundTag cursor = compound(train, "head", context);
                     if (!cursor.isEmpty()) head = Optional.of(new Cursor(readTraversal(cursor, context + ".head"), number(cursor, "distance", context)));
                     for (Tag step : list(train, "tape", context)) tape.add(readTraversal((CompoundTag) step, context + ".tape"));
+                    if (schema == 2) headIndex = integer(train, "headIndex", context);
+                    else if (head.isPresent()) {
+                        for (int j=0;j<tape.size();j++) if (tape.get(j).equals(head.get().traversal())) {
+                            if (headIndex != -1) throw invalid(context, "Неоднозначный проход головы");
+                            headIndex = j;
+                        }
+                    }
                 } catch (RuntimeException invalidRoute) {
                     head = Optional.empty();
+                    headIndex = -1;
                     tape.clear();
                     speed = 0;
                     status = Status.PATH_LOST;
                 }
-                state.createTrain(id, members, head, tape, speed, mode, status);
+                state.createTrain(new Train(id, members, head, headIndex, tape, speed, mode, status, routeRevision, consistRevision, motionRevision));
             } catch (RuntimeException error) { throw invalid(context, error); }
         }
         return state;
@@ -232,6 +249,12 @@ public final class RailwayNbt {
     }
     private static int integer(CompoundTag tag, String key, String context) {
         require(tag, key, Tag.TAG_INT, context); return tag.getInt(key);
+    }
+    private static long revision(CompoundTag tag, String key, String context) {
+        require(tag, key, Tag.TAG_LONG, context);
+        long value = tag.getLong(key);
+        if (value < 0) throw invalid(context + "." + key, "Отрицательная ревизия");
+        return value;
     }
     private static double number(CompoundTag tag, String key, String context) {
         require(tag, key, Tag.TAG_DOUBLE, context);

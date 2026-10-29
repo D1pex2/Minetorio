@@ -7,6 +7,8 @@ import dev.minetorio.content.rail.RailwayNbt;
 import dev.minetorio.content.rail.RailwaySavedData;
 import dev.minetorio.core.data.RailData.StockKind;
 import dev.minetorio.core.rail.RailwayState;
+import dev.minetorio.core.rail.TrainFuel;
+import dev.minetorio.core.rail.TrainMotion;
 import dev.minetorio.core.rail.RailwayState.Mode;
 import dev.minetorio.core.rail.RailwayState.Status;
 import java.math.BigDecimal;
@@ -53,12 +55,19 @@ public class RailwaySaveGameTest {
         Piece a = new Piece(new UUID(0, 1), new Point(0, 0, 0), Shape.STRAIGHT, 0, false);
         Piece b = new Piece(new UUID(0, 2), new Point(0, 0, -2), Shape.STRAIGHT, 0, false);
         Piece c = new Piece(new UUID(0, 3), new Point(0, 0, -2), Shape.CURVE, 0, false);
-        state.replaceRails(List.of(a, b, c));
+        List<Piece> pieces = new ArrayList<>(List.of(a,b,c));
+        List<Traversal> tape = new ArrayList<>();
+        for (int j=10;j>=1;j--) {
+            Piece tail = new Piece(new UUID(1,j),new Point(0,0,2*j),Shape.STRAIGHT,0,false);
+            pieces.add(tail); tape.add(new Traversal(tail.id(),true));
+        }
+        state.replaceRails(pieces);
         Traversal first = new Traversal(a.id(), true);
         Traversal turn = new Traversal(c.id(), true);
         h.assertTrue(state.graph().next(first).size() == 2, "Развилка должна иметь два выхода");
-        state.createTrain(new UUID(0, 20), List.of(loco.id(), cargo.id(), fluid.id()), Optional.of(new Cursor(first, 0.75)),
-                List.of(first, turn), 0.5, Mode.AUTOMATIC, Status.ON_THE_PATH);
+        tape.add(first); tape.add(turn);
+        state.createTrain(new RailwayState.Train(new UUID(0, 20), List.of(loco.id(), cargo.id(), fluid.id()), Optional.of(new Cursor(first, 0.75)),
+                10, tape, 0.5, Mode.AUTOMATIC, Status.ON_THE_PATH, 0, 0, 0));
         return state;
     }
     @GameTest(template = "empty16")
@@ -206,6 +215,116 @@ public class RailwaySaveGameTest {
                 .filter(item -> item instanceof dev.minetorio.content.robot.GhostItem).findFirst().orElseThrow();
         h.assertTrue(RailItemKeys.limit(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ghost).toString(),
                 h.getLevel().registryAccess()) == 0, "Ghost принят в груз");
+        h.succeed();
+    }
+    private static CompoundTag schemaOne(CompoundTag source) {
+        CompoundTag legacy=source.copy(); legacy.putInt("schemaVersion",1);
+        for(Tag item:legacy.getList("trains",Tag.TAG_COMPOUND)) {
+            var train=(CompoundTag)item;
+            train.remove("headIndex"); train.remove("routeRevision"); train.remove("consistRevision"); train.remove("motionRevision");
+            train.putDouble("speed",Math.abs(train.getDouble("speed")));
+        }
+        return legacy;
+    }
+    private static CompoundTag loopFixture(GameTestHelper h) {
+        var state=new RailwayState(key->RailItemKeys.limit(key,h.getLevel().registryAccess()));
+        List<Piece> rails=new ArrayList<>();
+        List<Piece> quarter=List.of(new Piece(new UUID(8,1),new Point(0,0,0),Shape.CURVE,0,false),
+                new Piece(new UUID(8,2),new Point(4,0,-8),Shape.DIAGONAL,0,false),
+                new Piece(new UUID(8,3),new Point(12,0,-12),Shape.CURVE,3,true));
+        int[][] shifts={{0,0},{12,-12},{24,0},{12,12}}; long id=100;
+        for(int q=0;q<4;q++) for(Piece raw:quarter) {
+            Piece p=transform(raw,q,false);
+            rails.add(new Piece(new UUID(8,id++),new Point(p.origin().x()+shifts[q][0],0,p.origin().z()+shifts[q][1]),p.shape(),p.quarterTurns(),p.mirrored()));
+        }
+        state.replaceRails(rails);
+        var a=state.createCar(new UUID(0,10),StockKind.LOCOMOTIVE,false);
+        var b=state.createCar(new UUID(0,11),StockKind.CARGO,true);
+        var c=state.createCar(new UUID(0,12),StockKind.FLUID,false);
+        List<Traversal> tape=new ArrayList<>(); Traversal step=new Traversal(rails.getFirst().id(),true);
+        for(int i=0;i<36;i++) { tape.add(step); step=state.graph().next(step).getFirst(); }
+        state.createTrain(new RailwayState.Train(new UUID(0,20),List.of(a.id(),b.id(),c.id()),Optional.of(new Cursor(tape.get(12),0)),12,tape,-0.1,Mode.MANUAL,Status.MANUAL_CONTROL,4,5,6));
+        var root=RailwayNbt.write(state,h.getLevel().registryAccess());
+        root.put("cars",RailwayNbt.write(populated(h),h.getLevel().registryAccess()).getList("cars",Tag.TAG_COMPOUND));
+        return root;
+    }
+    @GameTest(template="empty16")
+    public static void schemaOneMigrationPreservesCargoAndRejectsAmbiguousOrShortHistory(GameTestHelper h) {
+        var registries=h.getLevel().registryAccess(); var original=populated(h);
+        CompoundTag source=RailwayNbt.write(original,registries), legacy=schemaOne(source);
+        h.assertTrue(!legacy.getList("trains",Tag.TAG_COMPOUND).getCompound(0).contains("headIndex"),"Fixture должен иметь поля schema1");
+        var migrated=RailwayNbt.read(legacy,registries);
+        h.assertTrue(migrated.trains().equals(original.trains()),"Однозначная schema1 изменила layout");
+        h.assertTrue(TrainMotion.carPoses(migrated,new UUID(0,20)).equals(TrainMotion.carPoses(original,new UUID(0,20))),"Миграция изменила позы");
+        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==2,"Миграция не записывает schema2");
+        CompoundTag shortHistory=legacy.copy(); var train=shortHistory.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
+        var shortTape=new ListTag(); shortTape.add(train.getList("tape",Tag.TAG_COMPOUND).getCompound(10).copy()); train.put("tape",shortTape);
+        CompoundTag ambiguous=loopFixture(h); var ambiguousTrain=ambiguous.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
+        var ambiguousHead=ambiguousTrain.getList("tape",Tag.TAG_COMPOUND).getCompound(17).copy(); ambiguousHead.putDouble("distance",0.5); ambiguousTrain.put("head",ambiguousHead);
+        for(int candidate:new int[]{5,17}) {
+            var unambiguous=ambiguous.copy(); unambiguous.getList("trains",Tag.TAG_COMPOUND).getCompound(0).putInt("headIndex",candidate);
+            h.assertTrue(RailwayNbt.read(unambiguous,registries).trains().get(new UUID(0,20)).head().isPresent(),"Оба кандидата должны покрывать все тело, чтобы неоднозначность не маскировалась короткой лентой");
+        }
+        for(CompoundTag broken:List.of(shortHistory,schemaOne(ambiguous))) {
+            var recovered=RailwayNbt.read(broken,registries); var lost=recovered.trains().get(new UUID(0,20));
+            h.assertTrue(lost.status()==Status.PATH_LOST && lost.head().isEmpty() && lost.headIndex()==-1 && lost.speed()==0,"Неоднозначная/короткая schema1 изобрела layout");
+            var saved=RailwayNbt.write(recovered,registries);
+            h.assertTrue(saved.getList("cars",Tag.TAG_COMPOUND).equals(broken.getList("cars",Tag.TAG_COMPOUND)),"Миграция повредила груз/UUID/топливо");
+            h.assertTrue(saved.equals(RailwayNbt.write(RailwayNbt.read(saved,registries),registries)),"Повторная миграция нестабильна");
+        }
+        h.succeed();
+    }
+    @GameTest(template="empty16")
+    public static void schemaTwoSignedLoopResumesIdenticalMotion(GameTestHelper h) {
+        var registries=h.getLevel().registryAccess(); var source=loopFixture(h);
+        var before=RailwayNbt.read(source,registries); var after=RailwayNbt.read(RailwayNbt.write(before,registries),registries); UUID id=new UUID(0,20);
+        h.assertTrue(after.trains().get(id).headIndex()==12 && after.trains().get(id).speed()==-0.1,"Второй проход/знак потерян");
+        h.assertTrue(after.trains().get(id).routeRevision()==4 && after.trains().get(id).consistRevision()==5 && after.trains().get(id).motionRevision()==6,"Ревизии потеряны");
+        var control=new TrainMotion.Control(-1,false,TrainMotion.Turn.LEFT);
+        TrainMotion.step(before,id,control,0); TrainMotion.step(after,id,control,0);
+        h.assertTrue(before.trains().equals(after.trains()) && after.trains().get(id).headIndex()==11,"Следующий occurrence после reload расходится");
+        h.assertTrue(TrainMotion.carPoses(before,id).equals(TrainMotion.carPoses(after,id)),"После reload движение расходится");
+        h.assertTrue(before.cars().get(new UUID(0,10)).remainingJ().equals(after.cars().get(new UUID(0,10)).remainingJ()),"После reload расход расходится");
+        for(int variant=0;variant<3;variant++) {
+            var malformed=source.copy(); var train=malformed.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
+            if(variant==0) train.remove("headIndex"); else if(variant==1) train.putString("headIndex","12"); else train.putInt("headIndex",999);
+            var restored=RailwayNbt.read(malformed,registries);
+            h.assertTrue(restored.trains().get(id).status()==Status.PATH_LOST,"Неверный index принят за occurrence0");
+            h.assertTrue(RailwayNbt.write(restored,registries).getList("cars",Tag.TAG_COMPOUND).equals(source.getList("cars",Tag.TAG_COMPOUND)),"Неверный index уничтожил cargo");
+        }
+        h.succeed();
+    }
+    @GameTest(template="empty16")
+    public static void decimalFuelAndExhaustedModifierSurviveActualNbt(GameTestHelper h) {
+        var registries=h.getLevel().registryAccess(); var state=populated(h); UUID id=new UUID(0,10); var car=state.cars().get(id);
+        car.setActiveFuel("minetorio:solid_fuel",new BigDecimal("100"));
+        for(int i=0;i<200;i++) TrainFuel.draw(car,new BigDecimal("0.25"));
+        state=RailwayNbt.read(RailwayNbt.write(state,registries),registries); car=state.cars().get(id);
+        for(int i=0;i<200;i++) TrainFuel.draw(car,new BigDecimal("0.25"));
+        h.assertTrue(car.remainingJ().signum()==0 && car.activeFuel().equals("minetorio:solid_fuel"),"Дробные J или last modifier потеряны");
+        state=RailwayNbt.read(RailwayNbt.write(state,registries),registries); car=state.cars().get(id);
+        TrainFuel.draw(car,BigDecimal.ZERO); var preview=TrainFuel.preview(car,BigDecimal.ONE);
+        h.assertTrue(TrainFuel.activeTopSpeed(car)==1.05,"Preview/нулевая выдача меняет last modifier");
+        h.assertTrue(preview.equals(TrainFuel.draw(car,BigDecimal.ONE)) && TrainFuel.activeTopSpeed(car)==1,"После reload активация следующего угля неверна");
+        h.succeed();
+    }
+    @GameTest(template="empty16")
+    public static void namedFuelKeepsComponentsAndPreviewIsPure(GameTestHelper h) {
+        var registries=h.getLevel().registryAccess(); var state=new RailwayState(key->RailItemKeys.limit(key,registries));
+        var car=state.createCar(UUID.randomUUID(),StockKind.LOCOMOTIVE,false);
+        for(String fuel:List.of("coal","solid_fuel")) {
+            var item=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("minetorio",fuel));
+            ItemStack stack=new ItemStack(item); stack.set(DataComponents.CUSTOM_NAME,net.minecraft.network.chat.Component.literal("Топливо с именем"));
+            String key=LaneStacks.toLane(stack,registries).orElseThrow();
+            car.setActiveFuel("",BigDecimal.ZERO); car.fuel().orElseThrow().extract(0,100,false);
+            h.assertTrue(car.fuel().orElseThrow().insert(0,key,2,false)==2,"Топливо с components не принято");
+            var slots=car.fuel().orElseThrow().snapshot(); var preview=TrainFuel.preview(car,BigDecimal.ONE);
+            h.assertTrue(slots.equals(car.fuel().orElseThrow().snapshot()) && car.activeFuel().isEmpty(),"Preview мутировал компоненты/activeFuel");
+            h.assertTrue(preview.equals(TrainFuel.draw(car,BigDecimal.ONE)),"Preview отличается от draw");
+            h.assertTrue(car.fuel().orElseThrow().get(0).key().equals(key) && car.fuel().orElseThrow().get(0).count()==1,"Сгорание удалило компоненты остатка");
+            var restored=RailwayNbt.read(RailwayNbt.write(state,registries),registries);
+            h.assertTrue(restored.cars().get(car.id()).fuel().orElseThrow().get(0).key().equals(key),"NBT потерял имя топлива");
+        }
         h.succeed();
     }
 }
