@@ -245,6 +245,8 @@ S1: у всех `connection_distance=3`, `joint_distance=4`; у локомоти
 
 - [ ] Два последовательных длинных блока с обычным сигналом допускают независимые occupancy/claims, когда тела не пересекают границу. Общий endpoint соседних connected rails из Graph.conflicts не сливает cuts; настоящий crossing без маршрутного перехода остается конфликтом.
 
+- [ ] Обычная бронь использует необходимый тормозной префикс с ближайшим подшагом, не всю дорогу до далекой цели; chain дополнительно подтверждает выход и место всему составу. Дальние блоки вне lookahead доступны другим поездам. Proposed step и его последующее реальное торможение помещаются в authority; иначе выполнять допустимое торможение, не мгновенную остановку.
+
 ### Task 6: Станции, расписания и все условия ожидания
 
 **Files:** создать `C/TrainSchedule.java`, `C/TrainWait.java`, `C/TrainDispatcher.java`, `C/RailCircuitInputs.java`, `T/TrainScheduleTest.java`, `T/TrainWaitTest.java`, `T/TrainDispatcherTest.java`; дополнить RailwayState/NBT.
