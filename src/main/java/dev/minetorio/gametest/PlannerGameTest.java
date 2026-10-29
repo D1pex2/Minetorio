@@ -446,4 +446,59 @@ public class PlannerGameTest {
         p.getInventory().clearContent();
         h.succeed();
     }
+    /** Nauvis terrain must never become deconstruction targets, even at depth. */
+    @GameTest(template = "empty16")
+    public static void nauvisGroundDoesNotBecomeDeconstructionJobs(GameTestHelper h) {
+        BlockPos ground = new BlockPos(4, 1, 12), buried = new BlockPos(4, 2, 12);
+        BlockPos tree = new BlockPos(6, 3, 12), rock = new BlockPos(7, 3, 12);
+        BlockPos belt = new BlockPos(3, 3, 12), upperBelt = new BlockPos(3, 5, 12);
+        h.setBlock(ground, dev.minetorio.content.registry.ModWorld.GRASS_1.get());
+        h.setBlock(buried, dev.minetorio.content.registry.ModWorld.DIRT_1.get());
+        h.setBlock(new BlockPos(5, 2, 12), dev.minetorio.content.registry.ModWorld.CLIFF_ROCK.get());
+        h.setBlock(new BlockPos(8, 2, 12), ModBlocks.IRON_ORE_FIELD.get());
+        h.setBlock(new BlockPos(9, 2, 12), dev.minetorio.content.oil.OilRegistry.OIL_SOURCE.get());
+        h.setBlock(new BlockPos(10, 2, 12), Blocks.WATER);
+        h.setBlock(tree, dev.minetorio.content.registry.ModWorld.TREE_TRUNK.get());
+        h.setBlock(rock, dev.minetorio.content.registry.ModWorld.BIG_ROCK.get());
+        BeltGameTest.place(h, ModItems.TRANSPORT_BELT.get(), belt, Direction.EAST);
+        BeltGameTest.place(h, ModItems.TRANSPORT_BELT.get(), upperBelt, Direction.EAST);
+        var area = box(h, 2, 1, 11, 10, 5, 13);
+        Planners.deconstruct(h.getLevel(), area, false, DeconstructionFilter.MACHINES, p -> true);
+        h.assertFalse(marked(h, ground) || marked(h, buried) || marked(h, new BlockPos(5, 2, 12)), "Nauvis ground or cliff marked");
+        h.assertFalse(marked(h, new BlockPos(8, 2, 12)) || marked(h, new BlockPos(9, 2, 12))
+                || marked(h, new BlockPos(10, 2, 12)), "ore, oil or water marked");
+        h.assertTrue(marked(h, belt) && marked(h, upperBelt), "multi-level buildings not marked");
+        h.assertFalse(marked(h, tree) || marked(h, rock), "nature marked with machines-only filter");
+        Planners.deconstruct(h.getLevel(), area, false, DeconstructionFilter.MACHINES_AND_NATURE, p -> true);
+        h.assertTrue(marked(h, tree) && marked(h, rock), "trees and rocks missing with nature filter");
+        Planners.deconstruct(h.getLevel(), area, true, DeconstructionFilter.MACHINES_AND_NATURE, p -> true);
+        h.succeed();
+    }
+
+    /** Invalid persisted marks and claimed jobs cannot damage new Nauvis terrain. */
+    @GameTest(template = "empty16")
+    public static void oldNauvisGroundMarksAreCanceledAndNeverExecuted(GameTestHelper h) {
+        BlockPos ground = new BlockPos(4, 2, 12);
+        h.setBlock(ground, dev.minetorio.content.registry.ModWorld.DIRT_1.get());
+        var absolute = h.absolutePos(ground);
+        var cell = ConstructionManager.cell(absolute);
+        var m = marks(h);
+        var queue = ConstructionManager.get(h.getLevel()).queue();
+        m.deconstruction().mark(cell, ConstructionMarks.blockId(h.getBlockState(ground)));
+        h.assertTrue(queue.isMarkedForDeconstruction(cell), "test did not create legacy queue job");
+        queue.claim(cell, 123L);
+        h.assertTrue(dev.minetorio.content.robot.RobotWork.deconstruct(h.getLevel(), absolute) == null,
+                "robot was allowed to mine protected terrain");
+        h.assertTrue(h.getBlockState(ground).is(dev.minetorio.content.registry.ModWorld.DIRT_1.get()), "terrain removed");
+        h.runAfterDelay(25, () -> {
+            h.assertFalse(m.isMarked(h.getLevel(), absolute), "legacy mark was not pruned");
+            h.assertFalse(queue.isMarkedForDeconstruction(cell), "legacy claimed queue job survived");
+            m.deconstruction().mark(cell, ConstructionMarks.blockId(h.getBlockState(ground)));
+            var area = box(h, 4, 2, 12, 4, 2, 12);
+            Planners.deconstruct(h.getLevel(), area, true, DeconstructionFilter.MACHINES, p -> true);
+            h.assertFalse(m.isMarked(h.getLevel(), absolute), "shift did not cancel a protected legacy mark");
+            h.succeed();
+        });
+    }
+
 }

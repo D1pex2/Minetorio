@@ -93,6 +93,32 @@ public class CharacterInventoryGameTest {
     }
 
     @GameTest(template = "empty16")
+    public static void shortcutBindingAndSelectionWithFullInventory(GameTestHelper h) {
+        var p = player(h, new BlockPos(3, 1, 3));
+        var inv = p.getInventory();
+        inv.clearContent();
+        var main = dev.minetorio.content.character.CharacterInventory.main(inv);
+        for (int i = 0; i < 80; i++) main.setItem(i, new ItemStack(Items.STONE, 50));
+        var menu = (dev.minetorio.content.character.CharacterMenu) p.inventoryMenu;
+        var state = (dev.minetorio.content.character.CharacterShortcuts) p;
+        main.setItem(79, new ItemStack(Items.DIAMOND, 7));
+        menu.setCarried(main.removeItemNoUpdate(79));
+        h.assertTrue(menu.clickMenuButton(p, 1099), "could not bind last shortcut");
+        h.assertTrue(menu.getCarried().getCount() == 7, "binding consumed carried item");
+        main.setItem(79, menu.getCarried());
+        menu.setCarried(ItemStack.EMPTY);
+        h.assertTrue(menu.clickMenuButton(p, 2099), "could not select last shortcut");
+        h.assertTrue(inv.getSelected().is(Items.DIAMOND) && inv.getSelected().getCount() == 7, "extra stack not selected");
+        h.assertTrue(main.getItem(79).is(Items.STONE) && inv.countItem(Items.STONE) == 79 * 50, "full inventory swap lost items");
+        h.assertTrue(state.shortcut(99) == net.minecraft.world.item.Item.getId(Items.DIAMOND), "binding changed");
+        h.assertTrue(state.selectedRow() == 9 && state.selectedColumn() == 9, "tenth virtual selection not recorded");
+        h.assertTrue(menu.clickMenuButton(p, 2088), "empty shortcut rejected");
+        h.assertTrue(state.selectedRow() == 8 && state.selectedColumn() == 8 && state.emptyHand(), "empty virtual selection not recorded");
+        h.assertTrue(inv.countItem(Items.STONE) == 79 * 50 && inv.countItem(Items.DIAMOND) == 7, "empty selection lost items");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty16")
     public static void lockedToolAndTrashAreSeparate(GameTestHelper h) {
         var p = player(h, new BlockPos(3, 1, 3));
         var inv = p.getInventory();
@@ -219,6 +245,38 @@ public class CharacterInventoryGameTest {
         h.assertTrue(result == dev.minetorio.content.blueprint.BlueprintCapture.GiveResult.NO_ROOM,
                 "blueprint did not refuse a physically full inventory");
         h.assertTrue(inv.countItem(Items.STONE) == 80 * 64, "blueprint overwrote suppressed hand");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty16")
+    public static void shortcutCycleStaysWithinVisibleRows(GameTestHelper h) {
+        var p = player(h, new BlockPos(3, 1, 3));
+        var state = (dev.minetorio.content.character.CharacterShortcuts) p;
+        var menu = (dev.minetorio.content.character.CharacterMenu) p.inventoryMenu;
+        int saved = net.minecraft.world.item.Item.getId(Items.DIAMOND);
+        state.shortcut(99, saved);
+        for (int rows : new int[]{2, 3, 4}) {
+            h.assertTrue(menu.clickMenuButton(p, 3100 + rows), "could not configure rows");
+            state.selectedRow(0);
+            h.assertTrue(state.displayedRow(0) == 0 && state.displayedRow(1) == rows - 1,
+                    "display used a hidden row when " + rows + " rows enabled");
+            for (int expected = 1; expected < rows; expected++) {
+                menu.clickMenuButton(p, 3000);
+                h.assertTrue(state.selectedRow() == expected, "wrong next row for " + rows + ": " + state.selectedRow());
+            }
+            menu.clickMenuButton(p, 3000);
+            h.assertTrue(state.selectedRow() == 0, "cycle did not wrap at " + rows + " rows");
+        }
+        state.selectedRow(3);
+        menu.clickMenuButton(p, 3102);
+        h.assertTrue(state.selectedRow() < 2, "reduced rows left selection outside visible range");
+        h.assertTrue(state.shortcut(99) == saved, "hidden binding was lost");
+        var tag = new net.minecraft.nbt.CompoundTag();
+        p.addAdditionalSaveData(tag);
+        tag.getCompound("MinetorioShortcuts").putInt("row", 9);
+        p.readAdditionalSaveData(tag);
+        h.assertTrue(state.selectedRow() == 1, "saved selection was not normalized to visible rows");
+        h.assertTrue(state.shortcut(99) == saved, "hidden binding was lost on load");
         h.succeed();
     }
 

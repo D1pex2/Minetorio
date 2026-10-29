@@ -13,7 +13,9 @@
     "BlockEntityRenderDispatcherMixin",
     "EntityRenderDispatcherMixin",
     "WorldCreationUiStateMixin",
-    "EngineerSkinMixin"
+    "EngineerSkinMixin",
+    "EngineerFirstPersonToolMixin",
+    "EngineerThirdPersonToolMixin"
   ],
   "injectors": {
     "defaultRequire": 1

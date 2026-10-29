@@ -43,7 +43,7 @@ public final class OilRender {
         MachineRender.toCenter(pose, state.getValue(MultiblockControllerBlock.FACING), block.shape());
         for (OilModelParts.Part part : parts) {
             pose.pushPose();
-            pose.translate(part.x() / 16.0 - 0.5, part.y() / 16.0, part.z() / 16.0 - 0.5);
+            positionPart(pose,part);
             sink.part(MachineRender.model("block/" + part.model()), pose);
             pose.popPose();
         }
@@ -60,6 +60,10 @@ public final class OilRender {
             sink.part(FIRE, pose, false, true); pose.popPose();
         }
         pose.popPose();
+    }
+    static void positionPart(PoseStack pose,OilModelParts.Part part) {
+        // The part exporter adds eight pixels on all three axes, including height.
+        pose.translate(part.x()/16.0-0.5,part.y()/16.0-0.5,part.z()/16.0-0.5);
     }
     public static class Renderer<T extends MultiblockControllerBlockEntity> implements BlockEntityRenderer<T> {
         private final ModelBlockRenderer renderer;

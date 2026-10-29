@@ -15,9 +15,9 @@ public final class SteelChestMenu extends AbstractContainerMenu {
     public SteelChestMenu(int id,Inventory inv,BlockPos pos,Container chest) {
         super(OilRegistry.STEEL_CHEST_MENU.get(),id); this.pos=pos;
         checkContainerSize(chest,SteelChestBlockEntity.SIZE);
-        for(int row=0;row<6;row++)for(int col=0;col<8;col++) addSlot(new Slot(chest,col+row*8,17+col*18,18+row*18));
+        for(int row=0;row<6;row++)for(int col=0;col<8;col++) addSlot(new Slot(chest,col+row*8,17+col*18,24+row*18));
         var main=dev.minetorio.content.character.CharacterInventory.main(inv);
-        for(int row=0;row<8;row++)for(int col=0;col<10;col++)addSlot(new Slot(main,col+row*10,8+col*18,140+row*18));
+        for(int row=0;row<8;row++)for(int col=0;col<10;col++)addSlot(new Slot(main,col+row*10,8+col*18,146+row*18));
     }
     public static SteelChestMenu client(int id,Inventory inv,RegistryFriendlyByteBuf extra) { return new SteelChestMenu(id,inv,extra.readBlockPos(),new SimpleContainer(SteelChestBlockEntity.SIZE)); }
     @Override public boolean stillValid(Player p) { return p.level().getBlockEntity(pos) instanceof SteelChestBlockEntity && p.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)<=64; }

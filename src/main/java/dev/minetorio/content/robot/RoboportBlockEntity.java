@@ -321,7 +321,8 @@ public class RoboportBlockEntity extends MultiblockControllerBlockEntity impleme
             BlockPos p = ConstructionManager.pos(j.cell());
             boolean ok = switch (j.kind()) {
                 case BUILD -> Ghosts.canBuild(level, p);
-                case DECONSTRUCT -> marks.deconstruction().stillValid(j.cell(), ConstructionMarks.blockId(level.getBlockState(p)));
+                case DECONSTRUCT -> !RobotWork.protectedTerrain(level.getBlockState(p))
+                        && marks.deconstruction().stillValid(j.cell(), ConstructionMarks.blockId(level.getBlockState(p)));
                 case UPGRADE -> marks.upgrades().stillValid(j.cell(), ConstructionMarks.blockId(level.getBlockState(p)));
             };
             if (ok) pending.add(j);

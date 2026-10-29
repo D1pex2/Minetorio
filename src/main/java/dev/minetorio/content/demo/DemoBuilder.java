@@ -170,9 +170,18 @@ public final class DemoBuilder {
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = area.minX(); x <= area.maxX(); x++) {
             for (int z = area.minZ(); z <= area.maxZ(); z++) {
-                for (int y = area.maxY(); y > origin.getY(); y--) {
+                for (int y = area.maxY(); y >= origin.getY(); y--) {
                     p.set(x, y, z);
-                    if (!level.getBlockState(p).isAir()) level.setBlock(p, air, Block.UPDATE_CLIENTS);
+                    BlockState state = level.getBlockState(p);
+                    if (state.getBlock() instanceof dev.minetorio.content.world.NaturalObjectBlock natural
+                            && natural.group() == dev.minetorio.content.world.NaturalObjectBlock.Group.TREE) {
+                        // A crown can cross the demo boundary. Remove the connected tree before
+                        // clearing its interior pieces, but leave unrelated exterior blocks alone.
+                        for (BlockPos part : dev.minetorio.content.world.NaturalObjectBlock.objectAt(level, p, natural.group()))
+                            level.setBlock(part, air, Block.UPDATE_CLIENTS);
+                    } else if (y > origin.getY() && !state.isAir()) {
+                        level.setBlock(p, air, Block.UPDATE_CLIENTS);
+                    }
                 }
             }
         }

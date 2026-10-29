@@ -100,7 +100,8 @@ public final class Planners {
         for (BlockPos p : cells(level, box)) {
             BlockState s = level.getBlockState(p);
             if (s.getBlock() instanceof GhostBlock) {
-                if (!cancel && filter.machines() && allowed.test(p)) ghosts.add(p.immutable());
+                if (cancel && allowed.test(p) && marks.unmark(level, p)) changed++;
+                else if (!cancel && filter.machines() && allowed.test(p)) ghosts.add(p.immutable());
                 continue;
             }
             BlockPos at = p;
@@ -110,10 +111,13 @@ public final class Planners {
                 at = c;
                 s = level.getBlockState(c);
             }
-            if (!seen.add(at.immutable())) continue;
-            if (!filter.accepts(RobotWork.isMinetorioBuildable(s), RobotWork.isNature(s)) || !allowed.test(at)) continue;
-            boolean did = cancel ? marks.unmark(level, at) : marks.mark(level, at);
-            if (did) changed++;
+            if (!seen.add(at.immutable()) || !allowed.test(at)) continue;
+            if (cancel) {
+                if (marks.unmark(level, at)) changed++;
+                continue;
+            }
+            if (!filter.accepts(RobotWork.isMinetorioBuildable(s), RobotWork.isNature(s))) continue;
+            if (marks.mark(level, at)) changed++;
         }
         for (BlockPos g : ghosts) level.removeBlock(g, false);
         return new Result(changed, ghosts.size());

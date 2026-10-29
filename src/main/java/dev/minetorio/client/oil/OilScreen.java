@@ -25,7 +25,7 @@ public final class OilScreen extends FactoryContainerScreen<OilMenu> {
         super.init(); candidate=menu.selected();
         addRenderableWidget(new FactoryButton(leftPos+8,topPos+23,20,20,Component.literal("<"),b->step(-1)));
         addRenderableWidget(new FactoryButton(leftPos+212,topPos+23,20,20,Component.literal(">"),b->step(1)));
-        addRenderableWidget(new FactoryButton(leftPos+147,topPos+96,85,20,Component.translatable("minetorio.oil.flush_fluids"),b->{if(minecraft!=null && minecraft.gameMode!=null)minecraft.gameMode.handleInventoryButtonClick(menu.containerId,-2);}));
+        addRenderableWidget(new FactoryButton(leftPos+147,topPos+96,85,20,Component.translatable("minetorio.oil.flush_short"),b->{if(minecraft!=null && minecraft.gameMode!=null)minecraft.gameMode.handleInventoryButtonClick(menu.containerId,-2);}));
     }
     private OilRecipe selected() { int i=menu.selected(); return i>=0 && i<OilMenu.RECIPES.size()?OilMenu.RECIPES.get(i):null; }
     private static Component recipeName(OilRecipe recipe) { return Component.translatable("recipe.minetorio."+recipe.id()); }
@@ -66,8 +66,16 @@ public final class OilScreen extends FactoryContainerScreen<OilMenu> {
             String id=OilProcessingBlockEntity.portFluid(recipe,i); if(id==null)continue;
             int x=leftPos+(i<2?12:128), y=topPos+59+(i<2?i:i-2)*11;
             FactoryTheme.bar(g,x,y+8,104,3,(double)menu.fluidAmount(i)/(i<2?1000:100),0xFF000000|dev.minetorio.core.fluid.FluidData.color(id));
-            clipped(g,fluidName(id),x,y,52);
+            g.fill(x,y,x+8,y+8,0xFF000000|dev.minetorio.core.fluid.FluidData.color(id));
+            g.fill(x+2,y+1,x+4,y+3,0x99FFFFFF);
+            clipped(g,fluidName(id),x+10,y,43);
             g.drawString(font,menu.fluidAmount(i)+(i<2?"/1000":"/100"),x+54,y,FactoryTheme.TEXT,false);
+        }
+        if (recipe != null) {
+            for (int i=0;i<recipe.itemInputs().size() && i<OilProcessingBlockEntity.INPUTS;i++)
+                dev.minetorio.client.gui.RecipeView.ghost(g,font,menu.getSlot(i),recipe.itemInputs().get(i),leftPos,topPos);
+            for (int i=0;i<recipe.itemOutputs().size() && i<OilProcessingBlockEntity.OUTPUTS;i++)
+                dev.minetorio.client.gui.RecipeView.ghost(g,font,menu.getSlot(OilProcessingBlockEntity.INPUTS+i),recipe.itemOutputs().get(i),leftPos,topPos);
         }
         String[] status={"select_recipe","waiting_inputs","no_power","output_full","working"};
         int state=Math.clamp(menu.status(),0,status.length-1);
@@ -80,8 +88,19 @@ public final class OilScreen extends FactoryContainerScreen<OilMenu> {
     @Override protected void renderFactory(GuiGraphics g,int x,int y,float partial) {
         super.renderFactory(g,x,y,partial);
         OilRecipe recipe=selected();
-        if(recipe!=null && isHovering(32,23,175,20,x,y))g.renderComponentTooltip(font,recipeTooltip(recipe),x,y);
-        else if(recipe!=null && isHovering(8,47,224,46,x,y))g.renderComponentTooltip(font,recipeTooltip(recipe),x,y);
+        int hoveredFluid=-1;
+        if(recipe!=null) for(int i=0;i<5;i++) {
+            int fx=i<2?12:128, fy=59+(i<2?i:i-2)*11;
+            if(isHovering(fx,fy,104,11,x,y) && OilProcessingBlockEntity.portFluid(recipe,i)!=null) { hoveredFluid=i; break; }
+        }
+        if (hoveredFluid>=0) {
+            String id=OilProcessingBlockEntity.portFluid(recipe,hoveredFluid);
+            g.renderComponentTooltip(font,List.of(fluidName(id),Component.literal(menu.fluidAmount(hoveredFluid)+(hoveredFluid<2?" / 1000":" / 100"))),x,y);
+        }
+        else if (isHovering(147,96,85,20,x,y)) g.renderTooltip(font,Component.translatable("minetorio.oil.flush_fluids"),x,y);
+        else if(recipe!=null && (isHovering(32,23,175,20,x,y) || isHovering(8,47,224,46,x,y)
+                || menu.slots.subList(0,OilProcessingBlockEntity.SLOTS).stream().anyMatch(slot -> !slot.hasItem() && isHovering(slot.x,slot.y,16,16,x,y))))
+            dev.minetorio.client.gui.RecipeView.tooltip(g,font,recipe,recipeName(recipe),x,y,width,height);
         else renderTooltip(g,x,y);
     }
 }

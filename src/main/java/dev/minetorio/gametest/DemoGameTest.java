@@ -132,6 +132,16 @@ public class DemoGameTest {
         origin = o;
         DemoBuilder.Layout layout = DemoBuilder.layout(o);
         for (ChunkPos c : chunks(layout.area())) level.setChunkForced(c.x, c.z, true);
+        // A tree crosses the west boundary: its exterior crown must not be left floating,
+        // while an unrelated exterior block remains untouched.
+        BlockPos tree = o.offset(0, 1, 4);
+        BlockPos outsideLeaf = tree.offset(-1, 2, 0);
+        BlockPos exteriorBuilding = tree.offset(-2, 2, 0);
+        level.setBlock(tree, dev.minetorio.content.registry.ModWorld.TREE_TRUNK.get().defaultBlockState(), 3);
+        level.setBlock(tree.above(), dev.minetorio.content.registry.ModWorld.TREE_TRUNK.get().defaultBlockState(), 3);
+        level.setBlock(tree.above(2), dev.minetorio.content.registry.ModWorld.TREE_LEAVES_GREEN.get().defaultBlockState(), 3);
+        level.setBlock(outsideLeaf, dev.minetorio.content.registry.ModWorld.TREE_LEAVES_GREEN.get().defaultBlockState(), 3);
+        level.setBlock(exteriorBuilding, Blocks.IRON_BLOCK.defaultBlockState(), 3);
         // animals standing where machines go must not stop the build
         spawn(level, EntityType.COW, layout.gearAssembler());
         spawn(level, EntityType.PIG, layout.engines().get(0));
@@ -139,6 +149,8 @@ public class DemoGameTest {
         int result = server.getCommands().getDispatcher().execute(
                 "minetorio demo " + feet.getX() + " " + feet.getY() + " " + feet.getZ(), server.createCommandSourceStack().withSuppressedOutput());
         h.assertTrue(result == 1, "command returned " + result);
+        h.assertTrue(level.getBlockState(outsideLeaf).isAir(), "boundary tree left an exterior crown");
+        h.assertTrue(level.getBlockState(exteriorBuilding).is(Blocks.IRON_BLOCK), "boundary tree cleanup removed an exterior building");
         h.assertTrue(level.getEntitiesOfClass(Animal.class, AABB.of(layout.area())).isEmpty(), "animals left in the area");
         h.assertTrue(OreFields.typeOf(level.getBlockState(layout.ironField())) == OreType.IRON, "no iron field: " + level.getBlockState(layout.ironField()));
         h.assertTrue(OreFields.remaining(level, layout.ironField()) == DemoBuilder.FIELD_AMOUNT, "iron field amount " + OreFields.remaining(level, layout.ironField()));

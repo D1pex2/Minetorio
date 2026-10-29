@@ -78,7 +78,7 @@ public final class DeconstructionMarking extends SavedData {
 
     /** {@link #markable(ServerLevel, BlockPos)} for any level (client previews); {@code hardness} the block's destroy speed. */
     public static boolean markable(BlockState s, float hardness) {
-        return !s.isAir() && !s.hasBlockEntity() && s.getFluidState().isEmpty() && hardness >= 0;
+        return !s.isAir() && !s.hasBlockEntity() && !RobotWork.protectedTerrain(s) && s.getFluidState().isEmpty() && hardness >= 0;
     }
 
     public static boolean isMarked(ServerLevel level, BlockPos pos) {

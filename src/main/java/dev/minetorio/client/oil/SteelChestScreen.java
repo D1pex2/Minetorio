@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 public final class SteelChestScreen extends dev.minetorio.client.gui.FactoryContainerScreen<SteelChestMenu> {
-    public SteelChestScreen(SteelChestMenu menu,Inventory inv,Component title) { super(menu,inv,title); imageWidth=196; imageHeight=293; inventoryLabelY=129; }
+    public SteelChestScreen(SteelChestMenu menu,Inventory inv,Component title) { super(menu,inv,title); imageWidth=196; imageHeight=299; inventoryLabelY=135; }
     @Override protected void renderBg(GuiGraphics g,float partial,int x,int y) {
         dev.minetorio.client.gui.FactoryTheme.panel(g,leftPos,topPos,imageWidth,imageHeight);
         dev.minetorio.client.gui.FactoryTheme.slots(g,leftPos,topPos,menu.slots);

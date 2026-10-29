@@ -55,7 +55,7 @@ public final class AltIconRenderer {
     public static final double MAX_DISTANCE = 32;
     /** Pipe gauges (small) show only this close, so a big pipe field does not drown the view. */
     public static final double GAUGE_DISTANCE = 16;
-    private static final int BACKDROP = 0xB0181A1D;
+    private static final int BACKDROP = 0xF0181A1D;
     private static final int ERROR = 0xF0D93A2B;
     private static final int WARNING = 0xF0F0C02C;
     private static final int ARROW = 0xD8F2D13B;
@@ -149,8 +149,12 @@ public final class AltIconRenderer {
         pose.mulPose(c.rotation());
         pose.scale(size, size, size);
         Matrix4f m = pose.last().pose();
-        roundedRect(c.solid(), m, 0, 0, 0.5f, 0, BACKDROP);
-        if (icon != null) {
+        roundedRect(c.solid(), m, 0, 0, 0.5f, 0, 0xFFE1B861);
+        roundedRect(c.solid(), m, 0, 0, 0.46f, 0.01f, BACKDROP);
+        if (icon != null && icon.startsWith("fluid:")) {
+            int color = 0xFF000000 | FluidData.color(icon.substring(6));
+            roundedRect(c.solid(), m, 0, 0, 0.29f, 0.2f, color);
+        } else if (icon != null) {
             pose.pushPose();
             pose.translate(0, 0, 0.2f);
             pose.scale(0.8f, 0.8f, 0.25f);

@@ -9,6 +9,10 @@ import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.multiblock.MultiblockControllerBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlock;
 import dev.minetorio.content.multiblock.MultiblockPartBlockEntity;
+import dev.minetorio.content.registry.ModWorld;
+import dev.minetorio.content.orefield.OreFieldBlock;
+import dev.minetorio.content.oil.OilSourceBlock;
+import dev.minetorio.content.world.NaturalObjectBlock;
 import dev.minetorio.core.data.UpgradeGroups;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,17 +100,25 @@ public final class RobotWork {
 
     // --- what may be marked ---------------------------------------------------------------------
 
-    /** Whether the deconstruction planner marks {@code state} as a Minetorio block: a placeable Minetorio block (not a ghost, ore field or machine piece). */
+    /** Natural map tiles and resource sources are never robot deconstruction targets. */
+    public static boolean protectedTerrain(BlockState state) {
+        Block block = state.getBlock();
+        return state.is(ModWorld.NAUVIS_GROUND) || state.is(ModWorld.CLIFF_ROCK.get())
+                || block instanceof OreFieldBlock || block instanceof OilSourceBlock
+                || !state.getFluidState().isEmpty();
+    }
+
+    /** Whether the planner treats this block as a player-built Minetorio object. */
     public static boolean isMinetorioBuildable(BlockState state) {
         Block b = state.getBlock();
-        if (b instanceof GhostBlock || b instanceof MultiblockPartBlock) return false;
+        if (b instanceof GhostBlock || b instanceof MultiblockPartBlock || protectedTerrain(state) || isNature(state)) return false;
         Item item = b.asItem();
         return item instanceof BlockItem && Minetorio.MODID.equals(BuiltInRegistries.ITEM.getKey(item).getNamespace());
     }
 
     /** Whether {@code state} is a tree or rock ({@link #NATURE}). */
     public static boolean isNature(BlockState state) {
-        return state.is(NATURE);
+        return state.getBlock() instanceof NaturalObjectBlock || state.is(NATURE);
     }
 
     /** The item a deconstructed block mainly gives (its own item; may be AIR for blocks without one). */
@@ -125,7 +137,7 @@ public final class RobotWork {
     public static List<ItemStack> deconstruct(ServerLevel level, BlockPos pos) {
         BlockPos at = ConstructionMarks.markPos(level, pos);
         BlockState state = level.getBlockState(at);
-        if (state.isAir() || state.getDestroySpeed(level, at) < 0 || state.getBlock() instanceof GhostBlock) return null;
+        if (state.isAir() || protectedTerrain(state) || state.getDestroySpeed(level, at) < 0 || state.getBlock() instanceof GhostBlock) return null;
         return captureDrops(level, () -> level.destroyBlock(at, true));
     }
 

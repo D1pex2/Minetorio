@@ -11,7 +11,7 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 public final class BasicChestScreen extends dev.minetorio.client.gui.FactoryContainerScreen<BasicChestMenu> {
     public BasicChestScreen(BasicChestMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title); imageWidth = 196; imageHeight = 253; inventoryLabelY = 89;
+        super(menu, inventory, title); imageWidth = 196; imageHeight = 259; inventoryLabelY = 95;
     }
     public static void registerScreens(RegisterMenuScreensEvent event) { event.register(BasicChests.MENU.get(), BasicChestScreen::new); }
     @Override protected void renderBg(GuiGraphics g, float partial, int x, int y) {

@@ -133,8 +133,8 @@ public final class MachineIndex {
         }
         int width = Math.max(maxX - minX, maxZ - minZ) + 1;
         double top = minY + block.shape().height();
-        // a 3-wide machine gets a ~1.1 block icon, a 2-wide one ~0.8, as Factorio scales them with the entity
-        double size = 0.35 + 0.25 * width;
+        // a 3-wide machine gets a ~1.25 block icon, a 2-wide one ~0.95, as Factorio scales them with the entity
+        double size = 0.35 + 0.30 * width;
         return new Machine(be, (minX + maxX + 1) / 2.0, top + size / 2 + 0.15, (minZ + maxZ + 1) / 2.0, size);
     }
 }

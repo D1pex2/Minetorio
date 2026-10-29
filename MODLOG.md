@@ -28,3 +28,29 @@
 - Manual visual/gameplay verification remains with the author.
 
 - Delivery verification: 561 unit tests and 327 required GameTests pass; full build and real Nauvis demo export succeed. JAR SHA256: 3A3EA8C15284CB14EF92618C74076ED938BEADCF6B414A89F40279EB02B12C10.
+
+
+## 2026-10-29 — author playtest fixes
+
+- Embedded craft rendering no longer invokes standalone screen blur over the already drawn inventory.
+- E/R use the engineer window in creative; an explicit button opens the creative catalog. Restored container-zero state when leaving the picker so shortcut packets are accepted.
+- Added visible mining equipment for first/third-person empty-hand swing, using render-only substitution and a handheld model.
+- Corrected oil renderer's missing eight-pixel Y-origin compensation; a regression reproduces the half-block float and checks every oil machine's grounding.
+- Made pumpjack structure/drive heavier and refinery/chemical vessels larger while preserving ports/footprints; aligned software preview and intersection checker with runtime coordinates.
+- Moved the furnace fuel label off its bar and added six-pixel header clearance in chest windows.
+- Demo clearing removes whole boundary-crossing trees, preserving unrelated blocks outside the area.
+- Added drag-to-bind shortcuts, logical wheel selection, selected-column persistence/sync and full-inventory tests.
+- Running author's client/world left untouched; new classes require restart, and a fresh demo export is needed for the corrected cleared terrain.
+
+- Protected Nauvis ground, cliffs and resource terrain against deconstruction; saved invalid marks and queued jobs are canceled on load/sweep, and execution rechecks protection. Trees/rocks follow the existing nature filter. Author has now authorized agent-driven manual playtests in an isolated copy.
+
+
+## 2026-10-29 — handoff checkpoint
+
+- Finished visible-row shortcut cycling, readable recipe ingredient/product previews, compact button labels and radar GUI fitting, targeted Alt status, and custom health layout without vanilla XP overlap. Removed the nearby-machine-problems panel.
+- Prepared docs/CONTINUE.md with clone/build/run commands, personal-save migration, visual verification limits and a new-chat continuation prompt. Updated the roadmap and preserved the full rocket/warfare objective in docs/superpowers/plans/2026-10-29-minetorio-rocket-and-war.md; those future systems are not implemented by this checkpoint.
+- Removed tracked Python bytecode caches. Generated assets and the exported Nauvis demo are versioned; old local worktrees and .superpowers build paths are not prerequisites.
+- Isolated the loaded/non-entity-ticking logistics fixture from other GameTest chunk tickets; its tick state machine registers all callbacks before execution, avoiding mutation of GameTestInfo's Runnable-keyed schedule during iteration.
+- Computer Use window capture failed; latest UI rendering still needs a real visual playtest. No claim of visual acceptance.
+
+- Final checkpoint verification: 565 unit tests (0 failures/errors/skips), all 332 required GameTests passed, build successful.

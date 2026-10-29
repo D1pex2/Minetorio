@@ -122,7 +122,13 @@ public class AssemblerScreen extends FactoryContainerScreen<AssemblerMenu> {
         super.renderFactory(g, mouseX, mouseY, partialTick);
         Recipe hovered = recipeAt(mouseX, mouseY);
         if (hovered != null) {
-            g.renderComponentTooltip(font, recipeTooltip(hovered), mouseX, mouseY);
+            dev.minetorio.client.gui.RecipeView.tooltip(g, font, hovered, OilData.recipe(hovered.id()), null,
+                    MachineItems.stack(hovered.outputs().getFirst().item(), 1).getHoverName(), mouseX, mouseY, width, height);
+        } else if (menu.recipe() != null && menu.slots.subList(0, AssemblerBlockEntity.OUTPUT_SLOT + 1).stream()
+                .anyMatch(slot -> slot.isActive() && !slot.hasItem() && isHovering(slot.x, slot.y, 16, 16, mouseX, mouseY))) {
+            Recipe r = menu.recipe();
+            dev.minetorio.client.gui.RecipeView.tooltip(g, font, r, OilData.recipe(r.id()), null,
+                    MachineItems.stack(r.outputs().getFirst().item(),1).getHoverName(), mouseX, mouseY, width, height);
         } else if (isHovering(POWER_X, AssemblerMenu.SLOTS_Y, POWER_W, 16, mouseX, mouseY)) {
             g.renderTooltip(font, powerTooltip(), mouseX, mouseY);
         } else {
@@ -216,6 +222,13 @@ public class AssemblerScreen extends FactoryContainerScreen<AssemblerMenu> {
         // slots (machine inputs/output and player inventory)
         for (Slot slot : menu.slots) {
             if (slot.isActive()) slotFrame(g, x + slot.x - 1, y + slot.y - 1);
+        }
+
+        if (selected != null) {
+            for (int i = 0; i < selected.inputs().size() && i < AssemblerBlockEntity.MAX_INPUTS; i++)
+                dev.minetorio.client.gui.RecipeView.ghost(g, font, menu.getSlot(i), selected.inputs().get(i), x, y);
+            if (!selected.outputs().isEmpty())
+                dev.minetorio.client.gui.RecipeView.ghost(g, font, menu.getSlot(AssemblerBlockEntity.OUTPUT_SLOT), selected.outputs().getFirst(), x, y);
         }
 
         // progress bar

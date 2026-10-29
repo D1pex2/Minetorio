@@ -20,6 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class CharacterShortcutsMixin implements CharacterShortcuts {
     @Unique private final int[] minetorio$shortcuts = new int[ROWS * COLUMNS];
     @Unique private int minetorio$row;
+    @Unique private int minetorio$column;
     @Unique private int minetorio$visible = 1;
     @Unique private boolean minetorio$emptyHand;
 
@@ -29,10 +30,16 @@ public abstract class CharacterShortcutsMixin implements CharacterShortcuts {
     }
     @Override public int selectedRow() { return minetorio$row; }
     @Override public void selectedRow(int row) { if (row >= 0 && row < ROWS) minetorio$row = row; }
+    @Override public int selectedColumn() { return minetorio$column; }
+    @Override public void selectedColumn(int column) { if (column >= 0 && column < COLUMNS) minetorio$column = column; }
     @Override public boolean emptyHand() { return minetorio$emptyHand; }
     @Override public void emptyHand(boolean empty) { minetorio$emptyHand = empty; }
     @Override public int visibleRows() { return minetorio$visible; }
-    @Override public void visibleRows(int rows) { if (rows >= 1 && rows <= 4) minetorio$visible = rows; }
+    @Override public void visibleRows(int rows) {
+        if (rows < 1 || rows > 4) return;
+        minetorio$visible = rows;
+        minetorio$row = Math.floorMod(minetorio$row, rows);
+    }
 
 
     @Inject(method = "setItemSlot", at = @At("HEAD"), cancellable = true)
@@ -62,6 +69,7 @@ public abstract class CharacterShortcutsMixin implements CharacterShortcuts {
         }
         shortcuts.put("items", entries);
         shortcuts.putInt("row", minetorio$row);
+        shortcuts.putInt("column", minetorio$column);
         shortcuts.putInt("visible", minetorio$visible);
         shortcuts.putBoolean("emptyHand", minetorio$emptyHand);
         tag.put("MinetorioShortcuts", shortcuts);
@@ -79,6 +87,8 @@ public abstract class CharacterShortcutsMixin implements CharacterShortcuts {
         }
         emptyHand(shortcuts.getBoolean("emptyHand"));
         selectedRow(shortcuts.getInt("row"));
-        visibleRows(shortcuts.getInt("visible"));
+        selectedColumn(shortcuts.getInt("column"));
+        int visible = shortcuts.getInt("visible");
+        visibleRows(visible >= 1 && visible <= 4 ? visible : 1);
     }
 }

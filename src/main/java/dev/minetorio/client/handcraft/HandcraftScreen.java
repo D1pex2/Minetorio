@@ -78,6 +78,9 @@ public class HandcraftScreen extends Screen {
     private final int gridRows;
     private int left;
     private int top;
+    private int tooltipWidth;
+    private int tooltipHeight;
+    public void setTooltipBounds(int width, int height) { tooltipWidth=width; tooltipHeight=height; }
 
     public HandcraftScreen() {
         super(Component.translatable("minetorio.handcraft.title"));
@@ -188,6 +191,11 @@ public class HandcraftScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
+        renderPanel(g, mouseX, mouseY, partialTick);
+    }
+
+    /** Embedded character panel: its owner has already drawn the screen background. */
+    public void renderPanel(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int w = panelWidth();
         int h = panelHeight();
         g.fill(left - 1, top - 1, left + w + 1, top + h + 1, PANEL_BORDER);
@@ -243,7 +251,10 @@ public class HandcraftScreen extends Screen {
         if (hoveredTab != null) {
             g.renderTooltip(font, Component.translatable(hoveredTab.key()), mouseX, mouseY);
         } else if (hoveredRecipe != null) {
-            g.renderComponentTooltip(font, recipeTooltip(hoveredRecipe), mouseX, mouseY);
+            var recipe = book.get(hoveredRecipe).orElseThrow();
+            var title = MachineItems.stack(recipe.outputs().getFirst().item(), 1).getHoverName();
+            dev.minetorio.client.gui.RecipeView.tooltip(g, font, recipe, null, cachedInventory == null ? Map.of() : cachedInventory,
+                    title, mouseX, mouseY, tooltipWidth > 0 ? tooltipWidth : width, tooltipHeight > 0 ? tooltipHeight : height);
         } else if (hoveredQueue >= 0) {
             HandcraftQueue.Entry e = queue.get(hoveredQueue);
             g.renderComponentTooltip(font, List.of(

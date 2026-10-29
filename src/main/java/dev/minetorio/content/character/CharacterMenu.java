@@ -46,13 +46,18 @@ public final class CharacterMenu extends InventoryMenu {
                 @Override public void set(int value) { shortcuts.shortcut(index, value); }
             });
         }
+        // Apply the configured count before the selected row during full client sync.
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return shortcuts.visibleRows(); }
+            @Override public void set(int value) { shortcuts.visibleRows(value); }
+        });
         addDataSlot(new DataSlot() {
             @Override public int get() { return shortcuts.selectedRow(); }
             @Override public void set(int value) { shortcuts.selectedRow(value); }
         });
         addDataSlot(new DataSlot() {
-            @Override public int get() { return shortcuts.visibleRows(); }
-            @Override public void set(int value) { shortcuts.visibleRows(value); }
+            @Override public int get() { return shortcuts.selectedColumn(); }
+            @Override public void set(int value) { shortcuts.selectedColumn(value); }
         });
         addDataSlot(new DataSlot() {
             @Override public int get() { return shortcuts.emptyHand() ? 1 : 0; }
@@ -88,6 +93,8 @@ public final class CharacterMenu extends InventoryMenu {
             int id = shortcuts.shortcut(action - 2000);
             Container main = CharacterInventory.main(player.getInventory());
             int column = (action - 2000) % CharacterShortcuts.COLUMNS;
+            shortcuts.selectedRow((action - 2000) / CharacterShortcuts.COLUMNS);
+            shortcuts.selectedColumn(column);
             int selected = column < 9 ? column : player.getInventory().selected;
             if (selected < 0 || selected >= 9) return false;
             int source = -1;
@@ -102,6 +109,7 @@ public final class CharacterMenu extends InventoryMenu {
                     shortcuts.emptyHand(false);
                     player.getInventory().selected = selected;
                     if (player instanceof ServerPlayer server) server.connection.send(new ClientboundSetCarriedItemPacket(selected));
+                    broadcastChanges();
                     return true;
                 }
                 for (int i = 0; i < main.getContainerSize(); i++) if (main.getItem(i).isEmpty()) { source = i; break; }
@@ -123,7 +131,7 @@ public final class CharacterMenu extends InventoryMenu {
                 main.setChanged();
             }
         } else if (action == 3000) {
-            shortcuts.selectedRow((shortcuts.selectedRow() + 1) % CharacterShortcuts.ROWS);
+            shortcuts.selectedRow((shortcuts.displayedRow(0) + 1) % shortcuts.visibleRows());
         } else if (action >= 3101 && action <= 3104) {
             shortcuts.visibleRows(action - 3100);
         } else return false;

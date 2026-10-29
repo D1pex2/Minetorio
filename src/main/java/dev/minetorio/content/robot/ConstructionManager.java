@@ -73,7 +73,9 @@ public final class ConstructionManager {
         if (m == null) {
             m = new ConstructionManager();
             MANAGERS.put(level, m);
-            ConstructionMarks.get(level).attach(m.queue);
+            ConstructionMarks marks = ConstructionMarks.get(level);
+            marks.sweep(level);
+            marks.attach(m.queue);
         }
         return m;
     }

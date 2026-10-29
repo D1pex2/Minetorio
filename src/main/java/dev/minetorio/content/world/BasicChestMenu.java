@@ -18,9 +18,9 @@ public final class BasicChestMenu extends AbstractContainerMenu {
     private final int size;
     public BasicChestMenu(int id, Inventory inventory, BlockPos pos, Container chest) {
         super(BasicChests.MENU.get(), id); this.pos = pos; size = chest.getContainerSize();
-        for (int i = 0; i < size; i++) addSlot(new Slot(chest, i, 26 + i % 8 * 18, 18 + i / 8 * 18));
+        for (int i = 0; i < size; i++) addSlot(new Slot(chest, i, 26 + i % 8 * 18, 24 + i / 8 * 18));
         var main = CharacterInventory.main(inventory);
-        for (int i = 0; i < 80; i++) addSlot(new Slot(main, i, 8 + i % 10 * 18, 100 + i / 10 * 18));
+        for (int i = 0; i < 80; i++) addSlot(new Slot(main, i, 8 + i % 10 * 18, 106 + i / 10 * 18));
     }
     public static BasicChestMenu client(int id, Inventory inventory, RegistryFriendlyByteBuf extra) {
         BlockPos pos = extra.readBlockPos();

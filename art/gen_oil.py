@@ -82,10 +82,12 @@ def pumpjack():
         for side in (-1,1):
             for i in range(5):
                 x=side*(11-i*1.7)
-                m.box([x-1.3,3+i*4,z-1.3],[x+1.3,7+i*4,z+1.3],'oil_green')
-        m.box([-6,20,z-1.6],[6,22,z+1.6],'oil_green')
-    m.box([7,3,-17],[19,12,-7],'oil_dark')
-    m.box([8,12,-16],[18,15,-8],'oil_green')
+                m.box([x-2.2,3+i*4,z-2.2],[x+2.2,7+i*4,z+2.2],'oil_green')
+        m.box([-8,20,z-2.2],[8,23,z+2.2],'oil_green')
+    m.box([6,3,-19],[21,14,-6],'oil_dark')
+    m.box([7,14,-18],[20,18,-7],'oil_green')
+    m.box([3,8,-11],[9,17,-3],'oil_steel')
+    m.box([-4,22,-10],[4,28,10],'oil_dark')
     m.box([9,6,-17.2],[17,10,-17.02],'oil_grate')
     pipe(m,(-17,3,0),(-17,24,0),.65)
     pipe(m,(-17,4,0),(16,4,0),1.8)
@@ -96,18 +98,18 @@ def pumpjack():
 
 def beam():
     m=model()
-    m.box([-20,-1.6,-2],[17,1.6,2],'oil_green')
-    m.box([-21,-5,-3],[-17,5,3],'oil_green')
-    m.box([12,-4,-3.5],[18,-1.7,3.5],'oil_dark')
+    m.box([-20,-2.8,-3.5],[17,2.8,3.5],'oil_green')
+    m.box([-22,-6,-4.2],[-16,6,4.2],'oil_green')
+    m.box([10,-6,-4.5],[18,-2.9,4.5],'oil_dark')
     return m
 
 def refinery():
     m=model();base(m,39)
-    tank(m,8,5,14,3,39,'oil_rust')
-    tank(m,-25,-12,5.5,3,42,'oil_steel')
+    tank(m,8,5,15,3,44,'oil_rust')
+    tank(m,-25,-12,6,3,46,'oil_steel')
     # Fractionation rings and walkway around the large tower.
-    for y in (12,22,32):
-        m.octagon_y(8,5,31,y,y+1.4,'oil_dark')
+    for y in (12,24,36):
+        m.octagon_y(8,5,33,y,y+1.4,'oil_dark')
     for x,z in ((-30,28),(-14,29),(27,-27),(28,29)):
         tank(m,x,z,4.5,3,14,'oil_steel')
     m.box([-34,12,21],[-10,14,37],'oil_dark')
@@ -124,11 +126,11 @@ def refinery():
 
 def chemical():
     m=model();base(m,23)
-    tank(m,-9,-4,7,3,21,'oil_yellow')
-    tank(m,9,-4,6,3,27,'oil_steel')
-    tank(m,-8,12,5,3,13,'oil_yellow')
-    tank(m,10,12,5,3,13,'oil_steel')
-    pipe(m,(-9,24,-4),(9,24,-4),1.8,'oil_yellow')
+    tank(m,-9,-4,7.5,3,25,'oil_yellow')
+    tank(m,9,-4,6.5,3,31,'oil_steel')
+    tank(m,-8,12,5.5,3,16,'oil_yellow')
+    tank(m,10,12,5.5,3,16,'oil_steel')
+    pipe(m,(-9,28,-4),(9,28,-4),1.8,'oil_yellow')
     pipe(m,(-19,7,-16),(18,7,-16),1.5)
     pipe(m,(-19,7,-16),(-19,17,-16),1.5)
     for x in (-16,16):
@@ -221,7 +223,7 @@ def main():
     views=[]
     for n,ps in parts.items():
         whole=[]
-        for p,x,y,z in ps: whole+=rm.placed('minetorio:block/'+p,dx=x,dy=y,dz=z)
+        for p,x,y,z in ps: whole+=rm.placed('minetorio:block/'+p,dx=x,dy=y-8,dz=z)
         if n=='pumpjack': whole+=rm.placed('minetorio:block/pumpjack_beam',dy=26)
         views.append(rm.render(whole,None,225,extent=rm.bounds(whole),size=300))
     sheet=Image.new('RGB',(1200,300))

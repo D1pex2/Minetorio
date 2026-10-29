@@ -10,7 +10,11 @@
     "particle": "minetorio:block/oil_steel"
   },
   "elements": [
-    {"from": [-16, -16, 2.378], "to": [-4.994, -14.796, 16], "faces": {"north": {"uv": [0, 7, 16, 9], "texture": "#oil_rust"}, "east": {"uv": [0, 7, 16, 9], "texture": "#oil_rust"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}}},
-    {"from": [-16, -16, 4.2415], "to": [-6.8255, -14.859, 16], "rotation": {"angle": 45, "axis": "y", "origin": [-15.831, -16.779, 13.247]}, "faces": {"north": {"uv": [0, 7.08, 16, 8.92], "texture": "#oil_rust"}, "east": {"uv": [0, 7.08, 16, 8.92], "texture": "#oil_rust"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}}}
+    {"from": [-16, -16, -1.886], "to": [-0.922, -11.898, 16], "faces": {"north": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}, "east": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}}},
+    {"from": [-16, -16, 0.683], "to": [-3.459, -11.961, 16], "rotation": {"angle": 45, "axis": "y", "origin": [-15.909, -52.881, 13.133]}, "faces": {"north": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}, "east": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}}},
+    {"from": [-16, -13.83, -2.31], "to": [-0.37, -12.83, 16], "faces": {"north": {"uv": [0, 7.5, 16, 8.5], "texture": "#oil_dark"}, "east": {"uv": [0, 7.5, 16, 8.5], "texture": "#oil_dark"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_dark"}, "down": {"uv": [0, 0, 16, 16], "texture": "#oil_dark"}}},
+    {"from": [-16, -13.733, 0.344], "to": [-2.992, -12.893, 16], "rotation": {"angle": 45, "axis": "y", "origin": [-15.857, -13.813, 13.209]}, "faces": {"north": {"uv": [0, 7.58, 16, 8.42], "texture": "#oil_dark"}, "east": {"uv": [0, 7.58, 16, 8.42], "texture": "#oil_dark"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_dark"}, "down": {"uv": [0, 0, 16, 16], "texture": "#oil_dark"}}},
+    {"from": [-16, -11.796, 1.603], "to": [-4.219, -9.796, 16], "faces": {"north": {"uv": [0, 7, 16, 9], "texture": "#oil_rust"}, "east": {"uv": [0, 7, 16, 9], "texture": "#oil_rust"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}, "down": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}}},
+    {"from": [-16, -11.699, 3.5983], "to": [-6.1823, -9.859, 16], "rotation": {"angle": 45, "axis": "y", "origin": [-15.831, -11.779, 13.247]}, "faces": {"north": {"uv": [0, 7.08, 16, 8.92], "texture": "#oil_rust"}, "east": {"uv": [0, 7.08, 16, 8.92], "texture": "#oil_rust"}, "up": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}, "down": {"uv": [0, 0, 16, 16], "texture": "#oil_rust"}}}
   ]
 }

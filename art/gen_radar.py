@@ -312,7 +312,7 @@ def item(base, dish, k=0.62):
     tex.update(dish.textures)
     tex["particle"] = "radar_frame"
     display = {
-        "gui": {"rotation": [30, 225, 0], "translation": [0, 0, 0], "scale": [0.625] * 3},
+        "gui": {"rotation": [30, 225, 0], "translation": [0, 1.65, 0], "scale": [0.33] * 3},
         "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.25] * 3},
         "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.5] * 3},
         "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375] * 3},

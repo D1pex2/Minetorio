@@ -126,7 +126,7 @@ public final class ConstructionMarks extends SavedData {
     public boolean mark(ServerLevel level, BlockPos pos) {
         BlockPos at = markPos(level, pos);
         BlockState s = level.getBlockState(at);
-        if (s.isAir()) return false;
+        if (s.isAir() || RobotWork.protectedTerrain(s)) return false;
         Cell c = ConstructionManager.cell(at);
         upgrades.unmark(c);
         return deconstruction.mark(c, blockId(s));
@@ -152,7 +152,7 @@ public final class ConstructionMarks extends SavedData {
         Cell c = ConstructionManager.cell(at);
         if (deconstruction.isMarked(c)) return false;
         BlockState s = level.getBlockState(at);
-        if (s.isAir()) return false;
+        if (s.isAir() || RobotWork.protectedTerrain(s)) return false;
         return upgrades.mark(c, blockId(s), toItem, count, facing);
     }
 
@@ -190,13 +190,29 @@ public final class ConstructionMarks extends SavedData {
             BlockPos p = ConstructionManager.pos(c);
             if (!level.isLoaded(p)) continue;
             BlockState s = level.getBlockState(p);
-            if (s.isAir() || !deconstruction.stillValid(c, blockId(s))) deconstruction.unmark(c);
+            if (s.isAir() || RobotWork.protectedTerrain(s) || !deconstruction.stillValid(c, blockId(s))) deconstruction.unmark(c);
         }
         for (Cell c : upgrades.cells()) {
             BlockPos p = ConstructionManager.pos(c);
             if (!level.isLoaded(p)) continue;
             BlockState s = level.getBlockState(p);
-            if (s.isAir() || !upgrades.stillValid(c, blockId(s))) upgrades.unmark(c);
+            if (s.isAir() || RobotWork.protectedTerrain(s) || !upgrades.stillValid(c, blockId(s))) upgrades.unmark(c);
+        }
+    }
+
+    /** Prune only the chunk being sent, so large saves do not rescan every mark per chunk. */
+    private void sweepChunk(ServerLevel level, int cx, int cz) {
+        for (Cell c : deconstruction.inChunk(cx, cz)) {
+            BlockPos p = ConstructionManager.pos(c);
+            if (!level.isLoaded(p)) continue;
+            BlockState state = level.getBlockState(p);
+            if (state.isAir() || RobotWork.protectedTerrain(state) || !deconstruction.stillValid(c, blockId(state))) deconstruction.unmark(c);
+        }
+        for (Cell c : upgrades.inChunk(cx, cz)) {
+            BlockPos p = ConstructionManager.pos(c);
+            if (!level.isLoaded(p)) continue;
+            BlockState state = level.getBlockState(p);
+            if (state.isAir() || RobotWork.protectedTerrain(state) || !upgrades.stillValid(c, blockId(state))) upgrades.unmark(c);
         }
     }
 
@@ -226,7 +242,7 @@ public final class ConstructionMarks extends SavedData {
         ConstructionMarks m = level.getDataStorage().get(factory(), NAME);
         if (m == null) return;
         ChunkPos cp = event.getPos();
-        if (m.deconstruction.inChunk(cp.x, cp.z).isEmpty() && m.upgrades.inChunk(cp.x, cp.z).isEmpty()) return;
+        m.sweepChunk(level, cp.x, cp.z);
         ServerPlayer player = event.getPlayer();
         PacketDistributor.sendToPlayer(player, m.chunkPayload(cp.x, cp.z));
     }

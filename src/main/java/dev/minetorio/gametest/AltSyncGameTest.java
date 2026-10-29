@@ -94,4 +94,20 @@ public class AltSyncGameTest {
             h.succeed();
         });
     }
+    @GameTest(template = "empty16")
+    public static void chemicalRecipeAndFluidOutputReachClient(GameTestHelper h) {
+        place(h, dev.minetorio.content.oil.OilRegistry.CHEMICAL_PLANT_ITEM.get(), AT, Direction.EAST);
+        var be = (dev.minetorio.content.oil.OilProcessingBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(AT));
+        expect(h, synced(h, be), null, AltStatus.NO_RECIPE);
+        h.assertTrue(be.select(dev.minetorio.core.data.OilData.recipe("plastic_bar")), "plastic recipe rejected");
+        expect(h, synced(h, be), "minetorio:plastic_bar", AltStatus.NO_POWER);
+        h.assertTrue(be.changeRecipe(dev.minetorio.core.data.OilData.recipe("sulfuric_acid")) != null, "acid recipe rejected");
+        var info = synced(h, be);
+        expect(h, info, "fluid:sulfuric_acid", AltStatus.NO_POWER);
+        var client = new dev.minetorio.content.oil.OilProcessingBlockEntity(be.getBlockPos(), be.getBlockState());
+        client.loadWithComponents(be.getUpdateTag(h.getLevel().registryAccess()), h.getLevel().registryAccess());
+        h.assertTrue(client.altInfo().equals(info), "client lost fluid recipe alt info");
+        h.succeed();
+    }
+
 }

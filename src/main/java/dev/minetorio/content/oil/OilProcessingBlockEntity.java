@@ -42,7 +42,7 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.neoforged.neoforge.items.IItemHandler;
 
-public final class OilProcessingBlockEntity extends MultiblockControllerBlockEntity implements FluidMachine, FluidGaugeSource, MachineEndpoint, MenuProvider, CopyableSettings {
+public final class OilProcessingBlockEntity extends MultiblockControllerBlockEntity implements FluidMachine, FluidGaugeSource, MachineEndpoint, MenuProvider, CopyableSettings, dev.minetorio.content.alt.AltSource {
     public static final int INPUTS = 4, OUTPUTS = 4, SLOTS = INPUTS + OUTPUTS;
     private final OilMachine machine;
     private final FluidBox unused = new FluidBox(0);
@@ -51,6 +51,8 @@ public final class OilProcessingBlockEntity extends MultiblockControllerBlockEnt
     private final Slots slots = new Slots();
     private final IItemHandler itemHandler = new MachineItemHandler(slots);
     private boolean working;
+    private final dev.minetorio.core.alt.AltSync altSync = new dev.minetorio.core.alt.AltSync();
+    private dev.minetorio.core.alt.AltInfo clientAlt = dev.minetorio.core.alt.AltInfo.NONE;
     private FluidGauge clientGauge = FluidGauge.EMPTY;
     private final ContainerData data = new ContainerData() {
         public int get(int i) {
@@ -114,7 +116,15 @@ public final class OilProcessingBlockEntity extends MultiblockControllerBlockEnt
         boolean now = be.machine.powerDemand() > 0 && be.power.satisfaction() > 0;
         if (now) { be.machine.tick(be.power.satisfaction()); be.setChanged(); }
         if (now != be.working) { be.working=now; level.sendBlockUpdated(pos,state,state,Block.UPDATE_CLIENTS); }
+        dev.minetorio.content.alt.AltSource.tickAlt(be, be.altSync);
     }
+    @Override public dev.minetorio.core.alt.AltInfo computeAlt() {
+        OilRecipe recipe = machine.recipe();
+        String icon = recipe == null ? null : !recipe.itemOutputs().isEmpty() ? recipe.itemOutputs().getFirst().item()
+                : recipe.fluidOutputs().isEmpty() ? null : "fluid:" + recipe.fluidOutputs().keySet().iterator().next();
+        return dev.minetorio.core.alt.AltRules.assembler(icon, machine.isOutputFull(), dev.minetorio.core.alt.AltRules.electric(power.satisfaction()));
+    }
+    @Override public dev.minetorio.core.alt.AltInfo altInfo() { return clientAlt; }
     @Override public void onLoad() { super.onLoad(); fluids.onLoad(); power.onLoad(); }
     @Override public void setRemoved() { super.setRemoved(); fluids.onRemoved(); power.onRemoved(); }
     @Override public void onChunkUnloaded() { super.onChunkUnloaded(); fluids.onRemoved(); power.onRemoved(); }
@@ -168,9 +178,9 @@ public final class OilProcessingBlockEntity extends MultiblockControllerBlockEnt
         t.put("inputs",ints(s.inputs())); t.put("outputs",ints(s.outputs())); t.put("inputFluids",doubles(s.inputFluids())); t.put("outputFluids",doubles(s.outputFluids())); t.putBoolean("crafting",s.crafting()); t.putDouble("progress",s.progress());
     }
     @Override protected void loadAdditional(CompoundTag t,HolderLookup.Provider lookup) {
-        super.loadAdditional(t,lookup); if(t.contains("working"))working=t.getBoolean("working"); clientGauge=FluidNode.readGauge(t,clientGauge);
+        super.loadAdditional(t,lookup); if(t.contains("working"))working=t.getBoolean("working"); clientGauge=FluidNode.readGauge(t,clientGauge); clientAlt=dev.minetorio.content.alt.AltSource.read(t,clientAlt);
         if(t.contains("inputs")) machine.load(new OilMachine.State(t.contains("recipe")?t.getString("recipe"):null,readInts(t.getCompound("inputs")),readInts(t.getCompound("outputs")),readDoubles(t.getCompound("inputFluids")),readDoubles(t.getCompound("outputFluids")),t.getBoolean("crafting"),t.getDouble("progress")));
     }
-    @Override public CompoundTag getUpdateTag(HolderLookup.Provider lookup) { CompoundTag t=new CompoundTag(); t.putBoolean("working",working); FluidNode.writeGauge(t,FluidGauge.of(altBox())); return t; }
+    @Override public CompoundTag getUpdateTag(HolderLookup.Provider lookup) { CompoundTag t=new CompoundTag(); t.putBoolean("working",working); FluidNode.writeGauge(t,FluidGauge.of(altBox())); dev.minetorio.content.alt.AltSource.write(t,this,altSync); return t; }
     @Override public Packet<ClientGamePacketListener> getUpdatePacket() { return ClientboundBlockEntityDataPacket.create(this); }
 }

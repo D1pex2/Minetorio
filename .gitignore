@@ -24,3 +24,7 @@ repo/
 # Claude Code worktrees and scratch
 .claude/
 .superpowers/
+
+# Python generated caches
+__pycache__/
+*.py[cod]

@@ -88,7 +88,7 @@ plate.resize((768,480),Image.Resampling.NEAREST).save(ROOT/'art/engineer-preview
 def icon(name, draw):
     im=Image.new('RGBA',(16,16));draw(ImageDraw.Draw(im));
     target=ASSETS/f'textures/item/{name}.png';target.parent.mkdir(parents=True,exist_ok=True);im.save(target)
-    (ASSETS/f'models/item/{name}.json').write_text(json.dumps({'parent':'minecraft:item/generated','textures':{'layer0':f'minetorio:item/{name}'}},indent=2)+'\n')
+    (ASSETS/f'models/item/{name}.json').write_text(json.dumps({'parent':'minecraft:item/handheld' if name=='engineer_tool' else 'minecraft:item/generated','textures':{'layer0':f'minetorio:item/{name}'}},indent=2)+'\n')
 def coal(p):
     p.polygon([(2,11),(3,5),(8,2),(13,5),(14,11),(10,14),(4,14)],fill='#25272b',outline='#15171a')
     p.polygon([(4,6),(8,3),(11,6),(7,9)],fill='#505258');p.line((4,11,7,9,11,12),fill='#36393e')

@@ -70,8 +70,11 @@ public final class ModKeys {
             if (mc.screen == null && mc.player != null) mc.setScreen(new ResearchScreen());
         }
         while (HANDCRAFT.consumeClick()) {
-            if (mc.screen == null && mc.player != null && mc.player.inventoryMenu instanceof CharacterMenu menu)
+            if (mc.screen == null && mc.player != null && mc.player.inventoryMenu instanceof CharacterMenu menu) {
+                if (mc.player.containerMenu != menu) mc.player.closeContainer();
+                mc.player.containerMenu = menu;
                 mc.setScreen(new CharacterScreen(menu, mc.player.getInventory()));
+            }
         }
         while (ALT_MODE.consumeClick()) {
             if (mc.player != null) AltMode.toggle(mc.player);

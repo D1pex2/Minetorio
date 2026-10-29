@@ -50,6 +50,42 @@ class ModelElementLimitsTest {
         assertFalse(allowedAngle(11.25) || allowedAngle(30) || allowedAngle(90));
     }
 
+    /** Radar's item model, including rotated struts, must stay inside its 16-pixel GUI cell. */
+    @Test
+    void radarItemFitsGuiCell() throws IOException {
+        JsonObject model = read(MODELS.resolve("item/radar.json"));
+        JsonObject gui = model.getAsJsonObject("display").getAsJsonObject("gui");
+        JsonArray rotation = gui.getAsJsonArray("rotation"), scale = gui.getAsJsonArray("scale"), translation = gui.getAsJsonArray("translation");
+        double yaw = Math.toRadians(rotation.get(1).getAsDouble()), pitch = Math.toRadians(rotation.get(0).getAsDouble());
+        for (JsonElement element : model.getAsJsonArray("elements")) {
+            JsonObject e = element.getAsJsonObject();
+            for (int corner = 0; corner < 8; corner++) {
+                double[] v = new double[3];
+                for (int axis = 0; axis < 3; axis++)
+                    v[axis] = e.getAsJsonArray((corner & (1 << axis)) == 0 ? "from" : "to").get(axis).getAsDouble();
+                if (e.has("rotation")) {
+                    JsonObject r = e.getAsJsonObject("rotation");
+                    JsonArray o = r.getAsJsonArray("origin");
+                    int axis = switch (r.get("axis").getAsString()) { case "x" -> 0; case "y" -> 1; default -> 2; };
+                    int a = (axis + 1) % 3, b = (axis + 2) % 3;
+                    double c = Math.cos(Math.toRadians(r.get("angle").getAsDouble()));
+                    double sn = Math.sin(Math.toRadians(r.get("angle").getAsDouble()));
+                    double va = v[a] - o.get(a).getAsDouble(), vb = v[b] - o.get(b).getAsDouble();
+                    v[a] = o.get(a).getAsDouble() + c * va - sn * vb;
+                    v[b] = o.get(b).getAsDouble() + sn * va + c * vb;
+                }
+                double x = v[0] - 8, y = v[1] - 8, z = v[2] - 8;
+                double px = Math.cos(yaw) * x + Math.sin(yaw) * z;
+                double pz = -Math.sin(yaw) * x + Math.cos(yaw) * z;
+                double py = Math.cos(pitch) * y - Math.sin(pitch) * pz;
+                assertTrue(Math.abs(px * scale.get(0).getAsDouble() + translation.get(0).getAsDouble()) <= 8,
+                        "radar extends beyond horizontal GUI cell");
+                assertTrue(Math.abs(py * scale.get(1).getAsDouble() + translation.get(1).getAsDouble()) <= 8,
+                        "radar extends beyond vertical GUI cell");
+            }
+        }
+    }
+
     @Test
     void everyElementRotationAndBoundsAreLoadable() throws IOException {
         List<Path> files = models();
