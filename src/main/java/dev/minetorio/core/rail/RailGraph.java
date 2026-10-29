@@ -92,6 +92,8 @@ public final class RailGraph {
         revision++;
     }
 
+    Collection<Piece> pieces() { return pieces.values(); }
+
     public long revision() {
         return revision;
     }

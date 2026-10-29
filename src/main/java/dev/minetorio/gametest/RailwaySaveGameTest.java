@@ -9,6 +9,9 @@ import dev.minetorio.core.data.RailData.StockKind;
 import dev.minetorio.core.rail.RailwayState;
 import dev.minetorio.core.rail.TrainFuel;
 import dev.minetorio.core.rail.TrainMotion;
+import dev.minetorio.core.rail.TrainReservations;
+import dev.minetorio.core.rail.RailRouter;
+import dev.minetorio.core.rail.RailSignals;
 import dev.minetorio.core.rail.RailwayState.Mode;
 import dev.minetorio.core.rail.RailwayState.Status;
 import java.math.BigDecimal;
@@ -121,6 +124,7 @@ public class RailwaySaveGameTest {
             catch (IllegalStateException expected) { rejected = true; }
             h.assertTrue(rejected, "Повторное чтение cache=null создало пустую модель");
             storage.save();
+            net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
             h.assertTrue(Arrays.equals(before, Files.readAllBytes(file)), "Исходное содержимое поврежденного файла изменилось");
         }
         Path rawFolder = Files.createTempDirectory("minetorio-railway-raw-");
@@ -133,6 +137,7 @@ public class RailwaySaveGameTest {
         catch (IllegalStateException expected) { rejected = expected.getMessage().contains(rawFile.toString()); }
         h.assertTrue(rejected, "Файл, не являющийся NBT, заменен пустой моделью");
         rawStorage.save();
+        net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
         h.assertTrue(Arrays.equals(raw, Files.readAllBytes(rawFile)), "Исходные байты raw-файла изменились");
         h.succeed();
     }
@@ -256,7 +261,7 @@ public class RailwaySaveGameTest {
         var migrated=RailwayNbt.read(legacy,registries);
         h.assertTrue(migrated.trains().equals(original.trains()),"Однозначная schema1 изменила layout");
         h.assertTrue(TrainMotion.carPoses(migrated,new UUID(0,20)).equals(TrainMotion.carPoses(original,new UUID(0,20))),"Миграция изменила позы");
-        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==2,"Миграция не записывает schema2");
+        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==3,"Миграция не записывает schema3");
         CompoundTag shortHistory=legacy.copy(); var train=shortHistory.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
         var shortTape=new ListTag(); shortTape.add(train.getList("tape",Tag.TAG_COMPOUND).getCompound(10).copy()); train.put("tape",shortTape);
         CompoundTag ambiguous=loopFixture(h); var ambiguousTrain=ambiguous.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
@@ -276,7 +281,7 @@ public class RailwaySaveGameTest {
     }
     @GameTest(template="empty16")
     public static void schemaTwoSignedLoopResumesIdenticalMotion(GameTestHelper h) {
-        var registries=h.getLevel().registryAccess(); var source=loopFixture(h);
+        var registries=h.getLevel().registryAccess(); var source=loopFixture(h); source.putInt("schemaVersion",2); source.remove("networkRevision");
         var before=RailwayNbt.read(source,registries); var after=RailwayNbt.read(RailwayNbt.write(before,registries),registries); UUID id=new UUID(0,20);
         h.assertTrue(after.trains().get(id).headIndex()==12 && after.trains().get(id).speed()==-0.1,"Второй проход/знак потерян");
         h.assertTrue(after.trains().get(id).routeRevision()==4 && after.trains().get(id).consistRevision()==5 && after.trains().get(id).motionRevision()==6,"Ревизии потеряны");
@@ -325,6 +330,118 @@ public class RailwaySaveGameTest {
             var restored=RailwayNbt.read(RailwayNbt.write(state,registries),registries);
             h.assertTrue(restored.cars().get(car.id()).fuel().orElseThrow().get(0).key().equals(key),"NBT потерял имя топлива");
         }
+        h.succeed();
+    }
+
+    @GameTest(template="empty16")
+    public static void schemaThreeSignalsOccupancyAndFreshAuthorityAcrossActualStorage(GameTestHelper h) throws Exception {
+        var registries=h.getLevel().registryAccess(); Path folder=Files.createTempDirectory("minetorio-railway-signals-");
+        var storage=new DimensionDataStorage(folder.toFile(),DataFixers.getDataFixer(),registries);
+        var data=RailwaySavedData.get(storage,folder,registries); var state=data.state();
+        List<Piece> rails=new ArrayList<>(); List<Traversal> tape=new ArrayList<>();
+        for(int i=0;i<100;i++) { var p=new Piece(new UUID(44,i),new Point(0,0,-2*i),Shape.STRAIGHT,0,false); rails.add(p);tape.add(new Traversal(p.id(),true)); }
+        state.replaceRails(rails);
+        var car=state.createCar(new UUID(45,1),StockKind.LOCOMOTIVE,false);car.setActiveFuel("minetorio:coal",BigDecimal.valueOf(100000));
+        UUID id=new UUID(45,2);
+        state.createTrain(new RailwayState.Train(id,List.of(car.id()),Optional.of(new Cursor(tape.get(10),0)),10,tape,0,Mode.AUTOMATIC,Status.WAIT_SIGNAL,0,0,0));
+        var signal=new RailSignals.Signal(new UUID(45,3),new Port(tape.get(20).piece(),End.A),true,RailSignals.Kind.REGULAR);
+        data.setDirty(false); state.replaceSignals(List.of(signal)); h.assertTrue(data.isDirty(),"Сигнал не пометил SavedData");
+        var leading=TrainReservations.leading(state,id,1);
+        var route=RailRouter.route(state.graph(),leading.start(),Set.of(new Cursor(tape.get(90),0)),state.signals()::allowed).orElseThrow();
+        var old=TrainReservations.plan(state,id,route,1,0);
+        h.assertTrue(TrainReservations.commit(state,id,old,1,0),"Первый план не принят");
+        storage.save();
+        // NeoForge SavedData.save пишет через общий асинхронный IO worker.
+        net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
+        h.assertTrue(Files.size(folder.resolve(RailwaySavedData.NAME+".dat"))>0,"Сохранение не завершило запись файла");
+        var reloaded=RailwaySavedData.get(new DimensionDataStorage(folder.toFile(),DataFixers.getDataFixer(),registries),folder,registries);
+        var loaded=reloaded.state();
+        h.assertTrue(!reloaded.isDirty(),"Reload создал новый или грязный owner");
+        h.assertTrue(loaded.signalDefinitions().equals(state.signalDefinitions()),"Сигналы потеряны после завершенного сохранения");
+        h.assertTrue(loaded.signals().revision()==state.signals().revision(),"Ревизия сети потеряна");
+        h.assertTrue(loaded.reservations().acceptedPlan(id).isEmpty(),"Load восстановил authority");
+        h.assertTrue(!TrainReservations.commit(loaded,id,old,1,0),"Load принял план прежнего owner");
+        var before=loaded.trains().get(id); var control=new TrainMotion.Control(1,false,TrainMotion.Turn.STRAIGHT);
+        TrainMotion.step(loaded,id,control,0);
+        h.assertTrue(before.equals(loaded.trains().get(id)) && loaded.cars().get(car.id()).remainingJ().equals(BigDecimal.valueOf(100000)),"Load двигается без нового плана");
+        h.assertTrue(loaded.signals().blocks(tape.get(10)).stream().anyMatch(b->loaded.reservations().occupants(b).contains(id)),"Load потерял occupancy");
+        var freshRoute=RailRouter.route(loaded.graph(),TrainReservations.leading(loaded,id,1).start(),Set.of(new Cursor(tape.get(90),0)),loaded.signals()::allowed).orElseThrow();
+        h.assertTrue(TrainReservations.commit(loaded,id,TrainReservations.plan(loaded,id,freshRoute,1,0),1,0),"Новый план не принят");
+        TrainMotion.step(loaded,id,control,0);
+        h.assertTrue(loaded.trains().get(id).speed()>0 && reloaded.isDirty(),"Разрешенное движение не выполнено/не записано");
+        h.succeed();
+    }
+    @GameTest(template="empty16")
+    public static void malformedSignalsPreserveActualSavedDataBytes(GameTestHelper h) throws Exception {
+        var registries=h.getLevel().registryAccess(); var state=populated(h);
+        state.replaceSignals(List.of(new RailSignals.Signal(new UUID(99,1),new Port(state.rails().get(0).id(),End.A),true,RailSignals.Kind.REGULAR)));
+        var source=RailwayNbt.write(state,registries);
+        for(int variant=0;variant<5;variant++) {
+            var broken=source.copy(); var item=broken.getList("signals",Tag.TAG_COMPOUND).getCompound(0);
+            switch(variant) {
+                case 0 -> item.putUUID("piece",UUID.randomUUID());
+                case 1 -> item.putString("kind","UNKNOWN");
+                case 2 -> item.putByte("intoPiece",(byte)2);
+                case 3 -> broken.getList("signals",Tag.TAG_COMPOUND).add(item.copy());
+                case 4 -> broken.putLong("networkRevision",-1);
+            }
+            Path folder=Files.createTempDirectory("minetorio-railway-invalid-signals-"); Path file=folder.resolve(RailwaySavedData.NAME+".dat");
+            CompoundTag root=new CompoundTag(); root.put("data",broken); NbtIo.writeCompressed(root,file); byte[] before=Files.readAllBytes(file);
+            var storage=new DimensionDataStorage(folder.toFile(),DataFixers.getDataFixer(),registries);boolean rejected=false;
+            try { RailwaySavedData.get(storage,folder,registries); } catch(IllegalStateException expected) { rejected=true; }
+            h.assertTrue(rejected,"Неверный сигнал принят: "+variant); storage.save();
+            net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
+            h.assertTrue(Arrays.equals(before,Files.readAllBytes(file)),"Ошибка сигналов перезаписала существующий файл");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template="empty16")
+    public static void signalEditBrakingCorridorSurvivesActualNbtWithoutTraction(GameTestHelper h) throws Exception {
+        var registries=h.getLevel().registryAccess();Path liveFolder=Files.createTempDirectory("minetorio-railway-proof-dirty-");
+        var liveData=RailwaySavedData.get(new DimensionDataStorage(liveFolder.toFile(),DataFixers.getDataFixer(),registries),liveFolder,registries);
+        var state=liveData.state();
+        List<Piece> rails=new ArrayList<>();List<Traversal> tape=new ArrayList<>();
+        for(int i=0;i<100;i++) { var p=new Piece(new UUID(66,i),new Point(0,0,-2*i),Shape.STRAIGHT,0,false);rails.add(p);tape.add(new Traversal(p.id(),true)); }
+        var curve=new Piece(new UUID(67,1),new Point(0,0,-60),Shape.CURVE,0,false);rails.add(curve);state.replaceRails(rails);
+        var car=state.createCar(new UUID(68,1),StockKind.LOCOMOTIVE,false);car.setActiveFuel("minetorio:coal",BigDecimal.valueOf(100000));UUID id=new UUID(68,2);
+        var train=state.createTrain(new RailwayState.Train(id,List.of(car.id()),Optional.of(new Cursor(tape.get(28),0.499)),28,tape,0.1,Mode.AUTOMATIC,Status.ON_THE_PATH,0,0,0));
+        var start=TrainReservations.leading(state,id,1);
+        var route=RailRouter.route(state.graph(),start.start(),Set.of(new Cursor(new Traversal(curve.id(),true),length(curve))),state.signals()::allowed).orElseThrow();
+        var plan=TrainReservations.plan(state,id,route,1,0);liveData.setDirty(false);
+        h.assertTrue(TrainReservations.commit(state,id,plan,1,0),"Нет исходного corridor");
+        h.assertTrue(liveData.isDirty(),"Новый сохраняемый braking proof не пометил SavedData");
+        state.replaceSignals(List.of(new RailSignals.Signal(new UUID(68,3),new Port(curve.id(),End.A),false,RailSignals.Kind.REGULAR)));
+        TrainReservations.releaseFuture(state,id);
+        var serialized=RailwayNbt.write(state,registries);
+        for(int variant=0;variant<6;variant++) {
+            var invalid=serialized.copy();var corridor=invalid.getList("brakingCorridors",Tag.TAG_COMPOUND).getCompound(0);
+            switch(variant) {
+                case 0 -> corridor.putInt("travelSign",-1);
+                case 1 -> corridor.putUUID("train",UUID.randomUUID());
+                case 2 -> corridor.putDouble("distance",-1);
+                case 3 -> corridor.putDouble("brakingBonus",Double.NaN);
+                case 4 -> corridor.getList("route",Tag.TAG_COMPOUND).getCompound(0).putUUID("piece",UUID.randomUUID());
+                case 5 -> invalid.getList("brakingCorridors",Tag.TAG_COMPOUND).add(corridor.copy());
+            }
+            boolean rejected=false;
+            try { RailwayNbt.read(invalid,registries); } catch(RuntimeException expected) { rejected=true; }
+            h.assertTrue(rejected,"Неверный тормозной corridor принят: "+variant);
+        }
+        Path folder=Files.createTempDirectory("minetorio-railway-braking-load-");var root=new CompoundTag();root.put("data",serialized);
+        NbtIo.writeCompressed(root,folder.resolve(RailwaySavedData.NAME+".dat"));
+        var data=RailwaySavedData.get(new DimensionDataStorage(folder.toFile(),DataFixers.getDataFixer(),registries),folder,registries);var loaded=data.state();
+        h.assertTrue(loaded.reservations().acceptedPlan(id).isEmpty(),"Load восстановил тяговое разрешение");
+        h.assertTrue(Math.abs(loaded.reservations().remainingDistance(id)-plan.brakingDistance())<1e-9,"Load потерял тормозной corridor");
+        h.assertTrue(loaded.signals().blocks(new Traversal(curve.id(),true)).stream().anyMatch(b->loaded.reservations().claimants(b).contains(id)),"Load освободил защиту торможения");
+        double previous=0.1,moved=0;
+        for(int i=0;i<100 && previous>0;i++) {
+            TrainMotion.step(loaded,id,new TrainMotion.Control(1,false,TrainMotion.Turn.STRAIGHT),0);
+            double speed=loaded.trains().get(id).speed();h.assertTrue(speed<previous,"После load нет реального торможения");previous=speed;moved+=speed;
+        }
+        h.assertTrue(previous==0 && Math.abs(moved-plan.brakingDistance())<1e-9,"Load изменил остановочный путь");
+        h.assertTrue(loaded.cars().get(car.id()).remainingJ().equals(BigDecimal.valueOf(100000)),"Load разрешил тягу/расход");
+        h.assertTrue(TrainReservations.leading(loaded,id,1).start().traversal().piece().equals(curve.id()),"Load угадал другую ветку");
         h.succeed();
     }
 }

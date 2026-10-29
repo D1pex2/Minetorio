@@ -105,6 +105,10 @@ public final class RailwayState {
     private final Map<UUID, Train> trains = new LinkedHashMap<>();
     private final RailGraph graph = new RailGraph(List.of());
     private List<Piece> rails = List.of();
+    private List<RailSignals.Signal> signalDefinitions = List.of();
+    private long networkRevision;
+    private RailSignals signals = RailSignals.rebuild(graph,List.of(),0);
+    private final TrainReservations reservations = new TrainReservations();
 
     public RailwayState(ToIntFunction<String> keyLimit) { this(keyLimit, () -> {}); }
     public RailwayState(ToIntFunction<String> keyLimit, Runnable changed) {
@@ -113,12 +117,31 @@ public final class RailwayState {
     }
     public RailGraph graph() { return graph.snapshot(); }
     public List<Piece> rails() { return rails; }
+    public List<RailSignals.Signal> signalDefinitions() { return signalDefinitions; }
+    public RailSignals signals() { return signals; }
+    public TrainReservations reservations() { return reservations; }
+    void reservationsChanged() { changed.run(); }
+    public void replaceSignals(Collection<RailSignals.Signal> input) {
+        List<RailSignals.Signal> next=input.stream().sorted(Comparator.comparing(RailSignals.Signal::id)).toList();
+        for(var signal:next) if(cars.containsKey(signal.id()) || trains.containsKey(signal.id()) || graph.piece(signal.id()).isPresent())
+            throw new IllegalArgumentException("Повторный UUID сигнала");
+        RailSignals rebuilt=RailSignals.rebuild(graph,next,networkRevision+1);
+        if(next.equals(signalDefinitions)) return;
+        signalDefinitions=next; signals=rebuilt; networkRevision++;
+        reservations.networkChanged(this,false); changed.run();
+    }
+    /** Восстановление сохраненной ревизии не восстанавливает права движения. */
+    public void restoreNetworkRevision(long revision) {
+        if(revision<0) throw new IllegalArgumentException("Отрицательная ревизия сети");
+        signals=RailSignals.rebuild(graph,signalDefinitions,revision); networkRevision=revision;
+        reservations.networkChanged(this,true);
+    }
     public Map<UUID, Car> cars() { return Collections.unmodifiableMap(cars); }
     public Map<UUID, Train> trains() { return Collections.unmodifiableMap(trains); }
     public Car createCar(UUID id, StockKind kind, boolean reversed) {
         Objects.requireNonNull(id);
         Objects.requireNonNull(kind);
-        if (cars.containsKey(id) || trains.containsKey(id) || graph.piece(id).isPresent())
+        if (cars.containsKey(id) || trains.containsKey(id) || graph.piece(id).isPresent() || signalDefinitions.stream().anyMatch(signal->signal.id().equals(id)))
             throw new IllegalArgumentException("Повторный UUID вагона " + id);
         Car car = new Car(id, kind, reversed);
         cars.put(id, car);
@@ -128,30 +151,37 @@ public final class RailwayState {
     public void replaceRails(Collection<Piece> pieces) {
         List<Piece> next = List.copyOf(pieces);
         for (Piece piece : next) {
-            if (cars.containsKey(piece.id()) || trains.containsKey(piece.id()))
+            if (cars.containsKey(piece.id()) || trains.containsKey(piece.id()) || signalDefinitions.stream().anyMatch(signal->signal.id().equals(piece.id())))
                 throw new IllegalArgumentException("Повторный UUID рельса " + piece.id());
             Point p = piece.origin();
             if (Math.abs((long) p.x()) > 30_000_000 || Math.abs((long) p.z()) > 30_000_000 || p.y() < -2048 || p.y() > 2047)
                 throw new IllegalArgumentException("Позиция рельса вне диапазона мира: " + p);
         }
+        RailGraph validated=new RailGraph(next);
+        List<RailSignals.Signal> surviving=signalDefinitions.stream().filter(s->validated.piece(s.boundary().piece()).isPresent()).toList();
+        RailSignals.rebuild(validated,surviving,networkRevision+1);
         graph.rebuild(next);
+        signalDefinitions=surviving;
+        signals=RailSignals.rebuild(graph,signalDefinitions,++networkRevision);
         rails = next;
         trains.replaceAll((id, train) -> {
             Train nextTrain = normalizeRoute(train);
             return nextTrain.equals(train) ? train : revisions(nextTrain, train.routeRevision()+1, train.consistRevision(), train.motionRevision()+1);
         });
+        reservations.networkChanged(this,true);
         changed.run();
     }
     /** Неверный сохраненный маршрут не уничтожает вагоны и груз. */
     public Train createTrain(Train initial) {
         UUID id = initial.id();
-        if (trains.containsKey(id) || cars.containsKey(id) || graph.piece(id).isPresent())
+        if (trains.containsKey(id) || cars.containsKey(id) || graph.piece(id).isPresent() || signalDefinitions.stream().anyMatch(signal->signal.id().equals(id)))
             throw new IllegalArgumentException("Повторный UUID состава " + id);
         validateMembers(initial);
         for (Train existing : trains.values()) if (!Collections.disjoint(existing.cars(), initial.cars()))
             throw new IllegalArgumentException("Вагон уже принадлежит другому составу " + id);
         Train train = normalizeRoute(initial);
         trains.put(id, train);
+        TrainReservations.refreshOccupancy(this);
         changed.run();
         return train;
     }
@@ -159,15 +189,25 @@ public final class RailwayState {
         public MotionUpdate { head = Objects.requireNonNull(head); tape = List.copyOf(tape); Objects.requireNonNull(status); }
     }
     public boolean commitMotion(Train expected, long graphRevision, MotionUpdate next) {
+        if(expected.mode()==Mode.AUTOMATIC) return false;
+        return commitMotion(expected,graphRevision,next,0,0,0,false,()->{});
+    }
+    boolean commitMotion(Train expected,long graphRevision,MotionUpdate next,int sign,double distance,
+                         double bonus,boolean braking,Runnable consumeFuel) {
         if (!Objects.equals(trains.get(expected.id()), expected) || graph.revision() != graphRevision) return false;
         Train candidate = new Train(expected.id(), expected.cars(), next.head(), next.headIndex(), next.tape(),
                 next.speed(), expected.mode(), next.status(), expected.routeRevision(), expected.consistRevision(), expected.motionRevision());
         if (!validLayout(candidate)) throw new IllegalArgumentException("Неверный layout движения");
         candidate = canonical(candidate);
+        if(expected.mode()==Mode.AUTOMATIC && !TrainReservations.permitsLayout(this,expected,candidate,sign,distance,bonus,braking)) return false;
+        consumeFuel.run();
         if (candidate.equals(expected)) return true;
         boolean routeChanged = Math.signum(expected.speed()) != Math.signum(candidate.speed()) || changedBranch(expected.tape(), candidate.tape());
         trains.put(candidate.id(), revisions(candidate, expected.routeRevision() + (routeChanged ? 1 : 0),
                 expected.consistRevision(), expected.motionRevision() + 1));
+        Train current=trains.get(candidate.id());
+        if(expected.mode()==Mode.AUTOMATIC) TrainReservations.consumed(this,expected,current,sign,distance);
+        else { TrainReservations.releaseFuture(this,expected.id()); TrainReservations.refreshOccupancy(this); }
         changed.run();
         return true;
     }
@@ -212,6 +252,7 @@ public final class RailwayState {
                     old == null ? 1 : old.consistRevision() + 1, old == null ? 1 : old.motionRevision() + 1));
         }
         flipCars.forEach(id -> cars.get(id).reversed = !cars.get(id).reversed);
+        reservations.consistsChanged(this,oldIds);
         changed.run();
         return true;
     }

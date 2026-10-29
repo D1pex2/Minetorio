@@ -2,6 +2,10 @@ package dev.minetorio.core.rail;
 import java.util.*;
 import static dev.minetorio.core.rail.RailGeometry.*;
 import java.math.BigDecimal;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import dev.minetorio.core.data.RailData.StockKind;
 import static dev.minetorio.core.rail.RailwayState.*;
 import static dev.minetorio.core.rail.TrainMotion.*;
@@ -18,15 +22,47 @@ class TrainMotionTest {
         for (int i=3;i<60;i++) step(f.state,t.id(),GO,0);
         assertEquals(0,c.remainingJ().compareTo(new BigDecimal("3400000")));
     }
-    @Test void capAfterAirConsumesOnlyRequiredJoules() {
-        var f=new TrainTestFixture(); var c=f.car(StockKind.LOCOMOTIVE,false); c.setActiveFuel("minetorio:coal",new BigDecimal("4000000")); c.fuel().get().insert(0,"minetorio:coal",1,false);
-        var t=f.train(50,1.2,Mode.MANUAL,c);
-        step(f.state,t.id(),GO,0);
-        assertEquals(1.2,f.state.trains().get(t.id()).speed(),1e-12);
-        assertEquals(9533.877038895859,new BigDecimal("4000000").subtract(c.remainingJ()).doubleValue(),1e-8);
-        for(int i=1;i<600;i++) step(f.state,t.id(),GO,0);
-        assertEquals(1.2,f.state.trains().get(t.id()).speed(),1e-12);
-        assertEquals(600*9533.877038895859,8000000-c.remainingJ().doubleValue(),1e-6);
+    private static JsonObject nativePhysics() {
+        try(var input=TrainMotionTest.class.getResourceAsStream("/factorio-1.1.110/train-physics-native.json")) {
+            return JsonParser.parseReader(new InputStreamReader(Objects.requireNonNull(input),StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch(java.io.IOException error) { throw new AssertionError(error); }
+    }
+    @Test void nativeCoalAtCapConsumesFullBudgetForSixHundredSteps() {
+        var trace=nativePhysics().getAsJsonArray("steady_cap");
+        var first=trace.get(0).getAsJsonObject();var last=trace.get(trace.size()-1).getAsJsonObject();
+        double nativePerStep=(first.get("fuel").getAsDouble()-last.get("fuel").getAsDouble())/(last.get("tick").getAsInt()-first.get("tick").getAsInt());
+        assertEquals(10000,nativePerStep,1e-9);
+        for(var element:trace) {
+            var sample=element.getAsJsonObject();assertEquals(1.2,sample.get("speed").getAsDouble());
+            for(String property:List.of("heat","energy","coal")) assertEquals(first.get(property),sample.get(property));
+            assertTrue(sample.get("has_path").getAsBoolean());assertEquals(0,sample.get("state").getAsInt());
+            assertEquals("coal",sample.get("burning").getAsString());
+        }
+        for(Mode mode:Mode.values()) {
+            var f=new TrainTestFixture();var c=f.car(StockKind.LOCOMOTIVE,false);
+            c.setActiveFuel("minetorio:coal",BigDecimal.valueOf(4000000));c.fuel().orElseThrow().insert(0,"minetorio:coal",1,false);
+            var t=f.train(50,1.2,mode,c);
+            for(int i=0;i<600;i++) {
+                if(mode==Mode.AUTOMATIC) TrainReservationsTest.accept(f,t.id(),1,0);
+                step(f.state,t.id(),GO,0);assertEquals(1.2,f.state.trains().get(t.id()).speed(),1e-12);
+            }
+            assertEquals(600*nativePerStep,8000000-c.remainingJ().doubleValue(),1e-6,mode.toString());
+        }
+    }
+    @Test void nativeFirstPoweredSpeedsAndBrakeStepRetainTheirMeasuredValues() {
+        var trace=nativePhysics();var f=new TrainTestFixture();var c=f.car(StockKind.LOCOMOTIVE,false);
+        c.fuel().orElseThrow().insert(0,"minetorio:coal",1,false);var t=f.train(50,0,Mode.MANUAL,c);
+        var first=trace.getAsJsonArray("first_powered");
+        for(int i=1;i<first.size();i++) {
+            step(f.state,t.id(),GO,0);assertEquals(first.get(i).getAsJsonObject().get("speed").getAsDouble(),f.state.trains().get(t.id()).speed(),1e-14);
+        }
+        var brake=trace.getAsJsonArray("brake");var before=brake.get(0).getAsJsonObject();var after=brake.get(1).getAsJsonObject();
+        for(String property:List.of("fuel","heat","energy","coal")) assertEquals(before.get(property),after.get(property));
+        var bf=new TrainTestFixture();var bc=bf.car(StockKind.LOCOMOTIVE,false);bc.setActiveFuel("minetorio:coal",BigDecimal.valueOf(100000));
+        var bt=bf.train(50,before.get("speed").getAsDouble(),Mode.MANUAL,bc);
+        step(bf.state,bt.id(),new Control(1,true,Turn.STRAIGHT),0);
+        assertEquals(after.get("speed").getAsDouble(),bf.state.trains().get(bt.id()).speed(),1e-12);
+        assertEquals(0,bc.remainingJ().compareTo(BigDecimal.valueOf(100000)));
     }
     @Test void reverseBrakesToZeroBeforeTractionBothSigns() {
         for(int sign:new int[]{-1,1}) {
@@ -48,6 +84,7 @@ class TrainMotionTest {
     @Test void manualReverseUsesPointSixAndAutomaticCannotReverseWithoutMover() {
         for(Mode mode:Mode.values()) {
             var f=new TrainTestFixture(); var car=f.car(StockKind.LOCOMOTIVE,false); car.setActiveFuel("minetorio:coal",new BigDecimal("100000")); var t=f.train(50,0,mode,car);
+            if(mode==Mode.AUTOMATIC) TrainReservationsTest.accept(f,t.id(),-1,0);
             step(f.state,t.id(),new Control(-1,false,Turn.STRAIGHT),0);
             assertEquals(mode==Mode.MANUAL?-0.003*0.99625:0,f.state.trains().get(t.id()).speed(),1e-14);
             assertEquals(mode==Mode.MANUAL?90000:100000,car.remainingJ().doubleValue());
@@ -57,7 +94,7 @@ class TrainMotionTest {
         var f=new TrainTestFixture(); var a=f.car(StockKind.LOCOMOTIVE,false); var b=f.car(StockKind.LOCOMOTIVE,true);
         a.setActiveFuel("minetorio:coal",new BigDecimal("100000")); b.setActiveFuel("minetorio:rocket_fuel",new BigDecimal("100000"));
         assertEquals(1.29,speedCap(List.of(a,b),Map.of()),1e-14);
-        var t=f.train(50,0,Mode.AUTOMATIC,a,b); step(f.state,t.id(),GO,0);
+        var t=f.train(50,0,Mode.AUTOMATIC,a,b); TrainReservationsTest.accept(f,t.id(),1,0); step(f.state,t.id(),GO,0);
         assertEquals(0.0025*(1-0.0075/4),f.state.trains().get(t.id()).speed(),1e-14);
         assertEquals(new BigDecimal("100000"),b.remainingJ());
     }
@@ -131,27 +168,26 @@ class TrainMotionTest {
         }
     }
 
-    @Test void sharedLambdaUsesEachLocomotivesOrderedFuelPortions() {
+    @Test void fullBudgetsUseEachLocomotivesOrderedFuelPortions() {
         var f=new TrainTestFixture(); var a=f.car(StockKind.LOCOMOTIVE,false); var b=f.car(StockKind.LOCOMOTIVE,false);
         a.setActiveFuel("minetorio:coal",new BigDecimal("5000")); a.fuel().get().insert(0,"minetorio:solid_fuel",1,false);
         b.setActiveFuel("minetorio:coal",new BigDecimal("100000"));
         var t=f.train(50,1.2,Mode.MANUAL,a,b);
-        // Независимый расчет: air=0.998125; u=1.19975; до 5000 J сила 0.002*J,
-        // далее сила 10 + 0.0022*(J-5000), целевая сила=(cap/air-u)*4000.
-        double need=(1.2/0.998125-1.19975)*4000;
-        double request=5000+(need-10)/0.0022;
+        // Модель mixed-fuel еще не измерена нативно: два полных бюджета по10000J.
+        // Первый дает5+6 единиц силы, второй10. Новый cap1.23 применяется после air.
+        double request=10000;
         step(f.state,t.id(),GO,0);
         double drawA=5000+12000000-a.remainingJ().doubleValue(), drawB=100000-b.remainingJ().doubleValue();
         assertEquals(request,drawA,1e-8); assertEquals(request,drawB,1e-8);
-        assertEquals(1.2,f.state.trains().get(t.id()).speed(),1e-12);
+        assertEquals((1.19975+21.0/4000)*0.998125,f.state.trains().get(t.id()).speed(),1e-12);
         assertEquals(1.23,speedCap(List.of(a,b),Map.of()),1e-12);
     }
     @Test void lowerFuelCapAppliesOnlyAfterAirAndDoesNotRefund() {
         var f=new TrainTestFixture(); var car=f.car(StockKind.LOCOMOTIVE,false);
         car.setActiveFuel("minetorio:solid_fuel",new BigDecimal("0.25")); car.fuel().get().insert(0,"minetorio:coal",1,false);
         var t=f.train(50,1.26,Mode.MANUAL,car); step(f.state,t.id(),GO,0);
-        // Запрос ограничен прежним cap; после смены топлива потраченная энергия не возвращается.
-        double request=(1.26/0.99625-1.25975)*2000000-0.05;
+        // При смене топлива cap меняется после air, полный бюджет не возвращается.
+        double request=10000;
         assertEquals(request,4000000.25-car.remainingJ().doubleValue(),1e-8);
         assertEquals(1.2,f.state.trains().get(t.id()).speed(),1e-12);
     }
@@ -174,12 +210,14 @@ class TrainMotionTest {
         var car = fixture.car(StockKind.LOCOMOTIVE, false);
         var train = automatic(fixture, car, 50, 0, Status.NO_SCHEDULE);
         var before = carPoses(fixture.state, train.id());
+        TrainReservationsTest.accept(fixture,train.id(),1,0);
         step(fixture.state, train.id(), GO, 0);
         var stopped = fixture.state.trains().get(train.id());
         assertEquals(Status.NO_FUEL, stopped.status());
         assertEquals(0, stopped.speed());
         assertEquals(before, carPoses(fixture.state, train.id()));
         car.fuel().orElseThrow().insert(0, "minetorio:coal", 1, false);
+        TrainReservationsTest.accept(fixture,train.id(),1,0);
         step(fixture.state, train.id(), GO, 0);
         assertEquals(Status.ON_THE_PATH, fixture.state.trains().get(train.id()).status());
         assertTrue(fixture.state.trains().get(train.id()).speed() > 0);
@@ -190,6 +228,7 @@ class TrainMotionTest {
             var car = fixture.car(StockKind.LOCOMOTIVE, false);
             var train = automatic(fixture, car, 50, sign * 0.003, Status.WAIT_SIGNAL);
             var control = new Control(explicitBrake ? sign : -sign, explicitBrake, Turn.STRAIGHT);
+            TrainReservationsTest.accept(fixture,train.id(),(int)sign,0);
             step(fixture.state, train.id(), control, 0);
             var stopped = fixture.state.trains().get(train.id());
             assertEquals(0, stopped.speed());
@@ -197,7 +236,7 @@ class TrainMotionTest {
             assertEquals(0, car.remainingJ().signum());
         }
     }
-    @Test void automaticActualTrackEndReportsMissingPathInBothDirections() {
+    @Test void automaticUnsafeInitialTrackEndWithoutAuthorityCannotMoveOrEraseSpeed() {
         for (double sign : new double[]{-1, 1}) for (double gap : new double[]{0, 0.01}) {
             var fixture = new TrainTestFixture();
             var car = fixture.car(StockKind.LOCOMOTIVE, sign < 0);
@@ -206,10 +245,27 @@ class TrainMotionTest {
                     sign * 0.1, Status.ON_THE_PATH);
             step(fixture.state, train.id(), new Control(sign, false, Turn.STRAIGHT), 0);
             var stopped = fixture.state.trains().get(train.id());
-            assertEquals(0, stopped.speed());
-            assertEquals(Status.NO_PATH, stopped.status());
-            assertEquals(sign > 0 ? -1196.5 : -3.5,
+            assertEquals(train,stopped);
+            assertEquals(new BigDecimal("100000"),car.remainingJ());
+            assertEquals(sign > 0 ? -1196.5 + gap : -3.5 - gap,
                     carPoses(fixture.state, train.id()).get(car.id()).position().z(), 1e-9);
+        }
+    }
+
+    @Test void automaticSafeApproachToTrackEndUsesRealBrakingInBothDirections() {
+        for(int sign:new int[]{-1,1}) {
+            var f=new TrainTestFixture(); var c=f.car(StockKind.LOCOMOTIVE,sign<0);
+            c.setActiveFuel("minetorio:coal",BigDecimal.valueOf(100000));
+            var t=automatic(f,c,sign>0?1190:10,sign*0.1,Status.ARRIVE_SIGNAL);
+            double expected=stoppingDistance(t,List.of(c),0),distance=0;
+            while(f.state.trains().get(t.id()).speed()!=0) {
+                TrainReservationsTest.accept(f,t.id(),sign,0);
+                step(f.state,t.id(),new Control(sign,true,Turn.STRAIGHT),0);
+                distance+=Math.abs(f.state.trains().get(t.id()).speed());
+            }
+            assertEquals(expected,distance,1e-9);
+            assertTrue(distance<6.5); assertEquals(BigDecimal.valueOf(100000),c.remainingJ());
+            assertEquals(Status.ON_THE_PATH,f.state.trains().get(t.id()).status());
         }
     }
 }

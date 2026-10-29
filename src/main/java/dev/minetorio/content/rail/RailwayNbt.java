@@ -2,6 +2,8 @@ package dev.minetorio.content.rail;
 
 import dev.minetorio.core.data.RailData.StockKind;
 import dev.minetorio.core.rail.RailSlots;
+import dev.minetorio.core.rail.RailSignals;
+import dev.minetorio.core.rail.TrainReservations;
 import dev.minetorio.core.rail.RailwayState;
 import dev.minetorio.core.rail.RailwayState.*;
 import java.math.BigDecimal;
@@ -12,7 +14,7 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 
 /** Строгая схема: груз никогда не обрезается и не пропускается при ошибке. */
 public final class RailwayNbt {
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
     private RailwayNbt() {}
 
     public static CompoundTag write(RailwayState state, HolderLookup.Provider registries) {
@@ -76,14 +78,30 @@ public final class RailwayNbt {
             tag.putLong("motionRevision", train.motionRevision());
             tag.putString("mode", train.mode().name());
             tag.putString("status", train.status().name());
-            // Задачи расписаний и сигналов заполнят эти части той же схемы.
+            // Расписания заполнят эти части той же схемы.
             tag.put("schedule", new ListTag());
             tag.put("runtime", new CompoundTag());
             trains.add(tag);
         }
         root.put("trains", trains);
         root.put("stops", new ListTag());
-        root.put("signals", new ListTag());
+        ListTag signals=new ListTag();
+        for(var signal:state.signalDefinitions()) {
+            CompoundTag item=new CompoundTag();
+            item.putUUID("id",signal.id()); item.putUUID("piece",signal.boundary().piece());
+            item.putString("end",signal.boundary().end().name()); item.putBoolean("intoPiece",signal.intoPiece());
+            item.putString("kind",signal.kind().name()); signals.add(item);
+        }
+        root.put("signals",signals);
+        root.putLong("networkRevision",state.signals().revision());
+        ListTag corridors=new ListTag();
+        for(var corridor:TrainReservations.brakingCorridors(state)) {
+            CompoundTag item=new CompoundTag();item.putUUID("train",corridor.trainId());
+            item.putInt("travelSign",corridor.travelSign());item.putDouble("brakingBonus",corridor.brakingBonus());
+            item.putDouble("distance",corridor.distance());ListTag route=new ListTag();
+            corridor.route().forEach(step->route.add(writeTraversal(step)));item.put("route",route);corridors.add(item);
+        }
+        root.put("brakingCorridors",corridors);
         // В том числе запрещает записывать ключи, потерявшие регистрацию предмета/компонента.
         read(root, registries);
         return root;
@@ -118,9 +136,9 @@ public final class RailwayNbt {
     static RailwayState read(CompoundTag tag, HolderLookup.Provider registries, Runnable changed) {
         require(tag, "schemaVersion", Tag.TAG_INT, "root");
         int schema = tag.getInt("schemaVersion");
-        if (schema != 1 && schema != SCHEMA_VERSION) throw invalid("root.schemaVersion", "Неподдерживаемая версия " + tag.getInt("schemaVersion"));
+        if (schema != 1 && schema != 2 && schema != SCHEMA_VERSION) throw invalid("root.schemaVersion", "Неподдерживаемая версия " + tag.getInt("schemaVersion"));
         emptyList(tag, "stops", "root");
-        emptyList(tag, "signals", "root");
+        if(schema<3) emptyList(tag, "signals", "root");
         RailwayState state = new RailwayState(key -> RailItemKeys.limit(key, registries), changed);
         List<Piece> pieces = new ArrayList<>();
         ListTag rails = list(tag, "rails", "root");
@@ -187,7 +205,7 @@ public final class RailwayNbt {
                     CompoundTag cursor = compound(train, "head", context);
                     if (!cursor.isEmpty()) head = Optional.of(new Cursor(readTraversal(cursor, context + ".head"), number(cursor, "distance", context)));
                     for (Tag step : list(train, "tape", context)) tape.add(readTraversal((CompoundTag) step, context + ".tape"));
-                    if (schema == 2) headIndex = integer(train, "headIndex", context);
+                    if (schema >= 2) headIndex = integer(train, "headIndex", context);
                     else if (head.isPresent()) {
                         for (int j=0;j<tape.size();j++) if (tape.get(j).equals(head.get().traversal())) {
                             if (headIndex != -1) throw invalid(context, "Неоднозначный проход головы");
@@ -203,6 +221,32 @@ public final class RailwayNbt {
                 }
                 state.createTrain(new Train(id, members, head, headIndex, tape, speed, mode, status, routeRevision, consistRevision, motionRevision));
             } catch (RuntimeException error) { throw invalid(context, error); }
+        }
+        if(schema>=3) {
+            List<RailSignals.Signal> definitions=new ArrayList<>();
+            ListTag signals=list(tag,"signals","root");
+            for(int i=0;i<signals.size();i++) {
+                String context="signals["+i+"]"; CompoundTag signal=signals.getCompound(i);
+                try {
+                    definitions.add(new RailSignals.Signal(uuid(signal,"id",context),
+                            new Port(uuid(signal,"piece",context),End.valueOf(string(signal,"end",context))),
+                            bool(signal,"intoPiece",context),RailSignals.Kind.valueOf(string(signal,"kind",context))));
+                } catch(RuntimeException error) { throw invalid(context,error); }
+            }
+            try { state.replaceSignals(definitions); } catch(RuntimeException error) { throw invalid("signals",error); }
+            state.restoreNetworkRevision(revision(tag,"networkRevision","root"));
+            List<TrainReservations.BrakingCorridor> corridors=new ArrayList<>();
+            ListTag savedCorridors=list(tag,"brakingCorridors","root");
+            for(int i=0;i<savedCorridors.size();i++) {
+                String context="brakingCorridors["+i+"]";CompoundTag item=savedCorridors.getCompound(i);
+                try {
+                    List<Traversal> route=new ArrayList<>();
+                    for(Tag step:list(item,"route",context)) route.add(readTraversal((CompoundTag)step,context+".route"));
+                    corridors.add(new TrainReservations.BrakingCorridor(uuid(item,"train",context),integer(item,"travelSign",context),
+                            number(item,"brakingBonus",context),number(item,"distance",context),route));
+                } catch(RuntimeException error) { throw invalid(context,error); }
+            }
+            try { TrainReservations.restoreBrakingCorridors(state,corridors); } catch(RuntimeException error) { throw invalid("brakingCorridors",error); }
         }
         return state;
     }
