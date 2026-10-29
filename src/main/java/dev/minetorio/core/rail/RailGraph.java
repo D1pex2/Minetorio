@@ -26,12 +26,14 @@ public final class RailGraph {
     private Map<Traversal, List<Traversal>> transitions = Map.of();
     private Map<UUID, Set<UUID>> conflicts = Map.of();
     private long revision;
+    private boolean readOnly;
 
     public RailGraph(Collection<Piece> pieces) {
         rebuild(pieces);
     }
 
     public void rebuild(Collection<Piece> input) {
+        if (readOnly) throw new UnsupportedOperationException("Снимок графа доступен только для чтения");
         List<Piece> ordered = input.stream().sorted(Comparator.comparing(Piece::id)).toList();
         Map<UUID, Piece> newPieces = new HashMap<>();
         Map<Node, List<Port>> nodes = new HashMap<>();
@@ -93,6 +95,17 @@ public final class RailGraph {
     public long revision() {
         return revision;
     }
+
+    private RailGraph(RailGraph source) {
+        pieces = source.pieces;
+        transitions = source.transitions;
+        conflicts = source.conflicts;
+        revision = source.revision;
+        readOnly = true;
+    }
+
+    /** Дешевый неизменяемый снимок с той же ревизией и готовыми таблицами. */
+    public RailGraph snapshot() { return new RailGraph(this); }
 
     public Optional<Piece> piece(UUID id) {
         return Optional.ofNullable(pieces.get(id));
