@@ -54,3 +54,5 @@
 - Computer Use window capture failed; latest UI rendering still needs a real visual playtest. No claim of visual acceptance.
 
 - Final checkpoint verification: 565 unit tests (0 failures/errors/skips), all 332 required GameTests passed, build successful.
+
+- Separate fresh local clone verified with the documented default Wrapper command (no .superpowers init files): 565 unit tests and all 332 GameTests passed, build successful. Existing machine dependency caches were reused.
