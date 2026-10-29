@@ -14,6 +14,7 @@
     "minecraft:clay",
     "minecraft:sandstone",
     "minecraft:red_sandstone",
-    "minecraft:snow_block"
+    "minecraft:snow_block",
+    "#minetorio:nauvis_ground"
   ]
 }

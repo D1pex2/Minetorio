@@ -1,0 +1,78 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minetorio:block/dry_tree_bark",
+    "bark": "minetorio:block/dry_tree_bark",
+    "top": "minetorio:block/dry_tree_bark_top"
+  },
+  "elements": [
+    {
+      "from": [
+        5.5,
+        0,
+        5.5
+      ],
+      "to": [
+        10.5,
+        16,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#bark",
+          "uv": [
+            5.5,
+            0,
+            10.5,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#bark",
+          "uv": [
+            5.5,
+            0,
+            10.5,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#bark",
+          "uv": [
+            5.5,
+            0,
+            10.5,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#bark",
+          "uv": [
+            5.5,
+            0,
+            10.5,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#top",
+          "uv": [
+            5.5,
+            5.5,
+            10.5,
+            10.5
+          ]
+        },
+        "down": {
+          "texture": "#top",
+          "uv": [
+            5.5,
+            5.5,
+            10.5,
+            10.5
+          ]
+        }
+      }
+    }
+  ]
+}

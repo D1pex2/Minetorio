@@ -113,9 +113,14 @@ public class DemoWorldBuild {
     // --- packing (after the server saved and stopped) ------------------------------------------------
 
     private static void pack(MinecraftServer server, Path out) {
+        pack(server,out,FEET);
+    }
+
+    /** Also packs the real terrain dedicated-server showcase without touching a player save. */
+    public static void pack(MinecraftServer server, Path out, BlockPos feet) {
         Path world = server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
         try {
-            patchLevelDat(server, world.resolve("level.dat"));
+            patchLevelDat(server, world.resolve("level.dat"),feet);
             zip(world, out.toAbsolutePath());
             LOGGER.info("Demo world written to {}", out.toAbsolutePath());
         } catch (IOException e) {
@@ -124,10 +129,10 @@ public class DemoWorldBuild {
     }
 
     /** Turns the GameTest server's level.dat into the demo world's. */
-    private static void patchLevelDat(MinecraftServer server, Path file) throws IOException {
+    private static void patchLevelDat(MinecraftServer server, Path file,BlockPos feet) throws IOException {
         CompoundTag root = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
         CompoundTag data = root.getCompound("Data");
-        BlockPos in = DemoBuilder.layout(DemoBuilder.originAround(FEET)).entrance();
+        BlockPos in = DemoBuilder.layout(DemoBuilder.originAround(feet)).entrance();
         data.putString("LevelName", WORLD_NAME);
         data.putInt("GameType", 1); // creative
         data.putBoolean("allowCommands", true);
@@ -212,7 +217,7 @@ public class DemoWorldBuild {
         if (name.endsWith(".mca")) {
             // only the Overworld's regions around the origin (the showcase); other dimensions have none worth keeping
             return rel.getNameCount() == 2 && (top.equals("region") || top.equals("entities") || top.equals("poi"))
-                    && KEPT_REGION.matcher(name).matches();
+                    && (System.getProperty("minetorio.nauvisDemo.out")!=null || KEPT_REGION.matcher(name).matches());
         }
         return true;
     }

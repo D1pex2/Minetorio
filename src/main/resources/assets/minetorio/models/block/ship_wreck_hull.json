@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "side": "minetorio:block/ship_wreck_hull_side",
+    "top": "minetorio:block/ship_wreck_hull_top",
+    "bottom": "minetorio:block/ship_wreck_hull_top"
+  }
+}

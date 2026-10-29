@@ -161,7 +161,10 @@ public class PipeBlock extends BaseEntityBlock {
     /** Shift + right-click with an empty hand: toggles the side that was clicked. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!player.isSecondaryUseActive()) return InteractionResult.PASS;
+        if (!player.isSecondaryUseActive()) {
+            dev.minetorio.content.machineui.MachineUi.open(player, level.getBlockEntity(pos));
+            return InteractionResult.sidedSuccess(level.isClientSide());
+        }
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         toggle(level, pos, clickedSide(pos, hit.getLocation()), player);
         return InteractionResult.CONSUME;

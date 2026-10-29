@@ -119,7 +119,9 @@ public final class HandcraftQueue {
         return rest;
     }
 
-    public void tick(Inventory inv) {
+    public void tick(Inventory inv) {tick(inv,recipe->{});}
+
+    public void tick(Inventory inv,java.util.function.Consumer<Recipe> completed) {
         if (slots.isEmpty()) return;
         Slot s = slots.get(0);
         flush(s.pending, inv);
@@ -142,6 +144,7 @@ public final class HandcraftQueue {
                 }
                 Map<String, Integer> target = isTop ? s.pending : s.reserve;
                 for (Ingredient o : r.outputs()) target.merge(o.item(), o.count(), Integer::sum);
+                completed.accept(r);
                 s.stepIndex++;
                 s.stepTicks = 0;
                 if (s.stepIndex >= s.steps.size()) {

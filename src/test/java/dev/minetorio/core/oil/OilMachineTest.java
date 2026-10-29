@@ -26,9 +26,9 @@ class OilMachineTest {
     @Test void chemicalCraftConsumesAtomicallyAndSurvivesSave() {
         OilMachine m = new OilMachine(1, 10500);
         m.setRecipe(OilData.recipe("plastic_bar"));
-        m.insertInput("minecraft:coal", 1, false);
+        m.insertInput("minetorio:coal", 1, false);
         m.tick(1);
-        assertEquals(Map.of("minecraft:coal",1), m.inputs());
+        assertEquals(Map.of("minetorio:coal",1), m.inputs());
         m.inputFluid("petroleum_gas").insert("petroleum_gas", 20);
         m.tick(0);
         assertFalse(m.isCrafting());
@@ -92,8 +92,13 @@ class OilMachineTest {
         m.setRecipe(OilData.recipe("fill_water_barrel"));
         m.insertInput("minetorio:empty_barrel",20,false);
         m.inputFluid("water").insert("water",1000);
-        for(int i=0;i<80;i++) m.tick(1);
-        assertEquals(15,m.extractOutput("minetorio:water_barrel",64));
+        int produced = 0;
+        for(int i=0;i<80;i++) {
+            m.insertInput("minetorio:empty_barrel",20,false);
+            m.tick(1);
+            produced += m.extractOutput("minetorio:water_barrel",10);
+        }
+        assertEquals(15,produced);
     }
 
     @Test void refineryHasOneHundredUnitOutputBuffersAndRejectsOverfullSavedState() {
@@ -118,10 +123,10 @@ class OilMachineTest {
     @Test void explicitRecipeChangeRefundsCancelledItemsButNeverRefundsConsumedFluid() {
         OilMachine m=new OilMachine(1,1,100);
         m.setRecipe(OilData.recipe("plastic_bar"));
-        m.insertInput("minecraft:coal",3,false);
+        m.insertInput("minetorio:coal",3,false);
         m.inputFluid("petroleum_gas").insert("petroleum_gas",60);
         m.tick(1);
-        assertEquals(Map.of("minecraft:coal",3),m.changeRecipe(OilData.recipe("sulfur")));
+        assertEquals(Map.of("minetorio:coal",3),m.changeRecipe(OilData.recipe("sulfur")));
         assertEquals(40,m.inputFluid("petroleum_gas").amount());
         assertFalse(m.isCrafting());
         assertEquals(0,m.progress());
@@ -133,10 +138,10 @@ class OilMachineTest {
     @Test void explicitRecipeChangeReturnsFinishedOutputsAlongsideInFlightItems() {
         OilMachine m=new OilMachine(1,1);
         m.setRecipe(OilData.recipe("plastic_bar"));
-        m.insertInput("minecraft:coal",2,false);
+        m.insertInput("minetorio:coal",2,false);
         m.inputFluid("petroleum_gas").insert("petroleum_gas",40);
         for(int i=0;i<21;i++)m.tick(1);
-        assertEquals(Map.of("minecraft:coal",1,"minetorio:plastic_bar",2),m.changeRecipe(null));
+        assertEquals(Map.of("minetorio:coal",1,"minetorio:plastic_bar",2),m.changeRecipe(null));
         assertTrue(m.inputs().isEmpty());assertTrue(m.outputs().isEmpty());
         assertNull(m.recipe());assertFalse(m.isCrafting());
     }

@@ -19,12 +19,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-/**
- * Lab controller (3×3×2). No GUI: right-click (any piece) with science packs inserts them by hand
- * (up to 64 of each); right-click otherwise shows the stored packs and the current research in the
- * action bar. Its block model is empty (particle only): body and dome are drawn by a block entity
- * renderer (R19).
- */
+/** Laboratory controller with manual pack insertion and a live slot window. */
 public class LabBlock extends MultiblockControllerBlock {
     public static final MapCodec<LabBlock> CODEC = simpleCodec(LabBlock::new);
 
@@ -59,7 +54,7 @@ public class LabBlock extends MultiblockControllerBlock {
         if (!(level.getBlockEntity(pos) instanceof LabBlockEntity be)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         int n = be.insertManually(stack);
         if (n > 0) stack.consume(n, player);
-        player.displayClientMessage(be.status(), true);
+        dev.minetorio.content.machineui.MachineUi.open(player, be);
         return ItemInteractionResult.CONSUME;
     }
 
@@ -67,7 +62,7 @@ public class LabBlock extends MultiblockControllerBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         if (!(level.getBlockEntity(pos) instanceof LabBlockEntity be)) return InteractionResult.PASS;
-        player.displayClientMessage(be.status(), true);
+        dev.minetorio.content.machineui.MachineUi.open(player, be);
         return InteractionResult.CONSUME;
     }
 }

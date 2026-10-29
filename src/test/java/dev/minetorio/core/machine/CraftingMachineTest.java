@@ -45,7 +45,7 @@ class CraftingMachineTest {
         CraftingMachine m = assembler1();
         assertEquals(4, m.insertInput(IRON, 10, true));
         assertEquals(0, m.insertInput(IRON, 1, true));
-        assertEquals(60, m.insertInput(IRON, 100, false));
+        assertEquals(96, m.insertInput(IRON, 100, false));
     }
 
     @Test void rejectsNonIngredient() {
@@ -56,17 +56,17 @@ class CraftingMachineTest {
 
     @Test void blocksWhenOutputFull() {
         CraftingMachine m = assembler1();
-        while (m.outputs().getOrDefault(GEAR, 0) < 64) {
+        while (m.outputs().getOrDefault(GEAR, 0) < 100) {
             m.insertInput(IRON, 64, false);
             m.tick(1.0);
         }
-        assertEquals(64, m.outputs().get(GEAR));
+        assertEquals(100, m.outputs().get(GEAR));
         m.insertInput(IRON, 4, false);
         double p = m.progress();
         assertEquals(0L, m.powerDemand());
         m.tick(1.0);
         assertEquals(p, m.progress());
-        assertEquals(64, m.outputs().get(GEAR));
+        assertEquals(100, m.outputs().get(GEAR));
         assertEquals(10, m.extractOutput(GEAR, 10));
         assertEquals(Units.kw(75), m.powerDemand());
     }
@@ -82,7 +82,7 @@ class CraftingMachineTest {
 
     @Test void smelterPicksRecipeFromInput() {
         CraftingMachine m = CraftingMachine.smelter(1.0, Units.kw(90), book);
-        assertEquals(1, m.insertInput("minecraft:raw_iron", 1, false));
+        assertEquals(1, m.insertInput("minetorio:iron_ore", 1, false));
         for (int i = 0; i < 63; i++) m.tick(1.0);
         assertTrue(m.outputs().isEmpty());
         m.tick(1.0);
@@ -91,18 +91,18 @@ class CraftingMachineTest {
 
     @Test void smelterRejectsOtherOreWhileBusy() {
         CraftingMachine m = CraftingMachine.smelter(1.0, Units.kw(90), book);
-        m.insertInput("minecraft:raw_iron", 1, false);
-        assertEquals(0, m.insertInput("minecraft:raw_copper", 1, false));
+        m.insertInput("minetorio:iron_ore", 1, false);
+        assertEquals(0, m.insertInput("minetorio:copper_ore", 1, false));
         m.tick(1.0); // craft in progress, inputs empty
-        assertEquals(0, m.insertInput("minecraft:raw_copper", 1, false));
+        assertEquals(0, m.insertInput("minetorio:copper_ore", 1, false));
     }
 
     @Test void smelterSwitchesRecipeWhenEmpty() {
         CraftingMachine m = CraftingMachine.smelter(1.0, Units.kw(90), book);
-        m.insertInput("minecraft:raw_iron", 1, false);
+        m.insertInput("minetorio:iron_ore", 1, false);
         for (int i = 0; i < 64; i++) m.tick(1.0);
         assertEquals(1, m.extractOutput(IRON, 10));
-        assertEquals(1, m.insertInput("minecraft:raw_copper", 1, false));
+        assertEquals(1, m.insertInput("minetorio:copper_ore", 1, false));
     }
 
     @Test void recipeChangeRefundsInputsAndInFlightCraft() {
@@ -131,13 +131,13 @@ class CraftingMachineTest {
         CraftingMachine m = new CraftingMachine(0.75, Units.kw(150));
         m.setRecipe(gearRecipe());
         int inserted = 0, extracted = 0;
-        for (int i = 0; i < 1000; i++) { // output fills to 64 and blocks
+        for (int i = 0; i < 1400; i++) { // output fills to its actual 100-item stack and blocks
             inserted += m.insertInput(IRON, 64, false);
             m.tick(1.0);
         }
-        assertEquals(64, m.outputs().get(GEAR));
+        assertEquals(100, m.outputs().get(GEAR));
         assertEquals(0L, m.powerDemand());
-        extracted += m.extractOutput(GEAR, 64);
+        extracted += m.extractOutput(GEAR, 100);
         for (int i = 0; i < 200; i++) {
             inserted += m.insertInput(IRON, 64, false);
             m.tick(1.0);
@@ -151,23 +151,23 @@ class CraftingMachineTest {
     @Test void inputRoomMatchesInsertInput() {
         CraftingMachine m = assembler1();
         assertEquals(4, m.inputRoom(IRON, true));
-        assertEquals(64, m.inputRoom(IRON, false));
+        assertEquals(100, m.inputRoom(IRON, false));
         assertEquals(0, m.inputRoom("minecraft:dirt", false));
         m.insertInput(IRON, 3, true);
         assertEquals(1, m.inputRoom(IRON, true));
-        assertEquals(61, m.inputRoom(IRON, false));
+        assertEquals(97, m.inputRoom(IRON, false));
         assertEquals(0, new CraftingMachine(0.5, Units.kw(75)).inputRoom(IRON, false)); // no recipe
     }
 
     @Test void smelterInputRoomFollowsRecipeSwitchRules() {
         CraftingMachine m = CraftingMachine.smelter(1.0, Units.kw(90), book);
-        assertEquals(4, m.inputRoom("minecraft:cobblestone", true)); // idle: would switch to stone_brick (2 per craft)
-        assertEquals(2, m.inputRoom("minecraft:raw_iron", true));
+        assertEquals(4, m.inputRoom("minetorio:stone", true)); // idle: would switch to stone_brick (2 per craft)
+        assertEquals(2, m.inputRoom("minetorio:iron_ore", true));
         assertEquals(0, m.inputRoom("minecraft:dirt", true));
-        m.insertInput("minecraft:raw_iron", 1, true);
-        assertEquals(1, m.inputRoom("minecraft:raw_iron", true));
-        assertEquals(0, m.inputRoom("minecraft:raw_copper", false)); // busy with iron
-        assertEquals(book.get("iron_plate_from_raw_iron").orElseThrow(), m.recipe());
+        m.insertInput("minetorio:iron_ore", 1, true);
+        assertEquals(1, m.inputRoom("minetorio:iron_ore", true));
+        assertEquals(0, m.inputRoom("minetorio:copper_ore", false)); // busy with iron
+        assertEquals(book.get("iron_plate").orElseThrow(), m.recipe());
     }
 
     @Test void extractInputTakesBackStoredInputs() {

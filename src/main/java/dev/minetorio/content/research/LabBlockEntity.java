@@ -77,6 +77,7 @@ public class LabBlockEntity extends MultiblockControllerBlockEntity implements M
 
     public LabBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.LAB.get(), pos, state);
+        lab.onUnitCompleted(packs->packs.forEach((id,n)->dev.minetorio.content.stats.Statistics.record(getLevel(),id,0,n)));
     }
 
     public LabLogic lab() { return lab; }

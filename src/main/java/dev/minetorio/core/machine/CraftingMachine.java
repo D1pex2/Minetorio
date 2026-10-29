@@ -1,5 +1,7 @@
 package dev.minetorio.core.machine;
 
+import dev.minetorio.core.item.ItemStackSizes;
+
 import dev.minetorio.core.recipe.Ingredient;
 import dev.minetorio.core.recipe.Recipe;
 import dev.minetorio.core.recipe.RecipeBook;
@@ -13,7 +15,9 @@ import java.util.Optional;
  * satisfaction (0..1) each tick, e.g. an electric network ratio or a {@link Burner#draw()} result.
  */
 public final class CraftingMachine {
-    private static final int STACK_LIMIT = 64;
+    private java.util.function.Consumer<Recipe> completed=recipe->{};
+    /** Receives completed batches only; starting, blocked ticks and canceled crafts emit nothing. */
+    public void onCraftCompleted(java.util.function.Consumer<Recipe> listener) {completed=java.util.Objects.requireNonNull(listener);}
     private static final double EPS = 1e-9;
 
     private final double speed;
@@ -91,7 +95,7 @@ public final class CraftingMachine {
         for (Ingredient in : r.inputs()) if (in.item().equals(item)) need = in.count();
         if (need == 0) return 0;
         int have = r == recipe ? inputs.getOrDefault(item, 0) : 0;
-        int limit = automated ? 2 * need : STACK_LIMIT;
+        int limit = automated ? 2 * need : ItemStackSizes.limit(item);
         return Math.max(0, limit - have);
     }
 
@@ -157,7 +161,7 @@ public final class CraftingMachine {
 
     private boolean outputHasRoom() {
         for (Ingredient out : recipe.outputs())
-            if (outputs.getOrDefault(out.item(), 0) + out.count() > STACK_LIMIT) return false;
+            if (outputs.getOrDefault(out.item(), 0) + out.count() > ItemStackSizes.limit(out.item())) return false;
         return true;
     }
 
@@ -185,6 +189,7 @@ public final class CraftingMachine {
         progress += satisfaction * speed / recipe.ticks();
         if (progress >= 1.0 - EPS) {
             for (Ingredient out : recipe.outputs()) outputs.merge(out.item(), out.count(), Integer::sum);
+            completed.accept(recipe);
             crafting = false;
             double carry = progress - 1.0;
             progress = carry > EPS ? carry : 0;

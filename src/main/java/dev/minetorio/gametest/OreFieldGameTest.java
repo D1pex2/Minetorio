@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.dropped;
 
 import dev.minetorio.Minetorio;
@@ -75,7 +76,11 @@ public class OreFieldGameTest {
         ServerPlayer player = miner(h, new ItemStack(Items.IRON_PICKAXE));
         BlockPos rel = new BlockPos(4, 1, 4), abs = h.absolutePos(rel);
         OreFields.place(h.getLevel(), abs, OreType.IRON, 3);
+        var ledger = dev.minetorio.content.stats.Statistics.get(h.getLevel().getServer()).ledger();
+        double before = ledger.totals().getOrDefault("minetorio:iron_ore", new dev.minetorio.core.stats.ProductionLedger.Counts(0,0)).produced();
         player.gameMode.destroyBlock(abs);
+        double after = ledger.totals().getOrDefault("minetorio:iron_ore", new dev.minetorio.core.stats.ProductionLedger.Counts(0,0)).produced();
+        h.assertTrue(after == before + 1, "manual ore production not recorded");
         h.assertTrue(!player.isCreative(), "miner kept creative mode");
         h.assertTrue(OreFields.remaining(h.getLevel(), abs) == 2, "field did not survive one mining operation");
         h.assertTrue(dropped(h, ModItems.IRON_ORE.get()) == 1, "survival mining did not drop iron ore");
@@ -130,8 +135,8 @@ public class OreFieldGameTest {
         }
         h.assertTrue(dropped(h, ModItems.IRON_ORE.get()) == 1, "iron ore count=" + dropped(h, ModItems.IRON_ORE.get()));
         h.assertTrue(dropped(h, ModItems.COPPER_ORE.get()) == 1, "copper ore count=" + dropped(h, ModItems.COPPER_ORE.get()));
-        h.assertTrue(dropped(h, Items.COAL) == 1, "coal count=" + dropped(h, Items.COAL));
-        h.assertTrue(dropped(h, Items.COBBLESTONE) == 1, "cobblestone count=" + dropped(h, Items.COBBLESTONE));
+        h.assertTrue(dropped(h, BaseMaterials.COAL.get()) == 1, "coal count=" + dropped(h, BaseMaterials.COAL.get()));
+        h.assertTrue(dropped(h, BaseMaterials.STONE.get()) == 1, "cobblestone count=" + dropped(h, BaseMaterials.STONE.get()));
         h.assertTrue(h.getEntities(EntityType.ITEM).size() == 4, "other drops");
         h.succeed();
     }

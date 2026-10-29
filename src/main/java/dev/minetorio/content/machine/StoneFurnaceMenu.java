@@ -19,9 +19,9 @@ public class StoneFurnaceMenu extends MachineMenu {
     public StoneFurnaceMenu(int id, Inventory inventory, MachineContainer furnace, ContainerData data) {
         super(ModMenus.STONE_FURNACE.get(), id, furnace, data, StoneFurnaceBlockEntity.DATA_COUNT);
         addMachineSlot(new MachineSlot(furnace, FUEL_SLOT, 56, 53));
-        addMachineSlot(new MachineSlot(furnace, INPUT_SLOT, 56, 17));
+        addMachineSlot(new MachineSlot(furnace, INPUT_SLOT, 56, 25));
         addMachineSlot(new MachineSlot(furnace, StoneFurnaceBlockEntity.OUTPUT_SLOT, 116, 35));
-        addPlayerInventory(inventory, 8, 84);
+        addPlayerInventory(inventory, 210, 32);
     }
 
     /** Client side: contents arrive through the menu sync; {@code room} is a prediction. */
@@ -31,7 +31,7 @@ public class StoneFurnaceMenu extends MachineMenu {
             String item = MachineItems.id(stack);
             boolean allowed = slot == FUEL_SLOT ? Phase1Data.fuelValues().containsKey(item)
                     : slot == INPUT_SLOT && Phase1Data.recipes().smeltingFor(item).isPresent();
-            return allowed ? 64 : 0; // capped to a stack by MachineSlot
+            return allowed ? dev.minetorio.core.item.ItemStackSizes.limit(item) : 0; // capped to a stack by MachineSlot
         });
         return new StoneFurnaceMenu(id, inventory, container, new SimpleContainerData(StoneFurnaceBlockEntity.DATA_COUNT));
     }

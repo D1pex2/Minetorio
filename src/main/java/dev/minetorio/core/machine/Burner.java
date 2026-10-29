@@ -1,17 +1,21 @@
 package dev.minetorio.core.machine;
 
+import dev.minetorio.core.item.ItemStackSizes;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Fuel slot that supplies energy to a burner machine, burning fuel as needed. */
 public final class Burner {
     private static final int AUTOMATED_FUEL_LIMIT = 5;
-    private static final int STACK_LIMIT = 64;
 
     private final long powerPerTickJ;
     private final Map<String, Long> fuelValues;
     private final Map<String, Integer> fuel = new LinkedHashMap<>();
     private long remainingJ;
+    private java.util.function.Consumer<String> fuelBurned = item -> {};
+
+    public void onFuelBurned(java.util.function.Consumer<String> listener) { fuelBurned = listener == null ? item -> {} : listener; }
 
     public Burner(long powerPerTickJ, Map<String, Long> fuelValues) {
         this.powerPerTickJ = powerPerTickJ;
@@ -29,7 +33,7 @@ public final class Burner {
     /** How many of {@code item} {@link #insertFuel} would accept right now (0 if it is not a fuel). */
     public int fuelRoom(String item, boolean automated) {
         if (!fuelValues.containsKey(item)) return 0;
-        int limit = automated ? AUTOMATED_FUEL_LIMIT : STACK_LIMIT;
+        int limit = automated ? AUTOMATED_FUEL_LIMIT : ItemStackSizes.limit(item);
         return Math.max(0, limit - fuel.getOrDefault(item, 0));
     }
 
@@ -63,7 +67,9 @@ public final class Burner {
         for (var it = fuel.entrySet().iterator(); it.hasNext(); ) {
             var e = it.next();
             remainingJ += fuelValues.get(e.getKey());
+            String burnedItem = e.getKey();
             if (e.getValue() == 1) it.remove(); else e.setValue(e.getValue() - 1);
+            fuelBurned.accept(burnedItem);
             return true;
         }
         return false;
@@ -77,7 +83,7 @@ public final class Burner {
     public void load(Map<String, Integer> savedFuel, long savedRemainingJ) {
         fuel.clear();
         savedFuel.forEach((item, count) -> {
-            if (count != null && count > 0 && fuelValues.containsKey(item)) fuel.put(item, Math.min(count, STACK_LIMIT));
+            if (count != null && count > 0 && fuelValues.containsKey(item)) fuel.put(item, Math.min(count, ItemStackSizes.limit(item)));
         });
         remainingJ = Math.max(0, savedRemainingJ);
     }

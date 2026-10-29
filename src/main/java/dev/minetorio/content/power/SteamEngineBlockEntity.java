@@ -36,7 +36,9 @@ public class SteamEngineBlockEntity extends SteamMachineBlockEntity {
 
         @Override
         public void produce(long joules) {
+            double before=engine.steam().amount();
             engine.produce(joules);
+            dev.minetorio.content.stats.Statistics.record(getLevel(),"fluid:steam",0,before-engine.steam().amount());
             produced += joules;
             if (joules > 0) setChanged();
         }

@@ -32,10 +32,8 @@ public class InserterFilterMenu extends AbstractContainerMenu {
         super(ModMenus.FILTER_INSERTER.get(), id);
         this.pos = pos;
         this.inserter = inventory.player.level().getBlockEntity(pos) instanceof InserterBlockEntity be ? be : null;
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
-        }
-        for (int col = 0; col < 9; col++) addSlot(new Slot(inventory, col, 8 + col * 18, INVENTORY_Y + 58));
+        var main=dev.minetorio.content.character.CharacterInventory.main(inventory);
+        for(int row=0;row<8;row++)for(int col=0;col<10;col++)addSlot(new Slot(main,row*10+col,210+col*18,32+row*18));
     }
 
     public static InserterFilterMenu client(int id, Inventory inventory, RegistryFriendlyByteBuf extra) {
@@ -60,7 +58,7 @@ public class InserterFilterMenu extends AbstractContainerMenu {
     @Override
     public boolean clickMenuButton(Player player, int id) {
         InserterBlockEntity be = inserter();
-        if (be == null || be.filter() == null) return false;
+        if (!stillValid(player) || player.isSpectator() || be == null || be.filter() == null) return false;
         if (id == BUTTON_TOGGLE_MODE) {
             be.setBlacklist(!be.filter().isBlacklist());
             return true;

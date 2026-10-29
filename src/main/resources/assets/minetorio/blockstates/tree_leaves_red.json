@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "minetorio:block/tree_leaves_red"
+      },
+      {
+        "model": "minetorio:block/tree_leaves_red",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/tree_leaves_red",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/tree_leaves_red",
+        "y": 270
+      }
+    ]
+  }
+}

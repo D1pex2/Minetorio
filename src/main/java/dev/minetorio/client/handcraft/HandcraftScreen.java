@@ -1,6 +1,7 @@
 package dev.minetorio.client.handcraft;
 
 import dev.minetorio.client.ModKeys;
+import dev.minetorio.client.gui.FactoryTheme;
 import dev.minetorio.content.robot.GhostPayloads;
 import dev.minetorio.client.handcraft.HandcraftGroups.Group;
 import dev.minetorio.content.handcraft.ClientHandcraft;
@@ -198,8 +199,9 @@ public class HandcraftScreen extends Screen {
             Group grp = Group.values()[i];
             int x = left + PAD + i * tabWidth();
             int y = tabTop();
-            g.fill(x, y, x + tabWidth() - 2, y + TAB_H, grp == selected ? PANEL_BORDER : grp == hoveredTab ? HOVER : TAB);
-            g.fill(x + 1, y + 1, x + tabWidth() - 3, y + TAB_H - 1, grp == selected ? TAB_SELECTED : TAB);
+            FactoryTheme.inset(g, x, y, tabWidth() - 2, TAB_H);
+            g.fill(x + 1, y + 1, x + tabWidth() - 3, y + 2,
+                    grp == selected ? FactoryTheme.ACCENT : grp == hoveredTab ? FactoryTheme.TEXT : FactoryTheme.MUTED);
             g.renderItem(MachineItems.stack(grp.icon, 1), x + (tabWidth() - 2 - 16) / 2, y + 4);
         }
 
@@ -251,8 +253,9 @@ public class HandcraftScreen extends Screen {
     }
 
     private static void drawSlot(GuiGraphics g, int x, int y, int fill, boolean hovered) {
-        g.fill(x, y, x + 18, y + 18, hovered ? HOVER : 0xFF15171B);
-        g.fill(x + 1, y + 1, x + 17, y + 17, fill);
+        FactoryTheme.slot(g, x, y);
+        if (fill == SLOT_NONE) g.fill(x + 1, y + 1, x + 17, y + 17, 0x703D1111);
+        if (hovered) g.fill(x + 1, y + 1, x + 17, y + 17, 0x50FFFFFF);
     }
 
     /** Thin progress bar (used by the HUD too). */

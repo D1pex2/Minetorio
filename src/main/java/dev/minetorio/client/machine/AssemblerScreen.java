@@ -14,7 +14,8 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import dev.minetorio.client.gui.FactoryTheme;
+import dev.minetorio.client.gui.FactoryContainerScreen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -30,12 +31,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * slots, a progress bar, the output slot and a power indicator (green at full satisfaction, yellow
  * when short, red without power). Drawn with plain fills (placeholder art).
  */
-public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
+public class AssemblerScreen extends FactoryContainerScreen<AssemblerMenu> {
     private static final int COLS = 8;
     private static final int ROWS = 3;
     private static final int CELL = 18;
     private static final int GRID_X = 8;
-    private static final int GRID_Y = 18;
+    private static final int GRID_Y = 24;
     private static final int SCROLL_X = GRID_X + COLS * CELL + 4;
     private static final int BAR_X = 101;
     private static final int BAR_W = 10;
@@ -46,9 +47,9 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
     private static final int LIGHT = 0xFFFFFFFF;
     private static final int SHADOW = 0xFF555555;
     private static final int SLOT_DARK = 0xFF373737;
-    private static final int SLOT_FILL = 0xFF8B8B8B;
-    private static final int SELECTED = 0x8040C040;
-    private static final int HOVERED = 0x80FFFFFF;
+    private static final int SLOT_FILL = FactoryTheme.ACCENT;
+    private static final int SELECTED = 0x807A642C;
+    private static final int HOVERED = 0x44E5B84C;
     private static final int GREEN = 0xFF3FB93F;
     private static final int YELLOW = 0xFFE0C040;
     private static final int RED = 0xFFC03030;
@@ -58,9 +59,9 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
 
     public AssemblerScreen(AssemblerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 176;
-        imageHeight = AssemblerMenu.INVENTORY_Y + 3 * 18 + 4 + 18 + 6;
-        inventoryLabelY = AssemblerMenu.INVENTORY_Y - 11;
+        imageWidth = 406;
+        imageHeight = 190;
+        inventoryLabelX=210; inventoryLabelY=6;
         refreshRecipes();
     }
 
@@ -89,7 +90,7 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    protected boolean factoryMouseClicked(double mouseX, double mouseY, int button) {
         refreshRecipes();
         if(button==0 && menu.supportsFluids() && isHovering(8,114,144,11,mouseX,mouseY)) {
             PacketDistributor.sendToServer(new SelectRecipePayload(menu.pos(),AssemblerBlockEntity.FLUSH_RECIPE));
@@ -101,24 +102,24 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
             minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.factoryMouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    protected boolean factoryMouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = mouseX - leftPos;
         double y = mouseY - topPos;
         if (x >= GRID_X && x < SCROLL_X + 6 && y >= GRID_Y && y < GRID_Y + ROWS * CELL) {
             scrollRow = Mth.clamp(scrollRow - (int) Math.signum(scrollY), 0, maxScroll());
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.factoryMouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderFactory(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         refreshRecipes();
-        super.render(g, mouseX, mouseY, partialTick);
+        super.renderFactory(g, mouseX, mouseY, partialTick);
         Recipe hovered = recipeAt(mouseX, mouseY);
         if (hovered != null) {
             g.renderComponentTooltip(font, recipeTooltip(hovered), mouseX, mouseY);
@@ -159,16 +160,17 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        super.renderLabels(g, mouseX, mouseY);
+        FactoryTheme.title(g,font,title,10,6);
+        FactoryTheme.label(g,font,playerInventoryTitle,inventoryLabelX,inventoryLabelY);
         if (menu.recipe() == null) {
-            g.drawString(font, Component.translatable("minetorio.assembler.select_recipe"), 8, AssemblerMenu.SLOTS_Y + 4, 0x404040, false);
+            g.drawString(font, Component.translatable("minetorio.assembler.select_recipe"), 8, AssemblerMenu.SLOTS_Y + 4, FactoryTheme.TEXT, false);
         }
         var oil=menu.recipe()==null?null:OilData.recipe(menu.recipe().id());
         if(oil!=null) {
             String in=oil.fluidInputs().isEmpty()?"—":menu.inputFluidAmount()+"/1000";
             String out=oil.fluidOutputs().isEmpty()?"—":menu.outputFluidAmount()+"/1000";
-            g.drawString(font,Component.translatable("minetorio.assembler.fluids",in,out),8,101,0x205060,false);
-            g.drawString(font,Component.translatable("minetorio.assembler.flush_fluids"),8,114,0x805030,false);
+            g.drawString(font,Component.translatable("minetorio.assembler.fluids",in,out),8,101,FactoryTheme.MUTED,false);
+            g.drawString(font,Component.translatable("minetorio.assembler.flush_fluids"),8,114,FactoryTheme.ACCENT,false);
         }
     }
 
@@ -176,7 +178,8 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
         int x = leftPos;
         int y = topPos;
-        panel(g, x, y, imageWidth, imageHeight);
+        panel(g, x, y, 196, imageHeight);
+        panel(g,x+202,y,204,imageHeight);
 
         // recipe grid
         Recipe selected = menu.recipe();
@@ -221,6 +224,11 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
         int filled = Mth.ceil(menu.progress() * BAR_W);
         if (filled > 0) g.fill(x + BAR_X, barY, x + BAR_X + filled, barY + 6, LIGHT);
 
+        FactoryTheme.label(g,font,Component.translatable("minetorio.machineui.progress",Math.round(menu.progress()*100)),x+8,y+135);
+        FactoryTheme.bar(g,x+8,y+147,176,7,menu.progress(),FactoryTheme.GREEN);
+        FactoryTheme.label(g,font,Component.translatable("minetorio.machineui.power",Math.round(menu.satisfaction()*100)),x+8,y+160);
+        FactoryTheme.bar(g,x+8,y+173,176,7,menu.satisfaction(),FactoryTheme.ACCENT);
+
         // power indicator
         float s = menu.satisfaction();
         int color = s >= 0.99f ? GREEN : s > 0 ? YELLOW : RED;
@@ -230,18 +238,11 @@ public class AssemblerScreen extends AbstractContainerScreen<AssemblerMenu> {
     }
 
     private static void panel(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFF000000);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, PANEL);
-        g.fill(x + 1, y + 1, x + w - 2, y + 3, LIGHT);
-        g.fill(x + 1, y + 1, x + 3, y + h - 2, LIGHT);
-        g.fill(x + 3, y + h - 3, x + w - 1, y + h - 1, SHADOW);
-        g.fill(x + w - 3, y + 3, x + w - 1, y + h - 1, SHADOW);
+        FactoryTheme.panel(g,x,y,w,h);
     }
 
     /** An 18×18 vanilla-style slot frame with its top-left corner at (x, y). */
     private static void slotFrame(GuiGraphics g, int x, int y) {
-        g.fill(x, y, x + 18, y + 18, SLOT_DARK);
-        g.fill(x + 1, y + 1, x + 18, y + 18, LIGHT);
-        g.fill(x + 1, y + 1, x + 17, y + 17, SLOT_FILL);
+        FactoryTheme.slot(g,x,y);
     }
 }

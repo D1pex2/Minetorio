@@ -123,10 +123,10 @@ public final class BlueprintImport {
         ItemStack stack = BlueprintStacks.stack(r);
         Inventory inv = player.getInventory();
         int to;
-        if (slot >= 0 && slot < Inventory.INVENTORY_SIZE && inv.getItem(slot).isEmpty()) to = slot;
-        else if (inv.getSelected().isEmpty()) to = inv.selected;
+        if (BlueprintBookOps.validSlot(slot) && inv.getItem(slot).isEmpty()) to = slot;
+        else if (inv.items.get(inv.selected).isEmpty()) to = inv.selected;
         else to = inv.getFreeSlot();
-        if (to < 0 || to >= Inventory.INVENTORY_SIZE) return refuse(player, Result.NO_ROOM);
+        if (to < 0 || (to >= Inventory.INVENTORY_SIZE && (to < 41 || to >= 85))) return refuse(player, Result.NO_ROOM);
         inv.setItem(to, stack);
         inv.setChanged();
         player.inventoryMenu.broadcastChanges();

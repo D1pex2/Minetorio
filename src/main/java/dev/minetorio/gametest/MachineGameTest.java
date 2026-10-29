@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.dropped;
 import static dev.minetorio.gametest.BeltGameTest.place;
 import static dev.minetorio.gametest.InserterGameTest.container;
@@ -107,8 +108,8 @@ public class MachineGameTest {
     @GameTest(template = "empty16", timeoutTicks = 100)
     public static void furnaceSmeltsRawIron(GameTestHelper h) {
         StoneFurnaceBlockEntity be = furnace(h, FURNACE);
-        insert(h, FURNACE, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL));
-        insert(h, FURNACE, StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(Items.RAW_IRON));
+        insert(h, FURNACE, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get()));
+        insert(h, FURNACE, StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(ModItems.IRON_ORE.get()));
         AtomicLong doneAt = new AtomicLong(-1);
         h.onEachTick(() -> {
             if (doneAt.get() < 0 && !be.machine().outputs().isEmpty()) doneAt.set(h.getTick());
@@ -136,13 +137,13 @@ public class MachineGameTest {
         StoneFurnaceBlockEntity ore = furnace(h, FURNACE);
         BlockPos bricksAt = new BlockPos(6, 1, 2);
         StoneFurnaceBlockEntity bricks = furnace(h, bricksAt);
-        insert(h, FURNACE, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL, 5));
-        ItemStack sixth = handler(h, FURNACE).insertItem(StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL), false);
+        insert(h, FURNACE, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get(), 5));
+        ItemStack sixth = handler(h, FURNACE).insertItem(StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get()), false);
         h.assertTrue(sixth.getCount() == 1, "automated fuel above 5");
         ItemStack ores = handler(h, FURNACE).insertItem(StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(ModItems.IRON_ORE.get(), 5), false);
         h.assertTrue(ores.getCount() == 3, "automated input cap: left " + ores);
-        insert(h, bricksAt, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL));
-        insert(h, bricksAt, StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(Items.COBBLESTONE, 2));
+        insert(h, bricksAt, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get()));
+        insert(h, bricksAt, StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(BaseMaterials.STONE.get(), 2));
 
         h.runAtTickTime(20, () -> {
             var registries = h.getLevel().registryAccess();
@@ -169,7 +170,7 @@ public class MachineGameTest {
         AssemblerBlockEntity assembler = assembler(h, ModItems.ASSEMBLING_MACHINE_1.get(), assemblerAt, "iron_gear_wheel");
         ItemStack namedOre = new ItemStack(ModItems.IRON_ORE.get());
         namedOre.set(DataComponents.CUSTOM_NAME, Component.literal("special"));
-        ItemStack namedCoal = new ItemStack(Items.COAL);
+        ItemStack namedCoal = new ItemStack(BaseMaterials.COAL.get());
         namedCoal.set(DataComponents.CUSTOM_NAME, Component.literal("special"));
         ItemStack namedPlate = new ItemStack(ModItems.IRON_PLATE.get());
         namedPlate.set(DataComponents.CUSTOM_NAME, Component.literal("special"));
@@ -258,7 +259,7 @@ public class MachineGameTest {
         h.assertTrue(AssemblerBlockEntity.select(near, pos, "iron_gear_wheel") == SelectResult.SPECTATOR, "spectator accepted");
         near.setGameMode(GameType.SURVIVAL);
         h.assertTrue(AssemblerBlockEntity.select(near, pos, "iron_plate") == SelectResult.NOT_CRAFTING, "smelting accepted");
-        h.assertTrue(AssemblerBlockEntity.select(near, pos, "copper_plate_from_raw_copper") == SelectResult.NOT_CRAFTING, "smelting accepted");
+        h.assertTrue(AssemblerBlockEntity.select(near, pos, "copper_plate") == SelectResult.NOT_CRAFTING, "smelting accepted");
         h.assertTrue(be.machine().recipe() == null, "recipe set to " + be.machine().recipe());
         h.assertTrue(AssemblerBlockEntity.select(near, pos, "no_such_recipe") == SelectResult.UNKNOWN_RECIPE, "unknown accepted");
         h.assertTrue(AssemblerBlockEntity.select(near, h.absolutePos(new BlockPos(8, 1, 8)), "iron_gear_wheel") == SelectResult.NOT_ASSEMBLER,
@@ -293,7 +294,7 @@ public class MachineGameTest {
 
     // --- GUI menus -------------------------------------------------------------------------------
 
-    private static final Item[] TRACKED = {Items.RAW_IRON, Items.COAL, ModItems.IRON_PLATE.get(), ModItems.IRON_GEAR_WHEEL.get()};
+    private static final Item[] TRACKED = {ModItems.IRON_ORE.get(), BaseMaterials.COAL.get(), ModItems.IRON_PLATE.get(), ModItems.IRON_GEAR_WHEEL.get()};
 
     /** Items of {@code item} held by the player: inventory plus the menu's carried stack. */
     static int held(Player player, AbstractContainerMenu menu, Item item) {
@@ -316,6 +317,9 @@ public class MachineGameTest {
         for (Item item : TRACKED) out.put(item, held(player, menu, item) + machine.applyAsInt(BuiltInRegistries.ITEM.getKey(item).toString()));
         return out;
     }
+
+    /** Menu index of one logical slot of the shared eighty-slot main inventory. */
+    static int inventorySlot(AbstractContainerMenu menu,int index) {return menu.slots.size()-80+index;}
 
     /** Clicks and asserts nothing was created or lost. */
     static void click(GameTestHelper h, AbstractContainerMenu menu, Player player, ToIntFunction<String> machine,
@@ -346,7 +350,7 @@ public class MachineGameTest {
     }
 
     /**
-     * Furnace GUI clicks (menu slots: 0 fuel, 1 input, 2 output, 3..29 inventory, 30..38 hotbar):
+     * Furnace GUI clicks (fuel, input, output, then eighty shared inventory slots):
      * shift-click both ways with partial room, no spill when the machine is full, pickup / half,
      * number-key swaps into empty, partial and full slots, a drag and pick-all. Nothing is ever
      * created or lost; a named stack never enters the machine.
@@ -356,25 +360,25 @@ public class MachineGameTest {
         StoneFurnaceBlockEntity be = furnace(h, FURNACE);
         FakePlayer p = player(h, new BlockPos(3, 1, 6));
         Inventory inv = p.getInventory();
-        inv.setItem(0, new ItemStack(Items.RAW_IRON, 10)); // menu 30
-        inv.setItem(1, new ItemStack(Items.COAL, 3));      // menu 31
-        inv.setItem(2, named(Items.RAW_IRON, 1));          // menu 32
-        inv.setItem(9, new ItemStack(Items.COAL, 64));     // menu 3
+        inv.setItem(0, new ItemStack(ModItems.IRON_ORE.get(), 10)); // menu 30
+        inv.setItem(1, new ItemStack(BaseMaterials.COAL.get(), 3));      // menu 31
+        inv.setItem(2, named(ModItems.IRON_ORE.get(), 1));          // menu 32
+        inv.setItem(9, new ItemStack(BaseMaterials.COAL.get(), 50));     // menu 3
         AbstractContainerMenu menu = be.createMenu(1, inv, p);
         ToIntFunction<String> m = id -> inMachine(be, id);
 
         // shift-click into the machine, then partial room, then no room: the rest stays put
-        click(h, menu, p, m, 31, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.burner().fuel().equals(Map.of("minecraft:coal", 3)), "fuel " + be.burner().fuel());
-        click(h, menu, p, m, 3, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.burner().fuel().get("minecraft:coal") == 64 && inv.getItem(9).getCount() == 3, "partial fuel move");
-        click(h, menu, p, m, 3, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(inv.getItem(9).is(Items.COAL) && inv.getItem(9).getCount() == 3, "spilled to the hotbar: " + inv.getItem(9));
-        click(h, menu, p, m, 30, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.machine().inputs().equals(Map.of("minecraft:raw_iron", 10)), "input " + be.machine().inputs());
+        click(h, menu, p, m, inventorySlot(menu,1), 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.burner().fuel().equals(Map.of("minetorio:coal", 3)), "fuel " + be.burner().fuel());
+        click(h, menu, p, m, inventorySlot(menu,9), 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.burner().fuel().get("minetorio:coal") == 50 && inv.getItem(9).getCount() == 3, "partial fuel move");
+        click(h, menu, p, m, inventorySlot(menu,9), 0, ClickType.QUICK_MOVE);
+        h.assertTrue(inv.getItem(9).is(BaseMaterials.COAL.get()) && inv.getItem(9).getCount() == 3, "spilled to the hotbar: " + inv.getItem(9));
+        click(h, menu, p, m, inventorySlot(menu,0), 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.machine().inputs().equals(Map.of("minetorio:iron_ore", 10)), "input " + be.machine().inputs());
         // a named stack never enters the machine
-        click(h, menu, p, m, 32, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.machine().inputs().equals(Map.of("minecraft:raw_iron", 10)) && namedInInventory(p) == 1, "named moved in");
+        click(h, menu, p, m, inventorySlot(menu,2), 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.machine().inputs().equals(Map.of("minetorio:iron_ore", 10)) && namedInInventory(p) == 1, "named moved in");
         int namedSlot = 0;
         for (int i = 3; i < menu.slots.size(); i++) if (menu.getSlot(i).getItem().has(DataComponents.CUSTOM_NAME)) namedSlot = i;
         click(h, menu, p, m, namedSlot, 0, ClickType.PICKUP);
@@ -387,51 +391,50 @@ public class MachineGameTest {
 
         // shift-click out of the machine
         click(h, menu, p, m, 1, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.machine().inputs().isEmpty() && inInventory(p, Items.RAW_IRON) == 11, "input not moved out");
+        h.assertTrue(be.machine().inputs().isEmpty() && inInventory(p, ModItems.IRON_ORE.get()) == 11, "input not moved out");
 
         // pickup, place, right-click half
         inv.clearContent();
-        inv.setItem(0, new ItemStack(Items.RAW_IRON, 10));
-        click(h, menu, p, m, 30, 0, ClickType.PICKUP);
+        inv.setItem(0, new ItemStack(ModItems.IRON_ORE.get(), 10));
+        click(h, menu, p, m, inventorySlot(menu,0), 0, ClickType.PICKUP);
         click(h, menu, p, m, 1, 0, ClickType.PICKUP);
-        h.assertTrue(be.machine().inputs().get("minecraft:raw_iron") == 10 && menu.getCarried().isEmpty(), "pickup/place");
+        h.assertTrue(be.machine().inputs().get("minetorio:iron_ore") == 10 && menu.getCarried().isEmpty(), "pickup/place");
         click(h, menu, p, m, 1, 1, ClickType.PICKUP);
-        h.assertTrue(menu.getCarried().getCount() == 5 && be.machine().inputs().get("minecraft:raw_iron") == 5, "half " + menu.getCarried());
+        h.assertTrue(menu.getCarried().getCount() == 5 && be.machine().inputs().get("minetorio:iron_ore") == 5, "half " + menu.getCarried());
         click(h, menu, p, m, 1, 0, ClickType.PICKUP);
-        h.assertTrue(be.machine().inputs().get("minecraft:raw_iron") == 10, "half put back");
+        h.assertTrue(be.machine().inputs().get("minetorio:iron_ore") == 10, "half put back");
 
         // number-key swaps: slot to empty hotbar, empty slot from hotbar, partial (same item), full
         click(h, menu, p, m, 1, 4, ClickType.SWAP);
         h.assertTrue(be.machine().inputs().isEmpty() && inv.getItem(4).getCount() == 10, "swap out");
         click(h, menu, p, m, 1, 4, ClickType.SWAP);
-        h.assertTrue(be.machine().inputs().get("minecraft:raw_iron") == 10 && inv.getItem(4).isEmpty(), "swap into empty");
-        inv.setItem(5, new ItemStack(Items.RAW_IRON, 5));
+        h.assertTrue(be.machine().inputs().get("minetorio:iron_ore") == 10 && inv.getItem(4).isEmpty(), "swap into empty");
+        inv.setItem(5, new ItemStack(ModItems.IRON_ORE.get(), 5));
         click(h, menu, p, m, 1, 5, ClickType.SWAP);
-        h.assertTrue(be.machine().inputs().get("minecraft:raw_iron") == 5 && inv.getItem(5).getCount() == 10, "swap partial");
-        be.machine().insertInput("minecraft:raw_iron", 59, false); // input full (64)
-        inv.setItem(6, new ItemStack(Items.RAW_IRON, 7));
+        h.assertTrue(be.machine().inputs().get("minetorio:iron_ore") == 5 && inv.getItem(5).getCount() == 10, "swap partial");
+        be.machine().insertInput("minetorio:iron_ore", 45, false); // input full (50)
+        inv.setItem(6, new ItemStack(ModItems.IRON_ORE.get(), 7));
         click(h, menu, p, m, 1, 6, ClickType.SWAP);
-        h.assertTrue(be.machine().inputs().get("minecraft:raw_iron") == 64 && inv.getItem(6).getCount() == 7, "swap into full");
-        inv.setItem(7, named(Items.RAW_IRON, 1));
+        h.assertTrue(be.machine().inputs().get("minetorio:iron_ore") == 50 && inv.getItem(6).getCount() == 7, "swap into full");
+        inv.setItem(7, named(ModItems.IRON_ORE.get(), 1));
         click(h, menu, p, m, 1, 7, ClickType.SWAP);
-        h.assertTrue(namedInInventory(p) == 1 && be.machine().inputs().get("minecraft:raw_iron") == 64, "named swapped in");
+        h.assertTrue(namedInInventory(p) == 1 && be.machine().inputs().get("minetorio:iron_ore") == 50, "named swapped in");
 
         // drag coal over the fuel slot and an empty inventory slot, then pick-all
-        be.burner().extractFuel("minecraft:coal", 60); // 4 left
-        inv.setItem(8, new ItemStack(Items.COAL, 10));
-        click(h, menu, p, m, 38, 0, ClickType.PICKUP);
-        drag(h, menu, p, m, StoneFurnaceBlockEntity.FUEL_SLOT, 20);
-        h.assertTrue(be.burner().fuel().get("minecraft:coal") == 9, "drag into fuel " + be.burner().fuel());
-        click(h, menu, p, m, 20, 0, ClickType.PICKUP);
-        click(h, menu, p, m, 21, 0, ClickType.PICKUP_ALL);
-        h.assertTrue(menu.getCarried().is(Items.COAL), "pick-all lost the carried coal");
-        click(h, menu, p, m, 21, 0, ClickType.PICKUP);
+        be.burner().extractFuel("minetorio:coal", 46); // 4 left
+        inv.setItem(8, new ItemStack(BaseMaterials.COAL.get(), 10));
+        click(h, menu, p, m, inventorySlot(menu,8), 0, ClickType.PICKUP);
+        drag(h, menu, p, m, StoneFurnaceBlockEntity.FUEL_SLOT, inventorySlot(menu,26));
+        h.assertTrue(be.burner().fuel().get("minetorio:coal") == 9, "drag into fuel " + be.burner().fuel());
+        click(h, menu, p, m, inventorySlot(menu,26), 0, ClickType.PICKUP);
+        click(h, menu, p, m, inventorySlot(menu,27), 0, ClickType.PICKUP_ALL);
+        h.assertTrue(menu.getCarried().is(BaseMaterials.COAL.get()), "pick-all lost the carried coal");
+        click(h, menu, p, m, inventorySlot(menu,27), 0, ClickType.PICKUP);
         h.succeed();
     }
 
     /**
-     * Assembler GUI clicks (menu slots: 0..3 inputs (only 0 active for gears), 4 output, 5..31
-     * inventory, 32..40 hotbar): the same click kinds as the furnace test, plus the output and an
+     * Assembler GUI clicks (recipe inputs, output, then eighty shared inventory slots): the same click kinds as the furnace test, plus the output and an
      * inactive input slot. Nothing is ever created or lost.
      */
     @GameTest(template = "empty16")
@@ -443,49 +446,49 @@ public class MachineGameTest {
         Inventory inv = p.getInventory();
         inv.setItem(0, new ItemStack(ModItems.IRON_PLATE.get(), 20)); // first hotbar slot
         inv.setItem(1, named(ModItems.IRON_PLATE.get(), 1));           // first hotbar slot
-        inv.setItem(9, new ItemStack(ModItems.IRON_PLATE.get(), 64)); // menu 6
+        inv.setItem(9, new ItemStack(ModItems.IRON_PLATE.get(), 100)); // menu 6
         AbstractContainerMenu menu = be.createMenu(1, inv, p);
         ToIntFunction<String> m = id -> inMachine(be, id);
         int out = AssemblerBlockEntity.OUTPUT_SLOT;
 
-        click(h, menu, p, m, 33, 0, ClickType.QUICK_MOVE);
+        click(h, menu, p, m, inventorySlot(menu,0), 0, ClickType.QUICK_MOVE);
         h.assertTrue(be.machine().inputs().equals(Map.of(PLATE, 20)), "inputs " + be.machine().inputs());
-        click(h, menu, p, m, 6, 0, ClickType.QUICK_MOVE);
-        h.assertTrue(be.machine().inputs().get(PLATE) == 64 && inv.getItem(9).getCount() == 20, "partial move");
-        click(h, menu, p, m, 6, 0, ClickType.QUICK_MOVE);
+        click(h, menu, p, m, inventorySlot(menu,9), 0, ClickType.QUICK_MOVE);
+        h.assertTrue(be.machine().inputs().get(PLATE) == 100 && inv.getItem(9).getCount() == 20, "partial move");
+        click(h, menu, p, m, inventorySlot(menu,9), 0, ClickType.QUICK_MOVE);
         h.assertTrue(inv.getItem(9).getCount() == 20, "spilled: " + inv.getItem(9));
-        click(h, menu, p, m, 34, 0, ClickType.QUICK_MOVE);
+        click(h, menu, p, m, inventorySlot(menu,1), 0, ClickType.QUICK_MOVE);
         h.assertTrue(namedInInventory(p) == 1, "named plate moved in");
         click(h, menu, p, m, out, 0, ClickType.QUICK_MOVE);
         h.assertTrue(be.machine().outputs().isEmpty() && inInventory(p, ModItems.IRON_GEAR_WHEEL.get()) == 5, "output not taken");
 
         // inactive slot and output refuse placing
-        click(h, menu, p, m, 6, 0, ClickType.PICKUP); // carry 20 plates
+        click(h, menu, p, m, inventorySlot(menu,9), 0, ClickType.PICKUP); // carry 20 plates
         click(h, menu, p, m, 1, 0, ClickType.PICKUP);
         click(h, menu, p, m, out, 0, ClickType.PICKUP);
         h.assertTrue(menu.getCarried().getCount() == 20, "placed into an inactive/output slot");
-        click(h, menu, p, m, 6, 0, ClickType.PICKUP);
+        click(h, menu, p, m, inventorySlot(menu,9), 0, ClickType.PICKUP);
 
         // swaps: out to an empty hotbar slot and back, partial, full
         click(h, menu, p, m, 0, 2, ClickType.SWAP);
-        h.assertTrue(be.machine().inputs().isEmpty() && inv.getItem(2).getCount() == 64, "swap out");
+        h.assertTrue(be.machine().inputs().isEmpty() && inv.getItem(2).getCount() == 100, "swap out");
         click(h, menu, p, m, 0, 2, ClickType.SWAP);
-        h.assertTrue(be.machine().inputs().get(PLATE) == 64, "swap in");
+        h.assertTrue(be.machine().inputs().get(PLATE) == 100, "swap in");
         inv.setItem(3, new ItemStack(ModItems.IRON_PLATE.get(), 7));
         click(h, menu, p, m, 0, 3, ClickType.SWAP);
-        h.assertTrue(be.machine().inputs().get(PLATE) == 64 && inv.getItem(3).getCount() == 7, "swap into full");
-        be.machine().extractInput(PLATE, 54); // 10 left; the 54 leave the machine's books
+        h.assertTrue(be.machine().inputs().get(PLATE) == 100 && inv.getItem(3).getCount() == 7, "swap into full");
+        be.machine().extractInput(PLATE, 90); // 10 left; the 90 leave the machine's books
         inv.setItem(4, new ItemStack(ModItems.IRON_PLATE.get(), 54));
         click(h, menu, p, m, 0, 3, ClickType.SWAP);
         h.assertTrue(be.machine().inputs().get(PLATE) == 7 && inv.getItem(3).getCount() == 10, "swap partial");
 
         // drag and pick-all
-        click(h, menu, p, m, 37, 0, ClickType.PICKUP); // carry 54
-        drag(h, menu, p, m, 0, 20, 21);
+        click(h, menu, p, m, inventorySlot(menu,4), 0, ClickType.PICKUP); // carry 54
+        drag(h, menu, p, m, 0, inventorySlot(menu,23), inventorySlot(menu,24));
         h.assertTrue(be.machine().inputs().get(PLATE) == 25, "drag into input " + be.machine().inputs());
-        click(h, menu, p, m, 20, 0, ClickType.PICKUP);
-        click(h, menu, p, m, 22, 0, ClickType.PICKUP_ALL);
-        click(h, menu, p, m, 22, 0, ClickType.PICKUP);
+        click(h, menu, p, m, inventorySlot(menu,23), 0, ClickType.PICKUP);
+        click(h, menu, p, m, inventorySlot(menu,25), 0, ClickType.PICKUP_ALL);
+        click(h, menu, p, m, inventorySlot(menu,25), 0, ClickType.PICKUP);
         h.assertTrue(menu.getCarried().isEmpty(), "carried left");
         h.succeed();
     }
@@ -496,14 +499,14 @@ public class MachineGameTest {
         AssemblerBlockEntity be = assembler(h, ModItems.ASSEMBLING_MACHINE_1.get(), ASSEMBLER, "iron_gear_wheel");
         FakePlayer p = player(h, new BlockPos(3, 1, 7));
         AbstractContainerMenu menu = be.createMenu(1, p.getInventory(), p);
-        menu.getSlot(0).set(new ItemStack(ModItems.IRON_PLATE.get(), 70));
+        menu.getSlot(0).set(new ItemStack(ModItems.IRON_PLATE.get(), 120));
         menu.clicked(-999, 0, ClickType.PICKUP, p); // any click hands back what the machine refused
-        h.assertTrue(be.machine().inputs().get(PLATE) == 64, "machine took " + be.machine().inputs());
-        h.assertTrue(inInventory(p, ModItems.IRON_PLATE.get()) == 6, "returned " + inInventory(p, ModItems.IRON_PLATE.get()));
+        h.assertTrue(be.machine().inputs().get(PLATE) == 100, "machine took " + be.machine().inputs());
+        h.assertTrue(inInventory(p, ModItems.IRON_PLATE.get()) == 20, "returned " + inInventory(p, ModItems.IRON_PLATE.get()));
 
         StoneFurnaceBlockEntity furnace = furnace(h, new BlockPos(8, 1, 8));
         AbstractContainerMenu furnaceMenu = furnace.createMenu(2, p.getInventory(), p);
-        furnaceMenu.getSlot(StoneFurnaceBlockEntity.INPUT_SLOT).set(named(Items.RAW_IRON, 2));
+        furnaceMenu.getSlot(StoneFurnaceBlockEntity.INPUT_SLOT).set(named(ModItems.IRON_ORE.get(), 2));
         furnaceMenu.removed(p); // closing the GUI also hands it back
         h.assertTrue(furnace.machine().inputs().isEmpty(), "named stack stored: " + furnace.machine().inputs());
         h.assertTrue(namedInInventory(p) == 2, "named stack lost");
@@ -521,13 +524,13 @@ public class MachineGameTest {
         DrillGameTest.field(h, OreType.IRON, 1, 2, 2, 3, 1000); // under the drill
         place(h, ModItems.BURNER_MINING_DRILL.get(), new BlockPos(1, 1, 2), Direction.EAST); // output cell (3,1,2)
         var drill = (BurnerDrillBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(1, 1, 2)));
-        h.assertTrue(drill.addFuel("minecraft:coal", 5) == 5, "drill fuel refused");
+        h.assertTrue(drill.addFuel("minetorio:coal", 5) == 5, "drill fuel refused");
         place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(3, 1, 2), Direction.EAST);
         place(h, ModItems.TRANSPORT_BELT.get(), new BlockPos(4, 1, 2), Direction.EAST);
         placeInserter(h, ModItems.INSERTER.get(), new BlockPos(5, 1, 2), Direction.EAST);
         BlockPos furnaceAt = new BlockPos(6, 1, 2); // x 6..7, z 2..3
         furnace(h, furnaceAt);
-        insert(h, furnaceAt, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL, 5));
+        insert(h, furnaceAt, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get(), 5));
         placeInserter(h, ModItems.INSERTER.get(), new BlockPos(8, 1, 2), Direction.EAST); // its pole covers the assembler
         AssemblerBlockEntity assembler = assembler(h, ModItems.ASSEMBLING_MACHINE_1.get(), new BlockPos(9, 1, 2), "iron_gear_wheel");
         placeInserter(h, ModItems.INSERTER.get(), new BlockPos(12, 1, 3), Direction.EAST);

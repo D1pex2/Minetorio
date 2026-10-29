@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.place;
 import static dev.minetorio.gametest.InserterGameTest.container;
 import static dev.minetorio.gametest.InserterGameTest.count;
@@ -46,7 +47,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder("minetorio")
 @PrefixGameTestTemplate(false)
 public class PowerGameTest {
-    private static final String COAL = "minecraft:coal";
+    private static final String COAL = "minetorio:coal";
     private static final long KW_900 = Units.kw(900);
 
     /*
@@ -395,7 +396,7 @@ public class PowerGameTest {
     public static void boilerTakesFuelFromInserter(GameTestHelper h) {
         place(h, ModItems.BOILER.get(), BOILER, Direction.NORTH);
         BlockPos src = new BlockPos(5, 1, 10);
-        container(h, Blocks.CHEST, src, new ItemStack(Items.COAL, 10));
+        container(h, Blocks.CHEST, src, new ItemStack(BaseMaterials.COAL.get(), 10));
         place(h, ModItems.BURNER_INSERTER.get(), new BlockPos(5, 1, 9), Direction.NORTH); // drops into the boiler at (5,8)
         InserterBlockEntity ins = inserter(h, new BlockPos(5, 1, 9));
         ins.addFuel(COAL, 1);
@@ -405,7 +406,7 @@ public class PowerGameTest {
             h.assertTrue(inBoiler == 5, "boiler fuel " + inBoiler);
             h.assertTrue(COAL.equals(ins.logic().held()), "inserter should wait holding coal, holds " + ins.logic().held());
             h.assertTrue(ins.burner().remainingJ() > 0, "inserter burns nothing");
-            int inChest = count(h, src, Items.COAL);
+            int inChest = count(h, src, BaseMaterials.COAL.get());
             int slot = ins.burner().fuel().getOrDefault(COAL, 0);
             int total = inChest + 1 + slot + inBoiler + 1;
             h.assertTrue(total == 11, "coal total " + total + " (chest " + inChest + ", slot " + slot + ")");

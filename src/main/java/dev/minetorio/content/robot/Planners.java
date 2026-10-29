@@ -204,19 +204,20 @@ public final class Planners {
         Inventory inv = player.getInventory();
         if (inv.getSelected().is(item)) return;
         int have = -1;
-        for (int i = 0; i < inv.items.size(); i++) {
-            if (inv.items.get(i).is(item)) {
-                have = i;
+        for (int i = 0; i < dev.minetorio.content.character.CharacterInventory.MAIN_SIZE; i++) {
+            int index = dev.minetorio.content.character.CharacterInventory.inventoryIndex(i);
+            if (inv.getItem(index).is(item)) {
+                have = index;
                 break;
             }
         }
-        ItemStack planner = have >= 0 ? inv.items.get(have) : new ItemStack(item);
-        if (have >= 0) inv.items.set(have, ItemStack.EMPTY);
-        ItemStack hand = inv.getSelected();
+        ItemStack planner = have >= 0 ? inv.getItem(have) : new ItemStack(item);
+        if (have >= 0) inv.setItem(have, ItemStack.EMPTY);
+        ItemStack hand = inv.items.get(inv.selected);
         if (hand.isEmpty()) {
             inv.items.set(inv.selected, planner);
         } else if (have >= 0) { // swap places
-            inv.items.set(have, hand);
+            inv.setItem(have, hand);
             inv.items.set(inv.selected, planner);
         } else {
             int free = -1;
@@ -232,13 +233,14 @@ public final class Planners {
                 player.connection.send(new ClientboundSetCarriedItemPacket(free));
             } else if (inv.getFreeSlot() >= 0) {
                 int slot = inv.getFreeSlot();
-                inv.items.set(slot, hand);
+                inv.setItem(slot, hand);
                 inv.items.set(inv.selected, planner);
             } else {
                 player.displayClientMessage(Component.translatable("minetorio.planner.inventory_full"), true);
                 return;
             }
         }
+        ((dev.minetorio.content.character.CharacterShortcuts) player).emptyHand(false);
         inv.setChanged();
         player.containerMenu.broadcastChanges();
     }

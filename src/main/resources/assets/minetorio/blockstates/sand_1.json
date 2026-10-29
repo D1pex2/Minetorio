@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "minetorio:block/sand_1"
+      },
+      {
+        "model": "minetorio:block/sand_1",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/sand_1",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/sand_1",
+        "y": 270
+      }
+    ]
+  }
+}

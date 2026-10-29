@@ -82,7 +82,7 @@ public class FluidGameTest {
         place(h, ModItems.STEAM_ENGINE.get(), new BlockPos(10, 1, 6), Direction.NORTH); // x 10..12, z 2..6
         place(h, ModItems.SMALL_ELECTRIC_POLE.get(), new BlockPos(13, 1, 4), Direction.NORTH);
         BoilerBlockEntity boiler = (BoilerBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(10, 1, 8)));
-        h.assertTrue(boiler.addFuel("minecraft:coal", 5) == 5, "fuel refused");
+        h.assertTrue(boiler.addFuel("minetorio:coal", 5) == 5, "fuel refused");
         TestPower.Load load = TestPower.load(h, new BlockPos(14, 1, 4), Units.kw(900));
         h.runAtTickTime(240, () -> {
             FluidNetwork.Segment s = segment(h, new BlockPos(4, 6, 8));

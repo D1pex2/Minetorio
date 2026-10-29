@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "minetorio:block/cliff_rock"
+      },
+      {
+        "model": "minetorio:block/cliff_rock",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/cliff_rock",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/cliff_rock",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -141,4 +141,9 @@ public class ElectricPoleBlock extends BaseEntityBlock implements PowerPole {
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return state.getValue(PART) == 0 ? new ElectricPoleBlockEntity(pos, state) : null;
     }
+    @Override protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, net.minecraft.world.level.Level level, BlockPos pos, net.minecraft.world.entity.player.Player player, net.minecraft.world.phys.BlockHitResult hit) {
+        dev.minetorio.content.machineui.MachineUi.open(player, level.getBlockEntity(lowerPos(pos, state)));
+        return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide());
+    }
+
 }

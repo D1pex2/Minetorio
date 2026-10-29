@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.belt;
 import static dev.minetorio.gametest.BeltGameTest.dropped;
 import static dev.minetorio.gametest.BeltGameTest.place;
@@ -35,7 +36,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 @PrefixGameTestTemplate(false)
 public class InserterGameTest {
     private static final String PLATE = "minetorio:iron_plate";
-    private static final String COAL = "minecraft:coal";
+    private static final String COAL = "minetorio:coal";
 
     // --- helpers ---------------------------------------------------------------------------------
 
@@ -104,19 +105,19 @@ public class InserterGameTest {
     public static void burnerRefuelsItself(GameTestHelper h) {
         BlockPos src = new BlockPos(1, 1, 2);
         BlockPos dst = new BlockPos(3, 1, 2);
-        container(h, Blocks.CHEST, src, new ItemStack(Items.COAL, 10));
+        container(h, Blocks.CHEST, src, new ItemStack(BaseMaterials.COAL.get(), 10));
         h.setBlock(dst, Blocks.CHEST);
         InserterBlockEntity be = placeInserter(h, ModItems.BURNER_INSERTER.get(), new BlockPos(2, 1, 2), Direction.EAST);
         h.assertTrue(be.burner().fuel().isEmpty() && be.burner().remainingJ() == 0, "starts without fuel");
         be.logic().load(Map.of("phase", "TO_DROP", "held", COAL, "leg", 0.0));
         h.succeedWhen(() -> {
-            int delivered = count(h, dst, Items.COAL);
+            int delivered = count(h, dst, BaseMaterials.COAL.get());
             h.assertTrue(delivered >= 3, "delivered " + delivered);
             int inHand = COAL.equals(be.logic().held()) ? 1 : 0;
             int slot = be.burner().fuel().getOrDefault(COAL, 0);
             h.assertTrue(slot == 1, "fuel slot " + be.burner().fuel());
             h.assertTrue(be.burner().remainingJ() > 0, "nothing burning");
-            int total = count(h, src, Items.COAL) + delivered + inHand + slot + 1;
+            int total = count(h, src, BaseMaterials.COAL.get()) + delivered + inHand + slot + 1;
             h.assertTrue(total == 11, "coal total " + total);
         });
     }
@@ -132,7 +133,7 @@ public class InserterGameTest {
         h.runAtTickTime(20, () -> {
             h.assertTrue(be.logic().held() == null && be.logic().armProgress() == 0, "moved without fuel");
             Player player = h.makeMockPlayer(GameType.SURVIVAL);
-            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COAL, 3));
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(BaseMaterials.COAL.get(), 3));
             h.useBlock(at, player);
             h.assertTrue(be.burner().fuel().getOrDefault(COAL, 0) == 3, "fuel " + be.burner().fuel());
             h.assertTrue(player.getMainHandItem().isEmpty(), "player kept " + player.getMainHandItem());
@@ -297,7 +298,7 @@ public class InserterGameTest {
         h.getLevel().destroyBlock(h.absolutePos(at), true);
         h.assertTrue(dropped(h, ModItems.BURNER_INSERTER.get()) == 1, "inserter item");
         h.assertTrue(dropped(h, ModItems.IRON_PLATE.get()) == 1, "held plate");
-        h.assertTrue(dropped(h, Items.COAL) == 2, "fuel");
+        h.assertTrue(dropped(h, BaseMaterials.COAL.get()) == 2, "fuel");
         h.succeed();
     }
 }

@@ -271,7 +271,8 @@ public final class DragClient {
 
     private static int count(LocalPlayer player, Item item) {
         int n = 0;
-        for (ItemStack s : player.getInventory().items) if (s.is(item)) n += s.getCount();
+        var main = dev.minetorio.content.character.CharacterInventory.main(player.getInventory());
+        for (int i=0;i<main.getContainerSize();i++) { ItemStack s=main.getItem(i); if (s.is(item)) n += s.getCount(); }
         return n;
     }
 

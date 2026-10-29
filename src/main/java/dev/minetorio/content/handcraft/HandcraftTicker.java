@@ -116,7 +116,7 @@ public final class HandcraftTicker {
         if (a.queue().entries().isEmpty() && a.refund().isEmpty() && a.syncedShape != null && a.syncedShape.isEmpty()) return;
         PlayerInventoryAdapter inv = new PlayerInventoryAdapter(player);
         giveRefund(a, inv);
-        a.queue().tick(inv);
+        a.queue().tick(inv,recipe->dev.minetorio.content.stats.Statistics.recipe(player.level(),recipe));
         sync(player, a, false);
     }
 

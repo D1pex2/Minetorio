@@ -235,8 +235,11 @@ public final class LogisticsManager {
     }
 
     private static LogisticPlanner.Node node(Player p, PersonalLogistics pl) {
+        ItemStack trash = p.getInventory().getItem(dev.minetorio.content.character.CharacterInventory.TRASH_SLOT);
+        Map<String, Integer> waste = dev.minetorio.content.machine.MachineItems.isPlain(trash)
+                ? Map.of(BuiltInRegistries.ITEM.getKey(trash.getItem()).toString(), trash.getCount()) : Map.of();
         return new LogisticPlanner.Node(playerId(p.getUUID()), LogisticPlanner.Role.PLAYER, cell(p.blockPosition()),
-                PlayerItems.counts(p), pl.requests().requests(), null, false);
+                PlayerItems.counts(p), pl.enabled() ? pl.requests().requests() : List.of(), null, false, waste);
     }
 
     /** Players with active personal requests standing in {@code n}. */
@@ -245,7 +248,10 @@ public final class LogisticsManager {
         for (Player p : players(level)) {
             if (!p.isAlive() || p.isSpectator()) continue;
             PersonalLogistics pl = PersonalLogistics.of(p);
-            if (pl.enabled() && !pl.requests().isEmpty() && n.contains(p.getX(), p.getY(), p.getZ())) out.add(p);
+            boolean requests = pl.enabled() && !pl.requests().isEmpty();
+            boolean trash = dev.minetorio.content.machine.MachineItems.isPlain(
+                    p.getInventory().getItem(dev.minetorio.content.character.CharacterInventory.TRASH_SLOT));
+            if ((requests || trash) && n.contains(p.getX(), p.getY(), p.getZ())) out.add(p);
         }
         return out;
     }

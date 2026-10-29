@@ -17,9 +17,9 @@ class ItemFilterTest {
     @Test void whitelistPassesOnlyListedItems() {
         var f = new ItemFilter(5);
         f.set(0, "minetorio:iron_plate");
-        f.set(3, "minecraft:coal");
+        f.set(3, "minetorio:coal");
         assertTrue(f.matches("minetorio:iron_plate"));
-        assertTrue(f.matches("minecraft:coal"));
+        assertTrue(f.matches("minetorio:coal"));
         assertFalse(f.matches("minetorio:copper_plate"));
     }
 
@@ -41,23 +41,23 @@ class ItemFilterTest {
 
     @Test void clearingASlot() {
         var f = new ItemFilter(5);
-        f.set(2, "minecraft:coal");
+        f.set(2, "minetorio:coal");
         f.set(2, null);
         assertNull(f.get(2));
         f.set(2, "");
         assertNull(f.get(2));
-        assertFalse(f.matches("minecraft:coal"));
+        assertFalse(f.matches("minetorio:coal"));
     }
 
     @Test void saveLoadRoundTrip() {
         var f = new ItemFilter(5);
         f.set(0, "minetorio:iron_plate");
-        f.set(4, "minecraft:coal");
+        f.set(4, "minetorio:coal");
         f.setBlacklist(true);
         var copy = new ItemFilter(5);
         copy.load(f.save());
         assertEquals(f, copy);
-        assertEquals(List.of("minetorio:iron_plate", "", "", "", "minecraft:coal"), f.save().get("items"));
+        assertEquals(List.of("minetorio:iron_plate", "", "", "", "minetorio:coal"), f.save().get("items"));
         assertEquals("blacklist", f.save().get("mode"));
     }
 

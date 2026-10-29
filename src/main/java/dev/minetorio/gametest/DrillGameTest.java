@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.dropped;
 import static dev.minetorio.gametest.BeltGameTest.place;
 import static dev.minetorio.gametest.InserterGameTest.container;
@@ -31,7 +32,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 @GameTestHolder("minetorio")
 @PrefixGameTestTemplate(false)
 public class DrillGameTest {
-    private static final String COAL = "minecraft:coal";
+    private static final String COAL = "minetorio:coal";
 
     /** Burner drill at (2,1,2) facing east: footprint x 2..3, z 2..3; output cell (4,1,2). */
     private static final BlockPos BURNER = new BlockPos(2, 1, 2);
@@ -144,7 +145,7 @@ public class DrillGameTest {
         BurnerDrillBlockEntity be = burnerDrill(h, 1);
         h.runAtTickTime(40, () -> field(h, OreType.COAL, 3, 3, 3, 3, 50));
         h.runAtTickTime(180, () -> {
-            h.assertTrue(count(h, BURNER_OUT, Items.COAL) >= 1, "mined nothing from the new field");
+            h.assertTrue(count(h, BURNER_OUT, BaseMaterials.COAL.get()) >= 1, "mined nothing from the new field");
             h.assertTrue(remaining(h, new BlockPos(3, 0, 3)) < 50, "field untouched");
             h.succeed();
         });
@@ -177,7 +178,7 @@ public class DrillGameTest {
             h.getLevel().destroyBlock(h.absolutePos(BURNER), true);
             h.assertTrue(dropped(h, ModItems.IRON_ORE.get()) == 1, "dropped ore " + dropped(h, ModItems.IRON_ORE.get()));
             h.assertTrue(dropped(h, ModItems.BURNER_MINING_DRILL.get()) == 1, "drill item not dropped");
-            h.assertTrue(dropped(h, Items.COAL) >= 1, "fuel not dropped");
+            h.assertTrue(dropped(h, BaseMaterials.COAL.get()) >= 1, "fuel not dropped");
             h.assertTrue(isField(h, new BlockPos(2, 0, 2)), "field block gone with the drill");
             h.succeed();
         });
@@ -224,7 +225,7 @@ public class DrillGameTest {
         place(h, ModItems.ELECTRIC_MINING_DRILL.get(), drill, Direction.EAST);
         TestPower.powerAt(h, new BlockPos(3, 4, 6)); // supply area x 1..5, y 2..6, z 4..8: covers the drill's z=4 row
         h.runAtTickTime(280, () -> {
-            h.assertTrue(count(h, out, Items.COBBLESTONE) == 4, "mined " + count(h, out, Items.COBBLESTONE));
+            h.assertTrue(count(h, out, BaseMaterials.STONE.get()) == 4, "mined " + count(h, out, BaseMaterials.STONE.get()));
             for (BlockPos c : reached) h.assertTrue(h.getBlockState(c).is(Blocks.DIRT), "step not mined: " + c);
             for (BlockPos c : unreached) h.assertTrue(isField(h, c), "mined out of reach: " + c);
             h.succeed();
@@ -245,7 +246,7 @@ public class DrillGameTest {
         place(h, ModItems.ELECTRIC_MINING_DRILL.get(), ELECTRIC, Direction.EAST);
         TestPower.powerAt(h, new BlockPos(3, 1, 6)); // supply area x 1..5, z 4..8: covers the drill's z=4 row
         h.runAtTickTime(250, () -> {
-            h.assertTrue(count(h, ELECTRIC_OUT, Items.COBBLESTONE) == 4, "mined " + count(h, ELECTRIC_OUT, Items.COBBLESTONE));
+            h.assertTrue(count(h, ELECTRIC_OUT, BaseMaterials.STONE.get()) == 4, "mined " + count(h, ELECTRIC_OUT, BaseMaterials.STONE.get()));
             for (BlockPos c : corners) h.assertTrue(h.getBlockState(c).is(Blocks.DIRT), "corner not mined: " + c);
             for (BlockPos c : outside) h.assertTrue(isField(h, c), "mined outside the area: " + c);
             h.succeed();

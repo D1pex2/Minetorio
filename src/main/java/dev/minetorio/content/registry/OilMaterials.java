@@ -17,11 +17,6 @@ public final class OilMaterials {
     static {
         for (String id : IDS) ITEMS.registerSimpleItem(id, new net.minecraft.world.item.Item.Properties().stacksTo(stackSize(id)));
     }
-    private static int stackSize(String id) {
-        if (id.endsWith("_barrel")) return 10;
-        if (id.endsWith("_science_pack") || id.equals("advanced_circuit") || id.equals("battery")) return 200;
-        if (List.of("sulfur", "explosives", "solid_fuel", "engine_unit", "electric_engine_unit", "flying_robot_frame").contains(id)) return 50;
-        return 100;
-    }
+    private static int stackSize(String id) { return dev.minetorio.core.item.ItemStackSizes.limit("minetorio:" + id); }
     public static void register(IEventBus bus) { ITEMS.register(bus); }
 }

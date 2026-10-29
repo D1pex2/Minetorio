@@ -282,7 +282,7 @@ public final class BlueprintCapture {
             return GiveResult.TOO_SOON;
         }
         Inventory inv = player.getInventory();
-        if (!inv.getSelected().isEmpty()) {
+        if (!inv.items.get(inv.selected).isEmpty()) {
             int free = -1;
             for (int i = 0; i < Inventory.getSelectionSize(); i++) {
                 if (inv.items.get(i).isEmpty()) {
@@ -296,10 +296,11 @@ public final class BlueprintCapture {
             } else {
                 int slot = inv.getFreeSlot();
                 if (slot < 0) return GiveResult.NO_ROOM;
-                inv.setItem(slot, inv.getSelected());
+                inv.setItem(slot, inv.items.get(inv.selected));
             }
         }
         inv.setItem(inv.selected, fresh);
+        ((dev.minetorio.content.character.CharacterShortcuts) player).emptyHand(false);
         inv.setChanged();
         player.inventoryMenu.broadcastChanges();
         return GiveResult.OK;

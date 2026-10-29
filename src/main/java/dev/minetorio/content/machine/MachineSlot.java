@@ -23,7 +23,7 @@ public class MachineSlot extends net.minecraft.world.inventory.Slot {
     }
 
     @Override
-    public int getMaxStackSize() { return 64; }
+    public int getMaxStackSize() { return dev.minetorio.core.item.ItemStackSizes.MAX; }
 
     @Override
     public int getMaxStackSize(ItemStack stack) {

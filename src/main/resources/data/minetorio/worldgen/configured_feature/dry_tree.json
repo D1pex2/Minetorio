@@ -1,0 +1,15 @@
+{
+  "type": "minetorio:nauvis_tree",
+  "config": {
+    "trunk": {
+      "Name": "minetorio:dry_tree_trunk"
+    },
+    "branches": {
+      "Name": "minetorio:dry_tree_branches"
+    },
+    "min_height": 2,
+    "max_height": 4,
+    "forest": false,
+    "chance": 1.0
+  }
+}

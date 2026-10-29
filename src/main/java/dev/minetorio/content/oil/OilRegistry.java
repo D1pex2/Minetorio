@@ -39,11 +39,11 @@ public final class OilRegistry {
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3).sound(SoundType.METAL).lightLevel(s -> s.getValue(SteelFurnaceBlock.LIT) ? SteelFurnaceBlock.LIGHT : 0));
     public static final DeferredBlock<SteelChestBlock> STEEL_CHEST = BLOCKS.registerBlock("steel_chest", SteelChestBlock::new,
             BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(3).sound(SoundType.METAL));
-    public static final DeferredItem<BlockItem> PUMPJACK_ITEM = ITEMS.registerItem("pumpjack", p -> new MultiblockBlockItem(PUMPJACK.get(), p));
-    public static final DeferredItem<BlockItem> OIL_REFINERY_ITEM = ITEMS.registerItem("oil_refinery", p -> new MultiblockBlockItem(OIL_REFINERY.get(), p));
-    public static final DeferredItem<BlockItem> CHEMICAL_PLANT_ITEM = ITEMS.registerItem("chemical_plant", p -> new MultiblockBlockItem(CHEMICAL_PLANT.get(), p));
-    public static final DeferredItem<BlockItem> STEEL_FURNACE_ITEM = ITEMS.registerItem("steel_furnace", p -> new MultiblockBlockItem(STEEL_FURNACE.get(), p));
-    public static final DeferredItem<BlockItem> STEEL_CHEST_ITEM = ITEMS.registerSimpleBlockItem(STEEL_CHEST);
+    public static final DeferredItem<BlockItem> PUMPJACK_ITEM = ITEMS.registerItem("pumpjack", p -> new MultiblockBlockItem(PUMPJACK.get(), p.stacksTo(dev.minetorio.core.item.ItemStackSizes.limit(PUMPJACK.getId().toString()))));
+    public static final DeferredItem<BlockItem> OIL_REFINERY_ITEM = ITEMS.registerItem("oil_refinery", p -> new MultiblockBlockItem(OIL_REFINERY.get(), p.stacksTo(dev.minetorio.core.item.ItemStackSizes.limit(OIL_REFINERY.getId().toString()))));
+    public static final DeferredItem<BlockItem> CHEMICAL_PLANT_ITEM = ITEMS.registerItem("chemical_plant", p -> new MultiblockBlockItem(CHEMICAL_PLANT.get(), p.stacksTo(dev.minetorio.core.item.ItemStackSizes.limit(CHEMICAL_PLANT.getId().toString()))));
+    public static final DeferredItem<BlockItem> STEEL_FURNACE_ITEM = ITEMS.registerItem("steel_furnace", p -> new MultiblockBlockItem(STEEL_FURNACE.get(), p.stacksTo(dev.minetorio.core.item.ItemStackSizes.limit(STEEL_FURNACE.getId().toString()))));
+    public static final DeferredItem<BlockItem> STEEL_CHEST_ITEM = ITEMS.registerSimpleBlockItem(STEEL_CHEST, new net.minecraft.world.item.Item.Properties().stacksTo(50));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<OilSourceBlockEntity>> OIL_SOURCE_BE = ENTITIES.register("oil_source",
             () -> BlockEntityType.Builder.of(OilSourceBlockEntity::new, OIL_SOURCE.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PumpjackBlockEntity>> PUMPJACK_BE = ENTITIES.register("pumpjack",

@@ -20,8 +20,8 @@ class BeltMiscTest {
     }
 
     @Test void plainKeysHaveNoComponentData() {
-        assertTrue(LaneItem.isPlain("minecraft:coal"));
-        assertFalse(LaneItem.isPlain("minecraft:coal#{\"minecraft:custom_name\":'\"special\"'}"));
+        assertTrue(LaneItem.isPlain("minetorio:coal"));
+        assertFalse(LaneItem.isPlain("minetorio:coal#{\"minecraft:custom_name\":'\"special\"'}"));
     }
 
     @Test void laneLengths() {

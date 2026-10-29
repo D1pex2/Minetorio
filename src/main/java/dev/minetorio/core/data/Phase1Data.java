@@ -32,11 +32,12 @@ public final class Phase1Data {
         List<String> pre = prereqs.isEmpty() ? List.of() : List.of(prereqs.split(","));
         Map<String, Integer> pk = new LinkedHashMap<>();
         for (String p : packs.split(",")) pk.put(M + p + "_science_pack", 1);
-        return new Technology(id, pre, pk, units, Units.ticks(sec), List.of(unlocks.split(",")));
+        return new Technology(id, pre, pk, units, Units.ticks(sec), unlocks.isEmpty() ? List.of() : List.of(unlocks.split(",")));
     }
 
     private static TechTree buildTech() {
         List<Technology> technologies = new ArrayList<>(List.of(
+                tech("steel_axe", "steel_processing", "automation", 50, 30, ""),
                 tech("automation", "", "automation", 10, 10, "assembling_machine_1,long_handed_inserter"),
                 tech("logistics", "", "automation", 20, 15, "underground_belt,splitter"),
                 tech("fast_inserter", "electronics", "automation", 30, 15, "fast_inserter,filter_inserter"),
@@ -72,17 +73,17 @@ public final class Phase1Data {
     private static RecipeBook build() {
         List<Recipe> r = new ArrayList<>();
         r.add(smelt("iron_plate", "iron_ore", M + "iron_plate"));
-        r.add(smelt("iron_plate_from_raw_iron", "minecraft:raw_iron", M + "iron_plate"));
         r.add(smelt("copper_plate", "copper_ore", M + "copper_plate"));
-        r.add(smelt("copper_plate_from_raw_copper", "minecraft:raw_copper", M + "copper_plate"));
-        r.add(smelt("stone_brick", "2 minecraft:cobblestone", M + "stone_brick"));
+        r.add(smelt("stone_brick", "2 stone", M + "stone_brick"));
 
+        r.add(craft("wooden_chest", "2 wood", 1, 0.5));
+        r.add(craft("iron_chest", "8 iron_plate", 1, 0.5));
         r.add(craft("iron_gear_wheel", "2 iron_plate", 1, 0.5));
         r.add(craft("copper_cable", "1 copper_plate", 2, 0.5));
         r.add(craft("electronic_circuit", "1 iron_plate, 3 copper_cable", 1, 0.5));
         r.add(craft("pipe", "1 iron_plate", 1, 0.5));
         r.add(craft("pipe_to_ground", "10 pipe, 5 iron_plate", 2, 0.5));
-        r.add(craft("stone_furnace", "5 minecraft:cobblestone", 1, 0.5));
+        r.add(craft("stone_furnace", "5 stone", 1, 0.5));
         r.add(craft("burner_mining_drill", "3 iron_gear_wheel, 1 stone_furnace, 3 iron_plate", 1, 2));
         r.add(craft("electric_mining_drill", "3 electronic_circuit, 5 iron_gear_wheel, 10 iron_plate", 1, 2));
         r.add(craft("transport_belt", "1 iron_gear_wheel, 1 iron_plate", 2, 0.5));
@@ -104,7 +105,7 @@ public final class Phase1Data {
         r.add(craft("offshore_pump", "2 electronic_circuit, 1 pipe, 1 iron_gear_wheel", 1, 0.5));
         r.add(craft("boiler", "1 stone_furnace, 4 pipe", 1, 0.5));
         r.add(craft("steam_engine", "8 iron_gear_wheel, 5 pipe, 10 iron_plate", 1, 0.5));
-        r.add(craft("small_electric_pole", "1 minecraft:stick, 2 copper_cable", 2, 0.5));
+        r.add(craft("small_electric_pole", "1 wood, 2 copper_cable", 2, 0.5));
         r.add(craft("automation_science_pack", "1 copper_plate, 1 iron_gear_wheel", 1, 5));
         r.add(craft("logistic_science_pack", "1 inserter, 1 transport_belt", 1, 6));
         Map<String, Recipe> merged = new LinkedHashMap<>();
@@ -115,15 +116,8 @@ public final class Phase1Data {
 
     private static Map<String, Long> buildFuel() {
         Map<String, Long> f = new LinkedHashMap<>();
-        f.put("minecraft:coal", Units.mj(4));
-        f.put("minecraft:charcoal", Units.mj(4));
-        f.put("minecraft:coal_block", Units.mj(36));
-        for (String w : List.of("oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry")) {
-            f.put("minecraft:" + w + "_log", Units.mj(2));
-            f.put("minecraft:" + w + "_planks", Units.mj(0.5));
-        }
-        f.put("minecraft:bamboo_planks", Units.mj(0.5));
-        f.put("minecraft:stick", Units.mj(0.25));
+        f.put(M + "coal", Units.mj(4));
+        f.put(M + "wood", Units.mj(2));
         f.put(M + "solid_fuel", Units.mj(12));
         return Collections.unmodifiableMap(f);
     }

@@ -44,6 +44,10 @@ public final class DrillOutput {
         return true;
     }
 
+    /** Takes the actual buffered ore for a GUI transfer; the mining debit already happened. */
+    @Nullable
+    public String take() { String item=held; held=null; return item; }
+
     /** Drops the buffered item at {@code pos} and empties the buffer (server side). */
     public void drop(Level level, BlockPos pos) {
         if (held == null) return;

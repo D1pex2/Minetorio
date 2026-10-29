@@ -1,0 +1,10 @@
+{
+  "type": "minetorio:nauvis_rock",
+  "config": {
+    "block": {
+      "Name": "minetorio:big_rock"
+    },
+    "radius": 0,
+    "chance": 1.0
+  }
+}

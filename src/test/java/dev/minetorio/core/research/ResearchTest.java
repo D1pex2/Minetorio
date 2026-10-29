@@ -149,8 +149,8 @@ class ResearchTest {
         assertEquals(0, l.insertPack("minetorio:iron_plate", 5, false));
         assertEquals(2, l.insertPack(R, 5, true));
         assertEquals(0, l.insertPack(R, 1, true));
-        assertEquals(62, l.insertPack(R, 100, false));
-        assertEquals(64, l.packs().get(R));
+        assertEquals(198, l.insertPack(R, 200, false));
+        assertEquals(200, l.packs().get(R));
     }
 
     @Test void changingTechAbortsUnit() {
@@ -189,13 +189,13 @@ class ResearchTest {
         LabLogic l = lab();
         assertEquals(0, l.packRoom("minetorio:iron_plate", true));
         assertEquals(2, l.packRoom(R, true));
-        assertEquals(64, l.packRoom(G, false));
+        assertEquals(200, l.packRoom(G, false));
         l.insertPack(R, 1, true);
         assertEquals(1, l.packRoom(R, true));
-        assertEquals(63, l.packRoom(R, false));
+        assertEquals(199, l.packRoom(R, false));
         l.insertPack(R, 10, false);
         assertEquals(0, l.packRoom(R, true));
-        assertEquals(53, l.packRoom(R, false));
+        assertEquals(189, l.packRoom(R, false));
     }
 
     @Test void labLoadRestoresUnitInProgress() {

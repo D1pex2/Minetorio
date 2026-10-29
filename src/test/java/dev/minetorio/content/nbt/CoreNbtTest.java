@@ -193,7 +193,7 @@ class CoreNbtTest {
     @Test
     void burnerRoundTrip() {
         Burner b = new Burner(4500, Phase1Data.fuelValues());
-        b.insertFuel("minecraft:coal", 3, false);
+        b.insertFuel("minetorio:coal", 3, false);
         b.draw();
         Burner back = new Burner(4500, Phase1Data.fuelValues());
         CoreNbt.loadBurnerInto(back, CoreNbt.writeBurner(b));

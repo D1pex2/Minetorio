@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import dev.minetorio.content.fluid.FluidAccess;
 import dev.minetorio.content.oil.OilRegistry;
 import dev.minetorio.content.oil.OilSourceBlockEntity;
@@ -49,7 +50,7 @@ public class OilChainGameTest {
         for(int z=17;z<=20;z++)pipe(h,21,z);
         for(int x=22;x<=26;x++)pipe(h,x,20);
         pipe(h,27,14); pipe(h,26,14);
-        InserterGameTest.container(h,Blocks.CHEST,p(24,12),new ItemStack(Items.COAL,16));
+        InserterGameTest.container(h,Blocks.CHEST,p(24,12),new ItemStack(BaseMaterials.COAL.get(),16));
         h.setBlock(p(30,12),Blocks.CHEST);
         place(h,ModItems.INSERTER.get(),p(25,12),Direction.EAST);
         place(h,ModItems.INSERTER.get(),p(29,12),Direction.EAST);

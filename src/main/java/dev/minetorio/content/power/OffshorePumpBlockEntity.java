@@ -42,7 +42,8 @@ public class OffshorePumpBlockEntity extends SteamMachineBlockEntity {
     @Override
     protected void tickMachine(Level level) {
         boolean source = level.isLoaded(OffshorePumpBlock.waterPos(worldPosition, facing())) && hasWater();
-        if (source && water.insert("water", SteamPlant.OFFSHORE_WATER_PER_TICK) > 0) setChanged();
+        double generated=source?water.insert("water",SteamPlant.OFFSHORE_WATER_PER_TICK):0;
+        if(generated>0) {dev.minetorio.content.stats.Statistics.record(level,"fluid:water",generated,0);setChanged();}
         setActive(level, source); // not "inserted > 0": a full box is "working" too
     }
 

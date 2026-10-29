@@ -218,6 +218,7 @@ public abstract class MiningDrillBlockEntity extends MultiblockControllerBlockEn
                 progress = Math.max(0, progress - 1);
                 OreType type = OreFields.mineOne(level, t);
                 if (type != null) {
+                    dev.minetorio.content.stats.Statistics.record(level,type.item(),1,0);
                     output.hold(type.item());
                     output.push(level, outputPos(), from);
                 }

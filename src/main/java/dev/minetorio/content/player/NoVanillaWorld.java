@@ -40,6 +40,19 @@ public final class NoVanillaWorld {
 
         NeoForge.EVENT_BUS.addListener((BlockEvent.PortalSpawnEvent e) -> e.setCanceled(true));
         NeoForge.EVENT_BUS.addListener((PlayerInteractEvent.RightClickBlock e) -> {
+            var block=e.getLevel().getBlockState(e.getPos()).getBlock();
+            if (!e.getEntity().isCreative() && (block instanceof net.minecraft.world.level.block.CraftingTableBlock
+                    || block instanceof net.minecraft.world.level.block.AbstractFurnaceBlock
+                    || block instanceof net.minecraft.world.level.block.EnchantingTableBlock
+                    || block instanceof net.minecraft.world.level.block.AnvilBlock
+                    || block instanceof net.minecraft.world.level.block.GrindstoneBlock
+                    || block instanceof net.minecraft.world.level.block.SmithingTableBlock
+                    || block instanceof net.minecraft.world.level.block.StonecutterBlock
+                    || block instanceof net.minecraft.world.level.block.LoomBlock
+                    || block instanceof net.minecraft.world.level.block.CartographyTableBlock
+                    || block instanceof net.minecraft.world.level.block.BrewingStandBlock)) {
+                e.setCanceled(true);
+            }
             if (e.getItemStack().is(Items.ENDER_EYE) && e.getLevel().getBlockState(e.getPos()).is(Blocks.END_PORTAL_FRAME)) {
                 e.setCanceled(true);
             }

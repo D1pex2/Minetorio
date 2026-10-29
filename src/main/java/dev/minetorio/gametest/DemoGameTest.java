@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import dev.minetorio.content.belt.BeltBlockEntity;
 import dev.minetorio.content.belt.LaneSide;
 import dev.minetorio.content.demo.DemoBuilder;
@@ -203,7 +204,7 @@ public class DemoGameTest {
             }
             h.assertTrue(plates <= DemoBuilder.OUTPUT_KEEP, "output chest not trimmed: " + plates);
 
-            h.assertTrue(count(level, layout.coalField().offset(1, 1, -1), Items.COAL) > 0, "coal drill mined nothing");
+            h.assertTrue(count(level, layout.coalField().offset(1, 1, -1), BaseMaterials.COAL.get()) > 0, "coal drill mined nothing");
 
             // demo off: no entries, no autopilot, the fields turned into dirt
             try {

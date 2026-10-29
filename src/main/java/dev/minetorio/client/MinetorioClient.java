@@ -76,6 +76,7 @@ public final class MinetorioClient {
 
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
+        dev.minetorio.client.world.BasicChestScreen.registerScreens(event);
         dev.minetorio.client.oil.OilClient.registerScreens(event);
         event.register(ModMenus.STONE_FURNACE.get(), StoneFurnaceScreen::new);
         event.register(ModMenus.ASSEMBLING_MACHINE.get(), AssemblerScreen::new);

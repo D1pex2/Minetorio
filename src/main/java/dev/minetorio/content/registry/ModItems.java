@@ -1,6 +1,7 @@
 package dev.minetorio.content.registry;
 
 import dev.minetorio.Minetorio;
+import dev.minetorio.core.item.ItemStackSizes;
 import dev.minetorio.content.belt.BeltItem;
 import dev.minetorio.content.blueprint.BlueprintBookItem;
 import dev.minetorio.content.blueprint.BlueprintItem;
@@ -21,16 +22,16 @@ public final class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Minetorio.MODID);
 
     // Materials
-    public static final DeferredItem<Item> IRON_ORE = ITEMS.registerSimpleItem("iron_ore");
-    public static final DeferredItem<Item> COPPER_ORE = ITEMS.registerSimpleItem("copper_ore");
-    public static final DeferredItem<Item> IRON_PLATE = ITEMS.registerSimpleItem("iron_plate");
-    public static final DeferredItem<Item> COPPER_PLATE = ITEMS.registerSimpleItem("copper_plate");
-    public static final DeferredItem<Item> STONE_BRICK = ITEMS.registerSimpleItem("stone_brick");
-    public static final DeferredItem<Item> IRON_GEAR_WHEEL = ITEMS.registerSimpleItem("iron_gear_wheel");
-    public static final DeferredItem<Item> COPPER_CABLE = ITEMS.registerSimpleItem("copper_cable");
-    public static final DeferredItem<Item> ELECTRONIC_CIRCUIT = ITEMS.registerSimpleItem("electronic_circuit");
-    public static final DeferredItem<Item> AUTOMATION_SCIENCE_PACK = ITEMS.registerSimpleItem("automation_science_pack");
-    public static final DeferredItem<Item> LOGISTIC_SCIENCE_PACK = ITEMS.registerSimpleItem("logistic_science_pack");
+    public static final DeferredItem<Item> IRON_ORE = ITEMS.registerSimpleItem("iron_ore", properties("iron_ore"));
+    public static final DeferredItem<Item> COPPER_ORE = ITEMS.registerSimpleItem("copper_ore", properties("copper_ore"));
+    public static final DeferredItem<Item> IRON_PLATE = ITEMS.registerSimpleItem("iron_plate", properties("iron_plate"));
+    public static final DeferredItem<Item> COPPER_PLATE = ITEMS.registerSimpleItem("copper_plate", properties("copper_plate"));
+    public static final DeferredItem<Item> STONE_BRICK = ITEMS.registerSimpleItem("stone_brick", properties("stone_brick"));
+    public static final DeferredItem<Item> IRON_GEAR_WHEEL = ITEMS.registerSimpleItem("iron_gear_wheel", properties("iron_gear_wheel"));
+    public static final DeferredItem<Item> COPPER_CABLE = ITEMS.registerSimpleItem("copper_cable", properties("copper_cable"));
+    public static final DeferredItem<Item> ELECTRONIC_CIRCUIT = ITEMS.registerSimpleItem("electronic_circuit", properties("electronic_circuit"));
+    public static final DeferredItem<Item> AUTOMATION_SCIENCE_PACK = ITEMS.registerSimpleItem("automation_science_pack", properties("automation_science_pack"));
+    public static final DeferredItem<Item> LOGISTIC_SCIENCE_PACK = ITEMS.registerSimpleItem("logistic_science_pack", properties("logistic_science_pack"));
 
     // Machines (block items; the item id equals the block id)
     public static final DeferredItem<BlockItem> STONE_FURNACE = multiblock(ModBlocks.STONE_FURNACE);
@@ -45,30 +46,30 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> TRANSPORT_BELT = belt(ModBlocks.TRANSPORT_BELT);
     public static final DeferredItem<BlockItem> FAST_TRANSPORT_BELT = belt(ModBlocks.FAST_TRANSPORT_BELT);
     public static final DeferredItem<BlockItem> EXPRESS_TRANSPORT_BELT = belt(ModBlocks.EXPRESS_TRANSPORT_BELT);
-    public static final DeferredItem<BlockItem> UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.UNDERGROUND_BELT);
-    public static final DeferredItem<BlockItem> FAST_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_UNDERGROUND_BELT);
-    public static final DeferredItem<BlockItem> EXPRESS_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_UNDERGROUND_BELT);
+    public static final DeferredItem<BlockItem> UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.UNDERGROUND_BELT, properties("underground_belt"));
+    public static final DeferredItem<BlockItem> FAST_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_UNDERGROUND_BELT, properties("fast_underground_belt"));
+    public static final DeferredItem<BlockItem> EXPRESS_UNDERGROUND_BELT = ITEMS.registerSimpleBlockItem(ModBlocks.EXPRESS_UNDERGROUND_BELT, properties("express_underground_belt"));
     public static final DeferredItem<BlockItem> SPLITTER = multiblock(ModBlocks.SPLITTER);
     public static final DeferredItem<BlockItem> FAST_SPLITTER = multiblock(ModBlocks.FAST_SPLITTER);
     public static final DeferredItem<BlockItem> EXPRESS_SPLITTER = multiblock(ModBlocks.EXPRESS_SPLITTER);
 
     // Inserters
-    public static final DeferredItem<BlockItem> BURNER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_INSERTER);
-    public static final DeferredItem<BlockItem> INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.INSERTER);
-    public static final DeferredItem<BlockItem> LONG_HANDED_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.LONG_HANDED_INSERTER);
-    public static final DeferredItem<BlockItem> FAST_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_INSERTER);
-    public static final DeferredItem<BlockItem> FILTER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FILTER_INSERTER);
-    public static final DeferredItem<BlockItem> STACK_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.STACK_INSERTER);
+    public static final DeferredItem<BlockItem> BURNER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.BURNER_INSERTER, properties("burner_inserter"));
+    public static final DeferredItem<BlockItem> INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.INSERTER, properties("inserter"));
+    public static final DeferredItem<BlockItem> LONG_HANDED_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.LONG_HANDED_INSERTER, properties("long_handed_inserter"));
+    public static final DeferredItem<BlockItem> FAST_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FAST_INSERTER, properties("fast_inserter"));
+    public static final DeferredItem<BlockItem> FILTER_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.FILTER_INSERTER, properties("filter_inserter"));
+    public static final DeferredItem<BlockItem> STACK_INSERTER = ITEMS.registerSimpleBlockItem(ModBlocks.STACK_INSERTER, properties("stack_inserter"));
 
     // Steam power
     public static final DeferredItem<BlockItem> OFFSHORE_PUMP = multiblock(ModBlocks.OFFSHORE_PUMP);
-    public static final DeferredItem<BlockItem> PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE);
-    public static final DeferredItem<BlockItem> PIPE_TO_GROUND = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE_TO_GROUND);
+    public static final DeferredItem<BlockItem> PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE, properties("pipe"));
+    public static final DeferredItem<BlockItem> PIPE_TO_GROUND = ITEMS.registerSimpleBlockItem(ModBlocks.PIPE_TO_GROUND, properties("pipe_to_ground"));
     public static final DeferredItem<BlockItem> STORAGE_TANK = multiblock(ModBlocks.STORAGE_TANK);
     public static final DeferredItem<BlockItem> PUMP = multiblock(ModBlocks.PUMP);
     public static final DeferredItem<BlockItem> BOILER = multiblock(ModBlocks.BOILER);
     public static final DeferredItem<BlockItem> STEAM_ENGINE = multiblock(ModBlocks.STEAM_ENGINE);
-    public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE);
+    public static final DeferredItem<BlockItem> SMALL_ELECTRIC_POLE = ITEMS.registerSimpleBlockItem(ModBlocks.SMALL_ELECTRIC_POLE, properties("small_electric_pole"));
 
     // Solar power and electric network
     public static final DeferredItem<BlockItem> SOLAR_PANEL = multiblock(ModBlocks.SOLAR_PANEL);
@@ -79,7 +80,7 @@ public final class ModItems {
 
     // Construction robots
     public static final DeferredItem<BlockItem> ROBOPORT = multiblock(ModBlocks.ROBOPORT);
-    public static final DeferredItem<Item> CONSTRUCTION_ROBOT = ITEMS.registerSimpleItem("construction_robot");
+    public static final DeferredItem<Item> CONSTRUCTION_ROBOT = ITEMS.registerSimpleItem("construction_robot", properties("construction_robot"));
     /** Factorio's ghost cursor as an item (see {@link GhostItem}); not in the creative tab. */
     public static final DeferredItem<Item> GHOST_ITEM = ITEMS.registerItem("ghost_item", p -> new GhostItem(p.stacksTo(1)));
     /** Factorio's blueprint (see {@link BlueprintItem}); free from the blueprint key. */
@@ -96,7 +97,7 @@ public final class ModItems {
 
     // Character
     /** Factorio's raw fish: caught from a fish in water, eaten to heal (see RawFishItem). */
-    public static final DeferredItem<Item> RAW_FISH = ITEMS.registerItem("raw_fish", p -> new RawFishItem(p));
+    public static final DeferredItem<Item> RAW_FISH = ITEMS.registerItem("raw_fish", p -> new RawFishItem(p.stacksTo(100)));
 
     /** Paths of every item registered above (LangCompletenessTest checks it against {@link #ITEMS} and the lang files). */
     public static final List<String> IDS = List.of(
@@ -117,11 +118,15 @@ public final class ModItems {
 
     /** Item of a multiblock machine: placed centered on the targeted cell (R26). */
     private static DeferredItem<BlockItem> belt(DeferredBlock<? extends Block> block) {
-        return ITEMS.registerItem(block.getId().getPath(), p -> new BeltItem(block.get(), p));
+        return ITEMS.registerItem(block.getId().getPath(), p -> new BeltItem(block.get(), p.stacksTo(ItemStackSizes.limit(block.getId().toString()))));
     }
 
     private static DeferredItem<BlockItem> multiblock(DeferredBlock<? extends MultiblockControllerBlock> block) {
-        return ITEMS.registerItem(block.getId().getPath(), p -> new MultiblockBlockItem(block.get(), p));
+        return ITEMS.registerItem(block.getId().getPath(), p -> new MultiblockBlockItem(block.get(), p.stacksTo(ItemStackSizes.limit(block.getId().toString()))));
+    }
+
+    private static Item.Properties properties(String id) {
+        return new Item.Properties().stacksTo(ItemStackSizes.limit("minetorio:" + id));
     }
 
     public static void register(IEventBus modBus) {

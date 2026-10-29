@@ -1,6 +1,7 @@
 package dev.minetorio.core.oil;
 
 import dev.minetorio.core.data.OilData;
+import dev.minetorio.core.item.ItemStackSizes;
 import dev.minetorio.core.fluid.*;
 import dev.minetorio.core.recipe.Ingredient;
 import java.util.*;
@@ -9,6 +10,9 @@ import java.util.*;
  * One stable tank per fluid and direction keeps attached port references valid across recipe changes.
  */
 public final class OilMachine {
+    private java.util.function.Consumer<OilRecipe> completed=recipe->{};
+    /** Receives completed batches only; starting, blocked ticks and canceled crafts emit nothing. */
+    public void onCraftCompleted(java.util.function.Consumer<OilRecipe> listener) {completed=java.util.Objects.requireNonNull(listener);}
     public static final double TANK_CAPACITY = 1000;
     private static final double EPS = 1e-9;
     private final double speed;
@@ -73,7 +77,7 @@ public final class OilMachine {
     public int inputRoom(String item, boolean automated) {
         if(recipe==null) return 0;
         int need=recipe.itemInputs().stream().filter(i->i.item().equals(item)).mapToInt(Ingredient::count).sum();
-        return need==0?0:Math.max(0,(automated?need*2:Math.max(64,need))-inputs.getOrDefault(item,0));
+        return need==0?0:Math.max(0,(automated?need*2:Math.max(ItemStackSizes.limit(item),need))-inputs.getOrDefault(item,0));
     }
     public int insertInput(String item,int count,boolean automated) {
         int n=Math.max(0,Math.min(count,inputRoom(item,automated)));
@@ -91,7 +95,7 @@ public final class OilMachine {
     }
     private static boolean has(FluidBox box,String id,double amount) { return box!=null && id.equals(box.fluid()) && box.amount()+EPS>=amount; }
     private boolean outputRoom() {
-        return recipe!=null && recipe.itemOutputs().stream().allMatch(i->outputs.getOrDefault(i.item(),0)+i.count()<=64)
+        return recipe!=null && recipe.itemOutputs().stream().allMatch(i->outputs.getOrDefault(i.item(),0)+i.count()<=ItemStackSizes.limit(i.item()))
                 && recipe.fluidOutputs().entrySet().stream().allMatch(e->{var b=outputFluids.get(e.getKey());return b!=null && (b.fluid()==null || b.fluid().equals(e.getKey())) && b.room()+EPS>=e.getValue();});
     }
     public boolean isOutputFull() { return recipe!=null && !outputRoom(); }
@@ -109,6 +113,7 @@ public final class OilMachine {
         if(progress>=1-EPS) {
             recipe.itemOutputs().forEach(i->outputs.merge(i.item(),i.count(),Integer::sum));
             recipe.fluidOutputs().forEach((id,n)->outputFluids.get(id).insert(id,n));
+            completed.accept(recipe);
             crafting=false; progress=Math.max(0,progress-1);
         }
     }

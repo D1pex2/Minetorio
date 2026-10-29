@@ -56,6 +56,7 @@ public final class PowerGridManager {
     private List<PowerNetwork> networks = List.of();
     private List<PowerConsumer> unpowered = List.of();
     private Map<BlockPos, PowerNetwork> memberNetworks = Map.of();
+    private Map<Integer,PowerNetwork> componentNetworks=Map.of();
     /** Members changed: networks must be rebuilt. */
     private boolean dirty;
     /** Poles changed: wire connections must be re-sent. */
@@ -174,6 +175,13 @@ public final class PowerGridManager {
         return memberNetworks.get(pos);
     }
 
+    /** Real settled network attached to a pole; idle isolated poles have no network members. */
+    @Nullable
+    public PowerNetwork networkAtPole(BlockPos position) {
+        PolePos key=poles.get(position);if(key==null)return null;
+        return componentNetworks.get(graph.componentOf(key));
+    }
+
     // --- ticking -----------------------------------------------------------------------------------
 
     private void tick() {
@@ -200,6 +208,7 @@ public final class PowerGridManager {
             if (m.handle() instanceof PowerProducer producer) n.add(producer);
             if (m.handle() instanceof PowerStorage storage) n.add(storage);
         }
+        componentNetworks=Map.copyOf(byComponent);
         networks = List.copyOf(byComponent.values());
         memberNetworks = byMember;
         unpowered = outside;

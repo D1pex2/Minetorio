@@ -1,0 +1,15 @@
+{
+  "type": "minetorio:nauvis_tree",
+  "config": {
+    "trunk": {
+      "Name": "minetorio:tree_trunk"
+    },
+    "leaves": {
+      "Name": "minetorio:tree_leaves_red"
+    },
+    "min_height": 3,
+    "max_height": 4,
+    "forest": true,
+    "chance": 0.7
+  }
+}

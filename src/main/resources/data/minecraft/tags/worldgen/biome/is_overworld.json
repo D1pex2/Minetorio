@@ -1,0 +1,12 @@
+{
+  "values": [
+    "minetorio:nauvis_grassland",
+    "minetorio:nauvis_meadow",
+    "minetorio:nauvis_steppe",
+    "minetorio:nauvis_dry_plains",
+    "minetorio:nauvis_desert",
+    "minetorio:nauvis_red_desert",
+    "minetorio:nauvis_shallow_water",
+    "minetorio:nauvis_deep_water"
+  ]
+}

@@ -8,7 +8,15 @@
     "ChunkMapMixin",
     "DistanceManagerAccess",
     "FoodDataMixin",
-    "TrackedEntityMixin"
+    "TrackedEntityMixin",
+    "DedicatedServerPropertiesMixin",
+    "CharacterInventoryMixin",
+    "CharacterPlayerMenuMixin",
+    "CharacterShortcutsMixin",
+    "CharacterRespawnMixin",
+    "CharacterPickPacketMixin",
+    "FactorioStackCodecMixin",
+    "FactorioContainerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

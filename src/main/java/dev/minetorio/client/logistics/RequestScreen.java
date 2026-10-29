@@ -1,5 +1,6 @@
 package dev.minetorio.client.logistics;
 
+import dev.minetorio.client.gui.FactoryTheme;
 import dev.minetorio.content.logistics.LogisticsPayloads;
 import dev.minetorio.content.logistics.RequestMenu;
 import dev.minetorio.core.logistics.LogisticRequest;
@@ -27,10 +28,11 @@ import org.lwjgl.glfw.GLFW;
  */
 public abstract class RequestScreen<M extends RequestMenu> extends AbstractContainerScreen<M> {
     protected static final int PANEL = 0xFFC6C6C6;
-    protected static final int TEXT = 0x404040;
+    protected static final int TEXT = FactoryTheme.TEXT;
     private static final int HOVER = 0x80FFFFFF;
     private static final int SELECTED = 0xFFFFD34D;
 
+    private float uiScale = 1.0f;
     private int selected = -1;
     private EditBox min;
     private EditBox max;
@@ -38,8 +40,9 @@ public abstract class RequestScreen<M extends RequestMenu> extends AbstractConta
 
     protected RequestScreen(M menu, Inventory inventory, Component title, int height) {
         super(menu, inventory, title);
+        imageWidth = 196;
         imageHeight = height;
-        inventoryLabelY = imageHeight - 94;
+        inventoryLabelY = imageHeight - 162;
     }
 
     /** Top of the count editor row, or -1 if the menu has no counts. */
@@ -47,6 +50,9 @@ public abstract class RequestScreen<M extends RequestMenu> extends AbstractConta
 
     @Override
     protected void init() {
+        uiScale = Math.min(1.0f, Math.min(width / (float) imageWidth, height / (float) imageHeight));
+        width = Math.max(imageWidth, (int) Math.floor(width / uiScale));
+        height = Math.max(imageHeight, (int) Math.floor(height / uiScale));
         super.init();
         if (editY() < 0 || !menu.hasCounts()) return;
         int y = topPos + editY();
@@ -107,6 +113,7 @@ public abstract class RequestScreen<M extends RequestMenu> extends AbstractConta
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        mouseX /= uiScale; mouseY /= uiScale;
         int slot = requestAt(mouseX, mouseY);
         if (slot >= 0) {
             if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
@@ -153,6 +160,9 @@ public abstract class RequestScreen<M extends RequestMenu> extends AbstractConta
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        mouseX = (int)(mouseX / uiScale); mouseY = (int)(mouseY / uiScale);
+        g.pose().pushPose();
+        g.pose().scale(uiScale, uiScale, 1);
         super.render(g, mouseX, mouseY, partialTick);
         int hovered = requestAt(mouseX, mouseY);
         LogisticRequest r = menu.table().get(hovered);
@@ -170,6 +180,19 @@ public abstract class RequestScreen<M extends RequestMenu> extends AbstractConta
         } else {
             renderTooltip(g, mouseX, mouseY);
         }
+        g.pose().popPose();
+    }
+
+    @Override public boolean mouseReleased(double x, double y, int button) {
+        return super.mouseReleased(x / uiScale, y / uiScale, button);
+    }
+
+    @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        return super.mouseDragged(x / uiScale, y / uiScale, button, dx / uiScale, dy / uiScale);
+    }
+
+    @Override public boolean mouseScrolled(double x, double y, double dx, double dy) {
+        return super.mouseScrolled(x / uiScale, y / uiScale, dx, dy);
     }
 
     static ItemStack ghost(String id) {
@@ -211,23 +234,17 @@ public abstract class RequestScreen<M extends RequestMenu> extends AbstractConta
     }
 
     static void panel(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFF000000);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0xFFFFFFFF);
-        g.fill(x + 2, y + 2, x + w - 1, y + h - 1, 0xFF555555);
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, PANEL);
+        FactoryTheme.panel(g, x, y, w, h);
     }
 
     static void slotFrame(GuiGraphics g, int x, int y) {
-        g.fill(x, y, x + 18, y + 18, 0xFF8B8B8B);
-        g.fill(x, y, x + 17, y + 1, 0xFF373737);
-        g.fill(x, y, x + 1, y + 17, 0xFF373737);
-        g.fill(x + 1, y + 17, x + 18, y + 18, 0xFFFFFFFF);
-        g.fill(x + 17, y + 1, x + 18, y + 18, 0xFFFFFFFF);
+        FactoryTheme.slot(g, x, y);
     }
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        super.renderLabels(g, mouseX, mouseY);
+        FactoryTheme.title(g, font, title, titleLabelX, titleLabelY);
+        FactoryTheme.label(g, font, playerInventoryTitle, inventoryLabelX, inventoryLabelY);
         if (min != null) {
             g.drawString(font, Component.translatable("minetorio.logistics.min"), 8, editY() + 3, TEXT, false);
             if (max != null) g.drawString(font, Component.translatable("minetorio.logistics.max"), 74, editY() + 3, TEXT, false);

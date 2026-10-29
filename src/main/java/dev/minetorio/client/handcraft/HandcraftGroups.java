@@ -45,6 +45,8 @@ public final class HandcraftGroups {
             Map.entry("pipe_to_ground", Group.LOGISTICS),
             Map.entry("storage_tank", Group.LOGISTICS),
             Map.entry("pump", Group.LOGISTICS),
+            Map.entry("wooden_chest", Group.LOGISTICS),
+            Map.entry("iron_chest", Group.LOGISTICS),
             Map.entry("steel_chest", Group.LOGISTICS),
             Map.entry("small_electric_pole", Group.LOGISTICS),
             Map.entry("medium_electric_pole", Group.LOGISTICS),

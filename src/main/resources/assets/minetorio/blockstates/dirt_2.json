@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "minetorio:block/dirt_2"
+      },
+      {
+        "model": "minetorio:block/dirt_2",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/dirt_2",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/dirt_2",
+        "y": 270
+      }
+    ]
+  }
+}

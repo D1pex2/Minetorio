@@ -1,40 +1,23 @@
 package dev.minetorio.client.machine;
-
+import dev.minetorio.client.gui.FactoryTheme;
 import dev.minetorio.content.machine.StoneFurnaceMenu;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import dev.minetorio.client.gui.FactoryContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-
-/** Stone furnace GUI on the vanilla furnace background: fuel, input, output, flame and progress arrow. */
-public class StoneFurnaceScreen extends AbstractContainerScreen<StoneFurnaceMenu> {
-    private static final ResourceLocation TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/furnace.png");
-    private static final ResourceLocation LIT = ResourceLocation.withDefaultNamespace("container/furnace/lit_progress");
-    private static final ResourceLocation BURN = ResourceLocation.withDefaultNamespace("container/furnace/burn_progress");
-
-    public StoneFurnaceScreen(StoneFurnaceMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-    }
-
-    @Override
-    protected void init() {
-        super.init();
-        titleLabelX = (imageWidth - font.width(title)) / 2;
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.render(g, mouseX, mouseY, partialTick);
-        renderTooltip(g, mouseX, mouseY);
-    }
-
-    @Override
-    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
-        g.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
-        if (menu.isLit()) g.blitSprite(LIT, 14, 14, 0, 0, leftPos + 56, topPos + 36, 14, 14);
-        int arrow = Mth.ceil(menu.progress() * 24f);
-        g.blitSprite(BURN, 24, 16, 0, 0, leftPos + 79, topPos + 34, arrow, 16);
-    }
+/** Original industrial furnace panel, backed by the live fuel, input and output slots. */
+public class StoneFurnaceScreen extends FactoryContainerScreen<StoneFurnaceMenu> {
+ public StoneFurnaceScreen(StoneFurnaceMenu menu,Inventory inventory,Component title) {super(menu,inventory,title);imageWidth=406;imageHeight=190;inventoryLabelX=210;inventoryLabelY=6;}
+ @Override protected void renderFactory(GuiGraphics g,int x,int y,float partial) {super.renderFactory(g,x,y,partial);renderTooltip(g,x,y);}
+ @Override protected void renderLabels(GuiGraphics g,int x,int y) {FactoryTheme.title(g,font,title,10,6);FactoryTheme.label(g,font,playerInventoryTitle,210,6);}
+ @Override protected void renderBg(GuiGraphics g,float partial,int mx,int my) {
+  FactoryTheme.panel(g,leftPos,topPos,196,imageHeight);FactoryTheme.panel(g,leftPos+202,topPos,204,imageHeight);FactoryTheme.slots(g,leftPos,topPos,menu.slots);
+  FactoryTheme.bar(g,leftPos+80,topPos+39,28,9,menu.progress(),FactoryTheme.GREEN);
+  g.drawString(font,">",leftPos+110,topPos+39,FactoryTheme.ACCENT,false);
+  FactoryTheme.bar(g,leftPos+42,topPos+54,7,16,menu.isLit()?1:0,FactoryTheme.ACCENT);
+  FactoryTheme.label(g,font,Component.translatable("minetorio.machineui.input"),leftPos+8,topPos+28);
+  FactoryTheme.label(g,font,Component.translatable("minetorio.machineui.fuel_slot"),leftPos+8,topPos+56);
+  FactoryTheme.label(g,font,Component.translatable("minetorio.machineui.progress",Math.round(menu.progress()*100)),leftPos+8,topPos+88);
+  FactoryTheme.bar(g,leftPos+8,topPos+101,176,9,menu.progress(),FactoryTheme.GREEN);
+ }
 }

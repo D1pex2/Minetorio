@@ -49,7 +49,7 @@ public class AccumulatorBlock extends MultiblockControllerBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         if (!(level.getBlockEntity(pos) instanceof AccumulatorBlockEntity be)) return InteractionResult.PASS;
-        player.displayClientMessage(be.status(), true);
+        dev.minetorio.content.machineui.MachineUi.open(player, be);
         return InteractionResult.CONSUME;
     }
 }

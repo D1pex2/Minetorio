@@ -32,7 +32,11 @@ public final class LogisticPlanner {
      * {@code fromBuffers}: a requester chest's "request from buffer chests".
      */
     public record Node(String id, Role role, Cell cell, Map<String, Integer> contents, List<LogisticRequest> requests,
-                       String filter, boolean fromBuffers) {
+                       String filter, boolean fromBuffers, Map<String, Integer> trash) {
+        public Node(String id, Role role, Cell cell, Map<String, Integer> contents, List<LogisticRequest> requests,
+                    String filter, boolean fromBuffers) {
+            this(id, role, cell, contents, requests, filter, fromBuffers, Map.of());
+        }
         public int count(String item) { return contents.getOrDefault(item, 0); }
     }
 
@@ -76,6 +80,10 @@ public final class LogisticPlanner {
         // 3. player trash to storage
         for (Node src : nodes) {
             if (src.role != Role.PLAYER) continue;
+            for (var entry : src.trash.entrySet()) {
+                int pending = Math.max(0, entry.getValue() - ledger.outgoing(src.id, entry.getKey()));
+                toStorage(nodes, ledger, space, src, entry.getKey(), pending, cargo, left, out);
+            }
             for (LogisticRequest r : src.requests) {
                 int trash = RequestMath.trash(r.max(), src.count(r.item()), ledger.outgoing(src.id, r.item()));
                 toStorage(nodes, ledger, space, src, r.item(), trash, cargo, left, out);

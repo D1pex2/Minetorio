@@ -36,6 +36,7 @@ public class BoilerBlockEntity extends SteamMachineBlockEntity implements Machin
 
     public BoilerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BOILER.get(), pos, state);
+        burner.onFuelBurned(item->dev.minetorio.content.stats.Statistics.record(getLevel(),item,0,1));
     }
 
     public Burner burner() { return burner; }
@@ -58,7 +59,9 @@ public class BoilerBlockEntity extends SteamMachineBlockEntity implements Machin
     protected void tickMachine(Level level) {
         double before = boiler.steam().amount();
         boiler.tick();
-        boolean made = boiler.steam().amount() > before;
+        double madeAmount=boiler.steam().amount()-before;
+        if(madeAmount>0) {dev.minetorio.content.stats.Statistics.record(level,"fluid:water",0,madeAmount);dev.minetorio.content.stats.Statistics.record(level,"fluid:steam",madeAmount,0);}
+        boolean made = madeAmount > 0;
         if (made) setChanged();
         setActive(level, made);
     }

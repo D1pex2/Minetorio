@@ -16,7 +16,7 @@ public class LogisticChestScreen extends RequestScreen<LogisticChestMenu> {
     private Button fromBuffers;
 
     public LogisticChestScreen(LogisticChestMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, menu.inventoryY() + 83);
+        super(menu, inventory, title, menu.inventoryY() + 152);
     }
 
     @Override

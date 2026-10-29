@@ -39,5 +39,6 @@ public final class PlayerBasics {
         FishCatching.register();
         CorpseOnDeath.register();
         DayLength.register();
+        EngineerMining.register();
     }
 }

@@ -63,6 +63,7 @@ public final class OilProcessingBlockEntity extends MultiblockControllerBlockEnt
     public OilProcessingBlockEntity(BlockPos pos, BlockState state) {
         super(OilRegistry.PROCESSING_BE.get(), pos, state);
         machine = new OilMachine(1, ((OilProcessingBlock)state.getBlock()).kind() == OilRecipe.MachineKind.REFINERY ? OilData.REFINERY_POWER_J : OilData.CHEMICAL_PLANT_POWER_J, 100);
+        machine.onCraftCompleted(recipe->dev.minetorio.content.stats.Statistics.oilRecipe(getLevel(),recipe));
         power = new ElectricConsumerHelper(this, () -> machine.powerDemand(),
             () -> ElectricConsumerHelper.box(((OilProcessingBlock)getBlockState().getBlock()).shape().footprint(worldPosition, getBlockState().getValue(MultiblockControllerBlock.FACING))));
     }

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "minetorio:block/ship_wreck_hull"
+    }
+  }
+}

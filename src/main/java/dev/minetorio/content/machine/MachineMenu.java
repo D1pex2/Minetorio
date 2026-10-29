@@ -12,7 +12,7 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Base menu of the crafting machines: the machine's {@link MachineSlot}s first, then the player's
- * inventory (27) and hotbar (9), plus synced {@link ContainerData}. Machine slots are views of the
+ * inventory (80 unique slots), plus synced {@link ContainerData}. Machine slots are views of the
  * machine (server) whose {@code getItem} is a copy, so shift-click moves go through
  * {@link Slot#safeInsert} and {@link Slot#remove} instead of mutating slot stacks.
  */
@@ -20,6 +20,7 @@ public abstract class MachineMenu extends AbstractContainerMenu {
     protected final MachineContainer machine;
     protected final ContainerData data;
     private int machineSlots;
+    public static final int INVENTORY_HEIGHT = 8 * 18;
 
     protected MachineMenu(MenuType<?> type, int id, MachineContainer machine, ContainerData data, int dataCount) {
         super(type, id);
@@ -35,26 +36,25 @@ public abstract class MachineMenu extends AbstractContainerMenu {
         return addSlot(slot);
     }
 
-    /** Adds the player's inventory with its top-left slot at ({@code x}, {@code y}) and the hotbar 58 px lower. */
+    /** Adds the player's inventory with its top-left slot at ({@code x}, {@code y}) and eight rows of ten unique slots. */
     protected void addPlayerInventory(Inventory inventory, int x, int y) {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) addSlot(new Slot(inventory, col + row * 9 + 9, x + col * 18, y + row * 18));
-        }
-        for (int col = 0; col < 9; col++) addSlot(new Slot(inventory, col, x + col * 18, y + 58));
+        var main = dev.minetorio.content.character.CharacterInventory.main(inventory);
+        for (int row = 0; row < 8; row++)
+            for (int col = 0; col < 10; col++) addSlot(new Slot(main, row * 10 + col, x + col * 18, y + row * 18));
     }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if (index < 0 || index >= slots.size() || RemoteView.blocksTransfer(player)) return ItemStack.EMPTY;
         Slot slot = slots.get(index);
         if (!slot.hasItem()) return ItemStack.EMPTY;
         ItemStack original = slot.getItem().copy();
         int playerStart = machineSlots;
-        int hotbarStart = playerStart + 27;
         int end = slots.size();
         if (index < machineSlots) {
             ItemStack moving = slot.getItem().copy(); // client slots hold real stacks: never shrink them here
             int before = moving.getCount();
-            moveItemStackTo(moving, playerStart, end, true);
+            moveItemStackTo(moving, playerStart, end, false);
             int moved = before - moving.getCount();
             if (moved <= 0) return ItemStack.EMPTY;
             slot.remove(moved);
@@ -72,8 +72,7 @@ public abstract class MachineMenu extends AbstractContainerMenu {
         }
         if (stack.getCount() == before) {
             if (belongs) return ItemStack.EMPTY; // machine item but no room: stay put (vanilla furnace)
-            boolean inHotbar = index >= hotbarStart;
-            if (!moveItemStackTo(stack, inHotbar ? playerStart : hotbarStart, inHotbar ? hotbarStart : end, false)) return ItemStack.EMPTY;
+            return ItemStack.EMPTY;
         }
         if (stack.isEmpty()) slot.setByPlayer(ItemStack.EMPTY);
         else slot.setChanged();

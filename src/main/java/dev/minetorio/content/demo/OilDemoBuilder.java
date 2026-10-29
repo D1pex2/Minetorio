@@ -1,5 +1,6 @@
 package dev.minetorio.content.demo;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import dev.minetorio.content.machine.MachineItems;
 import dev.minetorio.content.multiblock.MultiblockBlockItem;
 import dev.minetorio.content.oil.OilProcessingBlockEntity;
@@ -20,6 +21,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import dev.minetorio.content.world.BasicChests;
 import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
@@ -46,7 +48,7 @@ public final class OilDemoBuilder {
         level.setBlock(p(1,8),Blocks.WATER.defaultBlockState(),Block.UPDATE_ALL);
         pipe(4,8); place(ModItems.OFFSHORE_PUMP.get(),3,8,Direction.WEST);
         place(ModItems.BOILER.get(),5,8,Direction.NORTH); place(ModItems.STEAM_ENGINE.get(),5,6,Direction.NORTH);
-        ((BoilerBlockEntity)level.getBlockEntity(p(5,8))).addFuel("minecraft:coal",64);
+        ((BoilerBlockEntity)level.getBlockEntity(p(5,8))).addFuel("minetorio:coal",50);
         for(int[] xy:new int[][]{{9,4},{12,8},{15,12},{16,17},{22,17},{24,14},{30,10},{15,7},{17,4},{17,2},{22,3},{20,8},{24,8}})
             place(ModItems.SMALL_ELECTRIC_POLE.get(),xy[0],xy[1],Direction.NORTH);
         BlockPos source=floor.offset(18,0,18); level.setBlock(source,OilRegistry.OIL_SOURCE.get().defaultBlockState(),Block.UPDATE_ALL);
@@ -64,7 +66,7 @@ public final class OilDemoBuilder {
         pipe(8,8); for(int x=8;x<=26;x++)pipe(x,9); pipe(22,8); pipe(26,8);
         // Acid goes from plant output to battery plant's back input.
         for(int x=19;x<=22;x++)pipe(x,4); pipe(19,3);
-        chest(24,12,new ItemStack(Items.COAL,64)); chest(30,12); inserter(25,12,Direction.EAST); inserter(29,12,Direction.EAST);
+        chest(24,12,new ItemStack(BaseMaterials.COAL.get(),50)); chest(30,12); inserter(25,12,Direction.EAST); inserter(29,12,Direction.EAST);
         chest(20,6,MachineItems.stack("minetorio:iron_plate",64)); inserter(21,6,Direction.EAST); inserter(25,6,Direction.WEST);
         chest(17,1,MachineItems.stack("minetorio:iron_plate",64),MachineItems.stack("minetorio:copper_plate",64));
         chest(23,1); inserter(18,1,Direction.EAST); inserter(22,1,Direction.EAST);
@@ -78,7 +80,7 @@ public final class OilDemoBuilder {
     private void pipe(int x,int z) { place(ModItems.PIPE.get(),x,z,Direction.NORTH); }
     private void inserter(int x,int z,Direction facing) { place(ModItems.INSERTER.get(),x,z,facing); }
     private void chest(int x,int z,ItemStack... stacks) {
-        level.setBlock(p(x,z),Blocks.CHEST.defaultBlockState(),Block.UPDATE_ALL);
+        level.setBlock(p(x,z),BasicChests.IRON.get().defaultBlockState(),Block.UPDATE_ALL);
         var handler=level.getCapability(Capabilities.ItemHandler.BLOCK,p(x,z),null);
         for(ItemStack stack:stacks) if(!ItemHandlerHelper.insertItemStacked(handler,stack,false).isEmpty())throw new IllegalStateException("oil demo chest full");
     }

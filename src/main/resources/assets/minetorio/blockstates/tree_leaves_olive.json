@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "minetorio:block/tree_leaves_olive"
+      },
+      {
+        "model": "minetorio:block/tree_leaves_olive",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/tree_leaves_olive",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/tree_leaves_olive",
+        "y": 270
+      }
+    ]
+  }
+}

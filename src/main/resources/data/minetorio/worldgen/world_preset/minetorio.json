@@ -1,0 +1,184 @@
+{
+  "dimensions": {
+    "minecraft:overworld": {
+      "type": "minetorio:nauvis",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "minetorio:nauvis",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "minetorio:nauvis_grassland",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  1.5
+                ],
+                "humidity": [
+                  0.3,
+                  1.5
+                ],
+                "continentalness": [
+                  -0.2,
+                  1.5
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_meadow",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  1.5
+                ],
+                "humidity": [
+                  0.05,
+                  0.3
+                ],
+                "continentalness": [
+                  -0.2,
+                  1.5
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_steppe",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  1.5
+                ],
+                "humidity": [
+                  -0.15,
+                  0.05
+                ],
+                "continentalness": [
+                  -0.2,
+                  1.5
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_dry_plains",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  0.25
+                ],
+                "humidity": [
+                  -0.4,
+                  -0.15
+                ],
+                "continentalness": [
+                  -0.2,
+                  1.5
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_desert",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  0.25
+                ],
+                "humidity": [
+                  -1.5,
+                  -0.4
+                ],
+                "continentalness": [
+                  -0.2,
+                  1.5
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_red_desert",
+              "parameters": {
+                "temperature": [
+                  0.25,
+                  1.5
+                ],
+                "humidity": [
+                  -1.5,
+                  -0.15
+                ],
+                "continentalness": [
+                  -0.2,
+                  1.5
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_shallow_water",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  1.5
+                ],
+                "humidity": [
+                  -1.5,
+                  1.5
+                ],
+                "continentalness": [
+                  -0.45,
+                  -0.2
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "minetorio:nauvis_deep_water",
+              "parameters": {
+                "temperature": [
+                  -1.5,
+                  1.5
+                ],
+                "humidity": [
+                  -1.5,
+                  1.5
+                ],
+                "continentalness": [
+                  -1.5,
+                  -0.45
+                ],
+                "erosion": 0.0,
+                "weirdness": 0.0,
+                "depth": 0.0,
+                "offset": 0.0
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -93,6 +93,8 @@ public class StoneFurnaceBlockEntity extends MultiblockControllerBlockEntity imp
 
     public StoneFurnaceBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.STONE_FURNACE.get(), pos, state);
+        burner.onFuelBurned(item->dev.minetorio.content.stats.Statistics.record(getLevel(),item,0,1));
+        machine.onCraftCompleted(recipe->dev.minetorio.content.stats.Statistics.recipe(getLevel(),recipe));
     }
 
     public Burner burner() { return burner; }

@@ -59,11 +59,11 @@ public final class LogisticsRegistry {
             DeferredBlock<LogisticChestBlock> block = BLOCKS.registerBlock(mode.id(), p -> new LogisticChestBlock(mode, p),
                     BlockBehaviour.Properties.of().mapColor(color).strength(2.0f).sound(SoundType.METAL).noOcclusion());
             CHESTS.put(mode, block);
-            CHEST_ITEMS.put(mode, ITEMS.registerSimpleBlockItem(block));
+            CHEST_ITEMS.put(mode, ITEMS.registerSimpleBlockItem(block, new Item.Properties().stacksTo(50)));
         }
     }
 
-    public static final DeferredItem<Item> LOGISTIC_ROBOT = ITEMS.registerSimpleItem("logistic_robot");
+    public static final DeferredItem<Item> LOGISTIC_ROBOT = ITEMS.registerSimpleItem("logistic_robot", new Item.Properties().stacksTo(50));
     /** Factorio's personal roboport equipment, carried in the inventory instead of armor ({@link PersonalRoboport}). */
     public static final DeferredItem<Item> PERSONAL_ROBOPORT = ITEMS.registerItem("personal_roboport", p -> new Item(p.stacksTo(20)));
 

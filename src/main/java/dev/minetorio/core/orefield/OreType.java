@@ -4,8 +4,8 @@ package dev.minetorio.core.orefield;
 public enum OreType {
     IRON("minetorio:iron_ore", 40, 600),
     COPPER("minetorio:copper_ore", 30, 600),
-    COAL("minecraft:coal", 20, 600),
-    STONE("minecraft:cobblestone", 10, 400);
+    COAL("minetorio:coal", 20, 600),
+    STONE("minetorio:stone", 10, 400);
 
     private final String item;
     private final int weight;

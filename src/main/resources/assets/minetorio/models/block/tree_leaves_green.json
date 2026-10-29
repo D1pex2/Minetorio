@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "minetorio:block/tree_leaves_green"
+  },
+  "render_type": "minecraft:cutout_mipped"
+}

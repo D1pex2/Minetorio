@@ -298,9 +298,11 @@ public final class DragPlacement {
     private static ItemStack handStack(ServerPlayer player, Item item) {
         ItemStack hand = player.getMainHandItem();
         if (!hand.isEmpty()) return hand.is(item) ? hand : ItemStack.EMPTY;
+        if (((dev.minetorio.content.character.CharacterShortcuts) player).emptyHand()) return ItemStack.EMPTY;
         Inventory inv = player.getInventory();
-        for (int slot = 0; slot < inv.items.size(); slot++) {
-            ItemStack other = inv.items.get(slot);
+        for (int i = 0; i < dev.minetorio.content.character.CharacterInventory.MAIN_SIZE; i++) {
+            int slot = dev.minetorio.content.character.CharacterInventory.inventoryIndex(i);
+            ItemStack other = inv.getItem(slot);
             if (slot != inv.selected && other.is(item)) {
                 inv.setItem(inv.selected, other);
                 inv.setItem(slot, ItemStack.EMPTY);

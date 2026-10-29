@@ -27,7 +27,7 @@ class AltRulesTest {
     @Test void burnerHasFuelWhileItemsOrEnergyRemain() {
         assertFalse(AltRules.hasFuel(Map.of(), 0));
         assertTrue(AltRules.hasFuel(Map.of(), 5));
-        assertTrue(AltRules.hasFuel(Map.of("minecraft:coal", 1), 0));
+        assertTrue(AltRules.hasFuel(Map.of("minetorio:coal", 1), 0));
         assertEquals(AltStatus.NO_FUEL, AltRules.burner(false));
         assertEquals(AltStatus.NONE, AltRules.burner(true));
     }
@@ -61,8 +61,8 @@ class AltRulesTest {
     @Test void labAndBoiler() {
         assertEquals(AltStatus.NO_RESEARCH, AltRules.lab(false, AltStatus.NO_POWER).status());
         assertEquals(AltStatus.NO_POWER, AltRules.lab(true, AltStatus.NO_POWER).status());
-        assertEquals(AltInfo.of("minecraft:coal", AltStatus.NONE), AltRules.boiler("minecraft:coal", true));
-        assertEquals(AltInfo.of(null, AltStatus.NO_FUEL), AltRules.boiler("minecraft:coal", false));
+        assertEquals(AltInfo.of("minetorio:coal", AltStatus.NONE), AltRules.boiler("minetorio:coal", true));
+        assertEquals(AltInfo.of(null, AltStatus.NO_FUEL), AltRules.boiler("minetorio:coal", false));
     }
 
     @Test void inserterStallsOnlyWhileMovingWithoutEnergy() {

@@ -1,5 +1,7 @@
 package dev.minetorio.content.logistics;
 
+import dev.minetorio.content.character.CharacterInventory;
+import net.minecraft.world.Container;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -16,19 +18,21 @@ public final class PlayerItems {
     public static Map<String, Integer> counts(Player player) {
         Map<String, Integer> out = new HashMap<>();
         Inventory inv = player.getInventory();
-        for (ItemStack s : inv.items) add(out, s);
+        Container main = CharacterInventory.main(inv);
+        for (int i = 0; i < main.getContainerSize(); i++) add(out, main.getItem(i));
         for (ItemStack s : inv.offhand) add(out, s);
         return out;
     }
 
     private static void add(Map<String, Integer> out, ItemStack s) {
-        if (!s.isEmpty()) out.merge(BuiltInRegistries.ITEM.getKey(s.getItem()).toString(), s.getCount(), Integer::sum);
+        if (dev.minetorio.content.machine.MachineItems.isPlain(s)) out.merge(BuiltInRegistries.ITEM.getKey(s.getItem()).toString(), s.getCount(), Integer::sum);
     }
 
     public static int count(Player player, Item item) {
         int n = 0;
         Inventory inv = player.getInventory();
-        for (ItemStack s : inv.items) if (s.is(item)) n += s.getCount();
+        Container main = CharacterInventory.main(inv);
+        for (int i = 0; i < main.getContainerSize(); i++) { ItemStack s = main.getItem(i); if (s.is(item)) n += s.getCount(); }
         for (ItemStack s : inv.offhand) if (s.is(item)) n += s.getCount();
         return n;
     }
@@ -40,19 +44,26 @@ public final class PlayerItems {
     public static int take(Player player, Item item, int n) {
         Inventory inv = player.getInventory();
         int got = 0;
+        ItemStack trash = inv.getItem(CharacterInventory.TRASH_SLOT);
+        if (trash.is(item) && dev.minetorio.content.machine.MachineItems.isPlain(trash)) {
+            int k = Math.min(n, trash.getCount());
+            trash.shrink(k);
+            got += k;
+        }
+        Container main = CharacterInventory.main(inv);
         for (int pass = 0; pass < 2 && got < n; pass++) {
-            for (int i = 0; i < inv.items.size() && got < n; i++) {
+            for (int i = 0; i < main.getContainerSize() && got < n; i++) {
                 boolean hotbar = i < Inventory.getSelectionSize();
                 if (hotbar != (pass == 1)) continue;
-                ItemStack s = inv.items.get(i);
-                if (!s.is(item)) continue;
+                ItemStack s = main.getItem(i);
+                if (!s.is(item) || !dev.minetorio.content.machine.MachineItems.isPlain(s)) continue;
                 int k = Math.min(n - got, s.getCount());
                 s.shrink(k);
                 got += k;
             }
         }
         for (ItemStack s : inv.offhand) {
-            if (got >= n || !s.is(item)) continue;
+            if (got >= n || !s.is(item) || !dev.minetorio.content.machine.MachineItems.isPlain(s)) continue;
             int k = Math.min(n - got, s.getCount());
             s.shrink(k);
             got += k;

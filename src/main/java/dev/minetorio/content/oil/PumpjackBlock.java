@@ -25,6 +25,10 @@ public final class PumpjackBlock extends MultiblockControllerBlock implements Fl
     @Override public MultiblockShape shape() { return SHAPE; }
     @Override public List<FluidPort> fluidPorts() { return PORTS; }
     @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new PumpjackBlockEntity(pos, state); }
+    @Override protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, net.minecraft.world.entity.player.Player player, net.minecraft.world.phys.BlockHitResult hit) {
+        dev.minetorio.content.machineui.MachineUi.open(player, level.getBlockEntity(pos));
+        return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide());
+    }
     @Nullable @Override public BlockState getStateForPlacement(BlockPlaceContext ctx) {
         BlockState state = super.getStateForPlacement(ctx);
         if (state == null) return null;

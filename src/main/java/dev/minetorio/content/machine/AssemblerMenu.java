@@ -44,13 +44,13 @@ public class AssemblerMenu extends MachineMenu {
                 @Override
                 public int getMaxStackSize() {
                     Recipe r=recipe();
-                    return r==null || slot>=r.inputs().size()?64:Math.max(64,r.inputs().get(slot).count());
+                    return dev.minetorio.core.item.ItemStackSizes.MAX;
                 }
                 @Override
                 public int getMaxStackSize(ItemStack stack) {
                     // Exact express underground recipes need 80 gears in one ingredient buffer.
                     // Player inventory stacks retain Minecraft's limit; this is only a machine buffer.
-                    return Math.min(getMaxStackSize(),getItem().getCount()+Math.max(0,assembler.room(slot,stack)));
+                    return Math.min(Math.min(getMaxStackSize(),stack.getMaxStackSize()),getItem().getCount()+Math.max(0,assembler.room(slot,stack)));
                 }
             });
         }
@@ -58,7 +58,7 @@ public class AssemblerMenu extends MachineMenu {
             @Override
             public boolean isActive() { return recipe() != null || hasItem(); }
         });
-        addPlayerInventory(inventory, 8, INVENTORY_Y);
+        addPlayerInventory(inventory, 210, 32);
     }
 
     /** Client side: reads the machine position; contents arrive through the menu sync. */
@@ -68,7 +68,7 @@ public class AssemblerMenu extends MachineMenu {
         MachineContainer container = MachineContainer.client(AssemblerBlockEntity.SLOTS, (slot, stack) -> {
             Recipe r = byIndex(data.get(AssemblerBlockEntity.DATA_RECIPE));
             if (r == null || slot >= r.inputs().size() || !MachineItems.isPlain(stack)) return 0;
-            return r.inputs().get(slot).item().equals(MachineItems.id(stack)) ? Math.max(64,r.inputs().get(slot).count()) : 0;
+            return r.inputs().get(slot).item().equals(MachineItems.id(stack)) ? Math.max(dev.minetorio.core.item.ItemStackSizes.limit(MachineItems.id(stack)),r.inputs().get(slot).count()) : 0;
         });
         return new AssemblerMenu(id, inventory, container, data, pos);
     }

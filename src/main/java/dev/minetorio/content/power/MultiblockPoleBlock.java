@@ -77,4 +77,9 @@ public class MultiblockPoleBlock extends MultiblockControllerBlock implements Po
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new MultiblockPoleBlockEntity(pos, state);
     }
+    @Override protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, net.minecraft.world.level.Level level, BlockPos pos, net.minecraft.world.entity.player.Player player, net.minecraft.world.phys.BlockHitResult hit) {
+        dev.minetorio.content.machineui.MachineUi.open(player, level.getBlockEntity(pos));
+        return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide());
+    }
+
 }

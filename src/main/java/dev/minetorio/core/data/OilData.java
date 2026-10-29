@@ -39,15 +39,15 @@ public final class OilData {
         List<OilRecipe> r=new ArrayList<>();
         r.add(mixed("basic_oil_processing",MachineKind.REFINERY,5,"","100 crude_oil","","45 petroleum_gas"));
         r.add(mixed("advanced_oil_processing",MachineKind.REFINERY,5,"","50 water,100 crude_oil","","25 heavy_oil,45 light_oil,55 petroleum_gas"));
-        r.add(mixed("coal_liquefaction",MachineKind.REFINERY,5,"10 minecraft:coal","25 heavy_oil,50 steam","","90 heavy_oil,20 light_oil,10 petroleum_gas"));
+        r.add(mixed("coal_liquefaction",MachineKind.REFINERY,5,"10 coal","25 heavy_oil,50 steam","","90 heavy_oil,20 light_oil,10 petroleum_gas"));
         r.add(mixed("heavy_oil_cracking",MachineKind.CHEMICAL_PLANT,2,"","30 water,40 heavy_oil","","30 light_oil"));
         r.add(mixed("light_oil_cracking",MachineKind.CHEMICAL_PLANT,2,"","30 water,30 light_oil","","20 petroleum_gas"));
         r.add(mixed("lubricant",MachineKind.CHEMICAL_PLANT,1,"","10 heavy_oil","","10 lubricant"));
-        r.add(mixed("plastic_bar",MachineKind.CHEMICAL_PLANT,1,"1 minecraft:coal","20 petroleum_gas","2 plastic_bar",""));
+        r.add(mixed("plastic_bar",MachineKind.CHEMICAL_PLANT,1,"1 coal","20 petroleum_gas","2 plastic_bar",""));
         r.add(mixed("sulfur",MachineKind.CHEMICAL_PLANT,1,"","30 water,30 petroleum_gas","2 sulfur",""));
         r.add(mixed("sulfuric_acid",MachineKind.CHEMICAL_PLANT,1,"5 sulfur,1 iron_plate","100 water","","50 sulfuric_acid"));
         r.add(mixed("battery",MachineKind.CHEMICAL_PLANT,4,"1 iron_plate,1 copper_plate","20 sulfuric_acid","1 battery",""));
-        r.add(mixed("explosives",MachineKind.CHEMICAL_PLANT,4,"1 sulfur,1 minecraft:coal","10 water","2 explosives",""));
+        r.add(mixed("explosives",MachineKind.CHEMICAL_PLANT,4,"1 sulfur,1 coal","10 water","2 explosives",""));
         for(var f:List.of("heavy_oil","light_oil","petroleum_gas"))
             r.add(mixed("solid_fuel_from_"+f,MachineKind.CHEMICAL_PLANT,2,"",(f.equals("light_oil")?10:20)+" "+f,"1 solid_fuel",""));
         r.add(mixed("electric_engine_unit",MachineKind.ASSEMBLER,10,"1 engine_unit,2 electronic_circuit","15 lubricant","1 electric_engine_unit",""));

@@ -1,5 +1,6 @@
 package dev.minetorio.content.demo;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import dev.minetorio.content.inserter.InserterBlockEntity;
 import dev.minetorio.content.machine.AssemblerBlockEntity;
 import dev.minetorio.content.machine.BurnerDrillBlockEntity;
@@ -35,7 +36,8 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.StandingSignBlock;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import dev.minetorio.content.world.BasicChests;
+import dev.minetorio.content.registry.ModWorld;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
@@ -76,7 +78,7 @@ public final class DemoBuilder {
     public static final int COAL_RADIUS = 3;
     private static final String IRON = "minetorio:iron_plate";
     private static final String COPPER = "minetorio:copper_plate";
-    private static final String COAL = "minecraft:coal";
+    private static final String COAL = "minetorio:coal";
     private static final String RED = "minetorio:automation_science_pack";
     /** Items a source chest keeps (fuel chests also start with this much). */
     private static final int KEEP = 256;
@@ -200,10 +202,10 @@ public final class DemoBuilder {
         for (int x = 0; x < SIZE; x++) {
             for (int z = 0; z < SIZE; z++) {
                 BlockPos f = origin.offset(x, 0, z);
-                Block top = z >= 46 && z <= 49 ? Blocks.DIRT_PATH : Blocks.GRASS_BLOCK;
+                Block top = z >= 46 && z <= 49 ? ModWorld.DIRT_1.get() : ModWorld.GRASS_1.get();
                 level.setBlock(f, top.defaultBlockState(), Block.UPDATE_CLIENTS);
                 p.set(f.getX(), f.getY() - 1, f.getZ());
-                if (!level.getBlockState(p).isSolid()) level.setBlock(p, Blocks.DIRT.defaultBlockState(), Block.UPDATE_CLIENTS);
+                if (!level.getBlockState(p).isSolid()) level.setBlock(p, ModWorld.DIRT_1.get().defaultBlockState(), Block.UPDATE_CLIENTS);
             }
         }
     }
@@ -342,7 +344,7 @@ public final class DemoBuilder {
     private void smelting() {
         inserter(ModItems.INSERTER.get(), 76, 37, Direction.EAST);
         place(ModItems.STONE_FURNACE.get(), 77, 37, Direction.EAST); // x 77..78, z 37..38
-        insert(77, 37, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL, 5));
+        insert(77, 37, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get(), 5));
         inserter(ModItems.INSERTER.get(), 79, 37, Direction.EAST);
         output(80, 37);
         source(77, 35, COAL, KEEP);
@@ -410,8 +412,8 @@ public final class DemoBuilder {
     private void handcraft() {
         source(14, 52, IRON, 128);
         source(14, 52, COPPER, 128);
-        source(14, 52, "minecraft:cobblestone", 64);
-        source(14, 52, "minecraft:stick", 32);
+        source(14, 52, "minetorio:stone", 64);
+        source(14, 52, "minetorio:wood", 32);
         source(14, 52, COAL, 64);
     }
 
@@ -481,15 +483,15 @@ public final class DemoBuilder {
     }
 
     private void chest(int x, int z) {
-        level.setBlock(abs(x, z), Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(abs(x, z), BasicChests.IRON.get().defaultBlockState(), Block.UPDATE_ALL);
     }
 
     /** A chest kept at {@code keep} items of {@code item}; filled right away. Several items may share a chest. */
     private void source(int x, int z, String item, int keep) {
         BlockPos pos = abs(x, z);
-        if (!level.getBlockState(pos).is(Blocks.CHEST)) {
+        if (!level.getBlockState(pos).is(BasicChests.IRON.get())) {
             chest(x, z);
-            DemoSavedData.tag((ChestBlockEntity) level.getBlockEntity(pos), DemoSavedData.SOURCE_NAME);
+            DemoSavedData.tag(level.getBlockEntity(pos), DemoSavedData.SOURCE_NAME);
         }
         pending.add(d -> d.addSource(pos, item, keep));
         Item it = BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(item));
@@ -511,7 +513,7 @@ public final class DemoBuilder {
     private void sink(int x, int z, int keep) {
         BlockPos pos = abs(x, z);
         chest(x, z);
-        DemoSavedData.tag((ChestBlockEntity) level.getBlockEntity(pos), DemoSavedData.SINK_NAME);
+        DemoSavedData.tag(level.getBlockEntity(pos), DemoSavedData.SINK_NAME);
         pending.add(d -> d.addSink(pos, keep));
     }
 

@@ -252,7 +252,7 @@ public class BeltGameTest {
         BeltBlockEntity be = belt(h, rel);
         be.lane(LaneSide.LEFT).insertAt(PLATE, 0.1);
         be.lane(LaneSide.LEFT).insertAt("minetorio:copper_plate", 0.6);
-        be.lane(LaneSide.RIGHT).insertAt("minecraft:coal", 0.35);
+        be.lane(LaneSide.RIGHT).insertAt("minetorio:coal", 0.35);
         var registries = h.getLevel().registryAccess();
         CompoundTag tag = be.saveWithFullMetadata(registries);
         BeltBlockEntity copy = new BeltBlockEntity(be.getBlockPos(), be.getBlockState());

@@ -238,4 +238,20 @@ class LogisticsCoreTest {
         LogisticPlanner.cancel(ledger, plan.get(0));
         assertTrue(ledger.isEmpty());
     }
+    @Test
+    void dedicatedTrashDoesNotSatisfyPersonalRequests() {
+        Node player = new Node("p", Role.PLAYER, new Cell(0, 0, 0), Map.of(),
+                List.of(new LogisticRequest(PLATE, 2, U)), null, false, Map.of(PLATE, 3));
+        Node provider = node("provider", Role.PASSIVE_PROVIDER, 1, Map.of(PLATE, 2));
+        Node storage = storage("storage", 2, null, Map.of());
+        var deliveries = LogisticPlanner.plan(List.of(player, provider, storage), new DeliveryLedger(), 8, 1, ROOMY);
+        assertEquals(2, deliveries.stream().filter(d -> d.to().equals("p")).mapToInt(Delivery::count).sum());
+        assertEquals(3, deliveries.stream().filter(d -> d.from().equals("p")).mapToInt(Delivery::count).sum());
+    }
+
+    @Test
+    void logisticChestsHaveFortyEightSlots() {
+        assertEquals(48, LogisticStats.CHEST_SLOTS);
+    }
+
 }

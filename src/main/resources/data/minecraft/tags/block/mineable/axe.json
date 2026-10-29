@@ -1,5 +1,11 @@
 {
   "values": [
-    "minetorio:small_electric_pole"
+    "minetorio:small_electric_pole",
+    "minetorio:tree_trunk",
+    "minetorio:dry_tree_trunk",
+    "minetorio:tree_leaves_green",
+    "minetorio:tree_leaves_olive",
+    "minetorio:tree_leaves_red",
+    "minetorio:dry_tree_branches"
   ]
 }

@@ -147,6 +147,8 @@ public class AssemblerBlockEntity extends MultiblockControllerBlockEntity implem
         AssemblerBlock block = (AssemblerBlock) state.getBlock();
         this.machine = new CraftingMachine(block.speed(), block.power());
         this.oilMachine = new OilMachine(block.speed(), block.power());
+        machine.onCraftCompleted(recipe->dev.minetorio.content.stats.Statistics.recipe(getLevel(),recipe));
+        oilMachine.onCraftCompleted(recipe->dev.minetorio.content.stats.Statistics.oilRecipe(getLevel(),recipe));
         this.phasePerTick = (float) (3 * block.speed() / ANIM_FRAMES);
     }
 

@@ -60,14 +60,7 @@ public class PersonalLogisticsMenu extends RequestMenu {
     /** Shift-click moves between the main inventory and the hotbar. */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        Slot slot = slots.get(index);
-        if (!slot.hasItem()) return ItemStack.EMPTY;
-        ItemStack stack = slot.getItem();
-        ItemStack copy = stack.copy();
-        boolean moved = index < 27 ? moveItemStackTo(stack, 27, 36, false) : moveItemStackTo(stack, 0, 27, false);
-        if (!moved) return ItemStack.EMPTY;
-        if (stack.isEmpty()) slot.setByPlayer(ItemStack.EMPTY);
-        else slot.setChanged();
-        return copy;
+        // Personal requests contain no physical second inventory to shift items into.
+        return ItemStack.EMPTY;
     }
 }

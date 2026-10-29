@@ -15,9 +15,10 @@ public final class LabLogic {
             "minetorio:chemical_science_pack", "minetorio:production_science_pack", "minetorio:utility_science_pack");
     private static final Set<String> ACCEPTED = Set.copyOf(SCIENCE_PACKS);
     private static final int AUTOMATED_LIMIT = 2;
-    private static final int MANUAL_LIMIT = 64;
     private static final double EPS = 1e-9;
 
+    private java.util.function.Consumer<Map<String,Integer>> completed=packs->{};
+    public void onUnitCompleted(java.util.function.Consumer<Map<String,Integer>> listener) {completed=Objects.requireNonNull(listener);}
     private final double speed;
     private final long powerPerTickJ;
     private final Map<String, Integer> packs = new LinkedHashMap<>();
@@ -44,7 +45,14 @@ public final class LabLogic {
     public int packRoom(String item, boolean automated) {
         if (!ACCEPTED.contains(item)) return 0;
         int have = packs.getOrDefault(item, 0);
-        return Math.max(0, (automated ? AUTOMATED_LIMIT : MANUAL_LIMIT) - have);
+        return Math.max(0, (automated ? AUTOMATED_LIMIT : dev.minetorio.core.item.ItemStackSizes.limit(item)) - have);
+    }
+
+    /** Removes only stored packs; packs already committed to a running unit remain held. */
+    public int extractPack(String item,int maximum) {
+        int n=Math.max(0,Math.min(maximum,packs.getOrDefault(item,0)));
+        if(n>0) {int left=packs.get(item)-n;if(left==0)packs.remove(item);else packs.put(item,left);}
+        return n;
     }
 
     public void tick(ResearchState s, double satisfaction) {
@@ -67,6 +75,7 @@ public final class LabLogic {
         }
         progress += satisfaction * speed / cur.get().ticksPerUnit();
         if (progress >= 1 - EPS) {
+            completed.accept(Map.copyOf(unitPacks));
             working = false;
             progress = 0;
             unitPacks.clear();

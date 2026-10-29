@@ -33,6 +33,7 @@ public class BurnerDrillBlockEntity extends MiningDrillBlockEntity implements Ma
 
     public BurnerDrillBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BURNER_MINING_DRILL.get(), pos, state);
+        burner.onFuelBurned(item->dev.minetorio.content.stats.Statistics.record(getLevel(),item,0,1));
     }
 
     public Burner burner() { return burner; }

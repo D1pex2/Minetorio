@@ -15,7 +15,7 @@ public class PersonalLogisticsScreen extends RequestScreen<PersonalLogisticsMenu
     private Button toggle;
 
     public PersonalLogisticsScreen(PersonalLogisticsMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, PersonalLogisticsMenu.INVENTORY_Y + 83);
+        super(menu, inventory, title, PersonalLogisticsMenu.INVENTORY_Y + 152);
     }
 
     @Override

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "minetorio:block/ship_wreck_debris"
+      },
+      {
+        "model": "minetorio:block/ship_wreck_debris",
+        "y": 90
+      },
+      {
+        "model": "minetorio:block/ship_wreck_debris",
+        "y": 180
+      },
+      {
+        "model": "minetorio:block/ship_wreck_debris",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -28,6 +28,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.Container;
+import dev.minetorio.content.world.BasicChestBlockEntity;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -107,7 +109,13 @@ public final class DemoSavedData extends SavedData {
      * Names {@code chest} as a demo chest ({@link #SOURCE_NAME} or {@link #SINK_NAME}); only such
      * chests are refilled or emptied. Tag an empty chest: applying the name also resets its contents.
      */
-    public static void tag(ChestBlockEntity chest, String name) {
+    public static void tag(BlockEntity be, String name) {
+        if (be instanceof BasicChestBlockEntity chest) {
+            chest.getPersistentData().putString("minetorio_demo_tag", name);
+            chest.setChanged();
+            return;
+        }
+        if (!(be instanceof ChestBlockEntity chest)) throw new IllegalArgumentException("Not a chest");
         ItemStack named = new ItemStack(Items.CHEST);
         named.set(DataComponents.CUSTOM_NAME, Component.translatable(name));
         chest.applyComponentsFromItemStack(named);
@@ -116,6 +124,7 @@ public final class DemoSavedData extends SavedData {
 
     /** Whether the block entity is a chest named {@code name} by {@link #tag}. */
     static boolean isTagged(@Nullable BlockEntity be, String name) {
+        if (be instanceof BasicChestBlockEntity chest) return name.equals(chest.getPersistentData().getString("minetorio_demo_tag"));
         return be instanceof ChestBlockEntity chest && chest.getCustomName() != null
                 && chest.getCustomName().getContents() instanceof TranslatableContents t && t.getKey().equals(name);
     }
@@ -205,7 +214,7 @@ public final class DemoSavedData extends SavedData {
             dropped |= data.sinks.removeIf(s -> {
                 if (!level.isLoaded(s.pos())) return false;
                 if (!isTagged(level.getBlockEntity(s.pos()), SINK_NAME)) return true;
-                trim((ChestBlockEntity) level.getBlockEntity(s.pos()), s.keep());
+                trim(inventory(level.getBlockEntity(s.pos())), s.keep());
                 return false;
             });
             if (data.research) selectNextResearch(server);
@@ -233,7 +242,12 @@ public final class DemoSavedData extends SavedData {
     }
 
     /** Removes items from the last slots on until at most {@code keep} are left. */
-    static void trim(ChestBlockEntity chest, int keep) {
+    private static Container inventory(BlockEntity be) {
+        if (be instanceof BasicChestBlockEntity chest) return chest.inventory();
+        return (ChestBlockEntity) be;
+    }
+
+    static void trim(Container chest, int keep) {
         int total = 0;
         for (int i = 0; i < chest.getContainerSize(); i++) total += chest.getItem(i).getCount();
         for (int i = chest.getContainerSize() - 1; i >= 0 && total > keep; i--) {

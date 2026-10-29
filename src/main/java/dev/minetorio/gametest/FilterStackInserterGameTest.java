@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.belt;
 import static dev.minetorio.gametest.BeltGameTest.place;
 import static dev.minetorio.gametest.InserterGameTest.container;
@@ -64,15 +65,15 @@ public class FilterStackInserterGameTest {
     public static void filterFromChestMovesOnlyMatching(GameTestHelper h) {
         BlockPos src = new BlockPos(1, 1, 2);
         BlockPos dst = new BlockPos(3, 1, 2);
-        container(h, Blocks.CHEST, src, new ItemStack(ModItems.COPPER_PLATE.get(), 3), new ItemStack(Items.COAL, 2),
+        container(h, Blocks.CHEST, src, new ItemStack(ModItems.COPPER_PLATE.get(), 3), new ItemStack(BaseMaterials.COAL.get(), 2),
                 new ItemStack(ModItems.IRON_PLATE.get(), 3));
         h.setBlock(dst, Blocks.CHEST);
         InserterBlockEntity be = placeInserter(h, ModItems.FILTER_INSERTER.get(), new BlockPos(2, 1, 2), Direction.EAST);
         be.setFilter(0, PLATE);
-        be.setFilter(4, "minecraft:coal");
+        be.setFilter(4, "minetorio:coal");
         h.runAtTickTime(100, () -> {
             h.assertTrue(count(h, dst, ModItems.IRON_PLATE.get()) == 3, "iron moved " + count(h, dst, ModItems.IRON_PLATE.get()));
-            h.assertTrue(count(h, dst, Items.COAL) == 2, "coal moved " + count(h, dst, Items.COAL));
+            h.assertTrue(count(h, dst, BaseMaterials.COAL.get()) == 2, "coal moved " + count(h, dst, BaseMaterials.COAL.get()));
             h.assertTrue(count(h, dst, ModItems.COPPER_PLATE.get()) == 0, "copper moved");
             h.assertTrue(count(h, src, ModItems.COPPER_PLATE.get()) == 3, "copper left the source");
             h.succeed();

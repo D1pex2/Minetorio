@@ -4,7 +4,8 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.minetorio.Minetorio;
 import dev.minetorio.client.alt.AltMode;
 import dev.minetorio.client.camera.BuildCamera;
-import dev.minetorio.client.handcraft.HandcraftScreen;
+import dev.minetorio.client.character.CharacterScreen;
+import dev.minetorio.content.character.CharacterMenu;
 import dev.minetorio.client.research.ResearchScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -69,7 +70,8 @@ public final class ModKeys {
             if (mc.screen == null && mc.player != null) mc.setScreen(new ResearchScreen());
         }
         while (HANDCRAFT.consumeClick()) {
-            if (mc.screen == null && mc.player != null) mc.setScreen(new HandcraftScreen());
+            if (mc.screen == null && mc.player != null && mc.player.inventoryMenu instanceof CharacterMenu menu)
+                mc.setScreen(new CharacterScreen(menu, mc.player.getInventory()));
         }
         while (ALT_MODE.consumeClick()) {
             if (mc.player != null) AltMode.toggle(mc.player);

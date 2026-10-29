@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.place;
 
 import dev.minetorio.content.alt.AltSource;
@@ -47,8 +48,8 @@ public class AltSyncGameTest {
     public static void furnaceStatusReachesTheUpdateTag(GameTestHelper h) {
         StoneFurnaceBlockEntity be = MachineGameTest.furnace(h, AT);
         expect(h, synced(h, be), null, AltStatus.NO_FUEL);
-        MachineGameTest.insert(h, AT, StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(Items.RAW_IRON, 2));
-        MachineGameTest.insert(h, AT, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(Items.COAL));
+        MachineGameTest.insert(h, AT, StoneFurnaceBlockEntity.INPUT_SLOT, new ItemStack(ModItems.IRON_ORE.get(), 2));
+        MachineGameTest.insert(h, AT, StoneFurnaceBlockEntity.FUEL_SLOT, new ItemStack(BaseMaterials.COAL.get()));
         h.runAfterDelay(25, () -> {
             AltInfo info = synced(h, be);
             expect(h, info, "minetorio:iron_plate", AltStatus.NONE);
@@ -66,11 +67,11 @@ public class AltSyncGameTest {
         BurnerDrillBlockEntity onOre = DrillGameTest.burnerDrill(h, 0);
         place(h, ModItems.BURNER_MINING_DRILL.get(), new BlockPos(8, 1, 8), Direction.EAST);
         BurnerDrillBlockEntity bare = (BurnerDrillBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(new BlockPos(8, 1, 8)));
-        bare.addFuel("minecraft:coal", 1);
+        bare.addFuel("minetorio:coal", 1);
         h.runAfterDelay(25, () -> {
             expect(h, synced(h, onOre), OreType.IRON.item(), AltStatus.NO_FUEL);
             expect(h, synced(h, bare), null, AltStatus.NO_ORE);
-            onOre.addFuel("minecraft:coal", 1);
+            onOre.addFuel("minetorio:coal", 1);
             h.runAfterDelay(15, () -> {
                 expect(h, synced(h, onOre), OreType.IRON.item(), AltStatus.NONE);
                 h.succeed();

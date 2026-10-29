@@ -84,6 +84,13 @@ neoForge {
             programArguments.addAll '--spawnPos', '0,-60,-130'
         }
 
+        nauvisDemo {
+            server()
+            programArgument '--nogui'
+            gameDirectory = project.file(providers.gradleProperty('nauvisDemoDir').getOrElse('.superpowers/nauvis-demo'))
+            systemProperty 'minetorio.nauvisDemo.out', project.file('demo/Minetorio-Demo.zip').absolutePath
+        }
+
         data {
             data()
             // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it

@@ -310,7 +310,7 @@ public class ResearchGameTest {
 
     /**
      * Packs: inserters and the item capability insert up to 2 of each (no iron plates, no packs with
-     * data components, no extraction); right-click inserts by hand up to 64 and takes them from the
+     * data components, no extraction); right-click inserts by hand up to 200 and takes them from the
      * stack; breaking the lab drops the stored packs once.
      */
     @GameTest(template = "empty16")
@@ -329,15 +329,15 @@ public class ResearchGameTest {
 
         FakePlayer p = player(h, new BlockPos(3, 1, 7));
         p.setGameMode(GameType.SURVIVAL);
-        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.AUTOMATION_SCIENCE_PACK.get(), 64));
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.AUTOMATION_SCIENCE_PACK.get(), 200));
         BlockPos abs = h.absolutePos(part);
         p.gameMode.useItemOn(p, h.getLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false));
-        h.assertTrue(lab.lab().packs().get(R) == 64, "manual cap: " + lab.lab().packs());
+        h.assertTrue(lab.lab().packs().get(R) == 200, "manual cap: " + lab.lab().packs());
         h.assertTrue(p.getMainHandItem().getCount() == 2, "hand left " + p.getMainHandItem());
 
         h.getLevel().destroyBlock(abs, true);
-        h.assertTrue(dropped(h, ModItems.AUTOMATION_SCIENCE_PACK.get()) == 64, "R dropped " + dropped(h, ModItems.AUTOMATION_SCIENCE_PACK.get()));
+        h.assertTrue(dropped(h, ModItems.AUTOMATION_SCIENCE_PACK.get()) == 200, "R dropped " + dropped(h, ModItems.AUTOMATION_SCIENCE_PACK.get()));
         h.assertTrue(dropped(h, ModItems.LOGISTIC_SCIENCE_PACK.get()) == 2, "G dropped " + dropped(h, ModItems.LOGISTIC_SCIENCE_PACK.get()));
         h.assertTrue(dropped(h, ModItems.LAB.get()) == 1, "lab item not dropped once: " + dropped(h, ModItems.LAB.get()));
         h.succeed();

@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.place;
 import static dev.minetorio.gametest.InserterGameTest.count;
 import static dev.minetorio.gametest.InserterGameTest.handler;
@@ -21,7 +22,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import dev.minetorio.content.world.BasicChests;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -53,8 +54,8 @@ public class DemoEffectsGameTest {
     }
 
     private static void tagged(GameTestHelper h, BlockPos rel, String name, ItemStack... contents) {
-        h.setBlock(rel, Blocks.CHEST);
-        DemoSavedData.tag((ChestBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(rel)), name); // before filling: tagging resets the contents
+        h.setBlock(rel, BasicChests.IRON.get());
+        DemoSavedData.tag(h.getLevel().getBlockEntity(h.absolutePos(rel)), name);
         var handler = handler(h, rel);
         for (ItemStack s : contents) ItemHandlerHelper.insertItemStacked(handler, s.copy(), false);
     }
@@ -77,8 +78,8 @@ public class DemoEffectsGameTest {
         data.addSource(h.absolutePos(SOURCE), "minetorio:iron_plate", 10);
         tagged(h, SINK, DemoSavedData.SINK_NAME, new ItemStack(Items.STONE, 5));
         data.addSink(h.absolutePos(SINK), 0);
-        tagged(h, TRIM, DemoSavedData.SINK_NAME, new ItemStack(Items.COBBLESTONE, 64), new ItemStack(Items.COBBLESTONE, 64),
-                new ItemStack(Items.COBBLESTONE, 64));
+        tagged(h, TRIM, DemoSavedData.SINK_NAME, new ItemStack(BaseMaterials.STONE.get(), 64), new ItemStack(BaseMaterials.STONE.get(), 64),
+                new ItemStack(BaseMaterials.STONE.get(), 64));
         data.addSink(h.absolutePos(TRIM), 64);
         place(h, ModItems.TRANSPORT_BELT.get(), BELT, Direction.EAST);
         data.addFeed(h.absolutePos(BELT), "minetorio:iron_plate", null);
@@ -91,8 +92,8 @@ public class DemoEffectsGameTest {
             // a player replaces the chests with plain ones and the belt with stone
             h.setBlock(SOURCE, Blocks.AIR);
             h.setBlock(SINK, Blocks.AIR);
-            InserterGameTest.container(h, Blocks.CHEST, SOURCE);
-            InserterGameTest.container(h, Blocks.CHEST, SINK, new ItemStack(Items.STONE, 5));
+            InserterGameTest.container(h, BasicChests.IRON.get(), SOURCE);
+            InserterGameTest.container(h, BasicChests.IRON.get(), SINK, new ItemStack(Items.STONE, 5));
             h.setBlock(BELT, Blocks.STONE);
         });
         h.runAtTickTime(60, () -> {

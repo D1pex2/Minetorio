@@ -39,13 +39,14 @@ public final class QueueHud {
         Minecraft mc = Minecraft.getInstance();
         List<HandcraftQueue.Entry> entries = ClientHandcraft.entries();
         if (entries.isEmpty() || mc.options.hideGui || mc.player == null) return;
-        int room = Math.max(1, (g.guiWidth() / 2 - HOTBAR_CLEARANCE - MARGIN) / STEP);
+        int room = Math.max(1, Math.min(10,(g.guiWidth()-8)/STEP));
         int shown = Math.min(entries.size(), room);
-        int y = g.guiHeight() - STEP - 1;
+        int rows=mc.player instanceof dev.minetorio.content.character.CharacterShortcuts s?s.visibleRows():1;
+        int y = g.guiHeight() - rows*20 - STEP - 4;
         for (int i = 0; i < shown; i++) {
             HandcraftQueue.Entry e = entries.get(i);
-            int x = MARGIN + i * STEP;
-            g.fill(x, y, x + 18, y + 18, 0x90000000);
+            int x = (g.guiWidth()-180)/2 + i * STEP;
+            dev.minetorio.client.gui.FactoryTheme.slot(g,x,y);
             ItemStack stack = HandcraftScreen.icon(e.recipeId());
             g.renderItem(stack, x + 1, y + 1);
             boolean more = i == shown - 1 && entries.size() > shown;

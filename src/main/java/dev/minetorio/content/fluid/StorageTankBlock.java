@@ -79,8 +79,7 @@ public class StorageTankBlock extends MultiblockControllerBlock implements Fluid
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         if (!(level instanceof ServerLevel server) || !(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
-        FluidNetwork.Segment s = FluidNetworkManager.get(server).segmentAt(pos);
-        FluidNetworkManager.get(server).tell(sp, s == null ? Component.translatable("minetorio.fluid.empty") : FluidText.segment(s));
+        dev.minetorio.content.machineui.MachineUi.open(player, level.getBlockEntity(pos));
         return InteractionResult.CONSUME;
     }
 

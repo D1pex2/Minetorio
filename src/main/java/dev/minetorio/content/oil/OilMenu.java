@@ -23,13 +23,13 @@ public final class OilMenu extends MachineMenu {
         super(OilRegistry.PROCESSING_MENU.get(),id,container,data,9); this.pos=pos; this.owner=owner;
         for(int i=0;i<OilProcessingBlockEntity.INPUTS;i++) addMachineSlot(new MachineSlot(container,i,14+i*18,121));
         for(int i=0;i<OilProcessingBlockEntity.OUTPUTS;i++) addMachineSlot(new MachineSlot(container,i+OilProcessingBlockEntity.INPUTS,148+i*18,121));
-        addPlayerInventory(inv,39,154);
+        addPlayerInventory(inv,254,32);
     }
     public static OilMenu client(int id, Inventory inv, RegistryFriendlyByteBuf extra) {
         BlockPos pos=extra.readBlockPos(); SimpleContainerData data=new SimpleContainerData(9);
         MachineContainer c=MachineContainer.client(OilProcessingBlockEntity.SLOTS,(slot,stack)-> {
             int index=data.get(0); if(index<0 || index>=RECIPES.size() || slot>=OilProcessingBlockEntity.INPUTS || !MachineItems.isPlain(stack))return 0;
-            var items=RECIPES.get(index).itemInputs(); return slot<items.size() && items.get(slot).item().equals(MachineItems.id(stack))?64:0;
+            var items=RECIPES.get(index).itemInputs(); return slot<items.size() && items.get(slot).item().equals(MachineItems.id(stack))?dev.minetorio.core.item.ItemStackSizes.limit(MachineItems.id(stack)):0;
         });
         return new OilMenu(id,inv,c,data,pos,null);
     }

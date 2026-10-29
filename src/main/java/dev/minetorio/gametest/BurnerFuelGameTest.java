@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import static dev.minetorio.gametest.BeltGameTest.place;
 import static dev.minetorio.gametest.InserterGameTest.container;
 import static dev.minetorio.gametest.InserterGameTest.handler;
@@ -38,14 +39,14 @@ import net.neoforged.neoforge.items.IItemHandler;
 @GameTestHolder("minetorio")
 @PrefixGameTestTemplate(false)
 public class BurnerFuelGameTest {
-    private static final String COAL = "minecraft:coal";
+    private static final String COAL = "minetorio:coal";
     /** Burner drill at (2,1,2) facing east: footprint x 2..3, z 2..3. */
     private static final BlockPos DRILL = new BlockPos(2, 1, 2);
     /** Boiler at (9,1,12) facing north: footprint x 9..11, z 11..12. */
     private static final BlockPos BOILER = new BlockPos(9, 1, 12);
 
     private static ItemStack namedCoal(int count) {
-        ItemStack s = new ItemStack(Items.COAL, count);
+        ItemStack s = new ItemStack(BaseMaterials.COAL.get(), count);
         s.set(DataComponents.CUSTOM_NAME, Component.literal("special"));
         return s;
     }
@@ -54,7 +55,7 @@ public class BurnerFuelGameTest {
         int n = 0;
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack s = handler.getStackInSlot(i);
-            if (s.is(Items.COAL) && s.has(DataComponents.CUSTOM_NAME)) n += s.getCount();
+            if (s.is(BaseMaterials.COAL.get()) && s.has(DataComponents.CUSTOM_NAME)) n += s.getCount();
         }
         return n;
     }
@@ -87,7 +88,7 @@ public class BurnerFuelGameTest {
         h.assertTrue(drill.burner().fuel().isEmpty(), "drill took named coal: " + drill.burner().fuel());
         h.assertTrue(boiler.burner().fuel().isEmpty(), "boiler took named coal: " + boiler.burner().fuel());
         h.assertTrue(inserter.burner().fuel().isEmpty(), "inserter took named coal: " + inserter.burner().fuel());
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COAL, 3));
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(BaseMaterials.COAL.get(), 3));
         h.useBlock(DRILL, player);
         h.assertTrue(drill.burner().fuel().getOrDefault(COAL, 0) == 3, "plain coal refused: " + drill.burner().fuel());
         h.succeed();
@@ -112,7 +113,7 @@ public class BurnerFuelGameTest {
             h.assertTrue(named(handler(h, chest)) == 2, "named coal left the chest: " + named(handler(h, chest)));
             h.assertTrue(inserter.logic().held() == null, "inserter holds " + inserter.logic().held());
             h.assertTrue(drill.burner().fuel().isEmpty(), "drill fuel " + drill.burner().fuel());
-            handler(h, chest).insertItem(5, new ItemStack(Items.COAL, 1), false);
+            handler(h, chest).insertItem(5, new ItemStack(BaseMaterials.COAL.get(), 1), false);
         });
         h.runAtTickTime(160, () -> {
             h.assertTrue(drill.burner().fuel().getOrDefault(COAL, 0) == 1, "plain coal not delivered: " + drill.burner().fuel());

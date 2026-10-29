@@ -1,5 +1,6 @@
 package dev.minetorio.gametest;
 
+import dev.minetorio.content.registry.BaseMaterials;
 import dev.minetorio.content.oil.OilRegistry;
 import dev.minetorio.content.oil.OilSourceBlockEntity;
 import dev.minetorio.content.oil.PumpjackBlock;
@@ -142,14 +143,14 @@ public class OilGameTest {
         BeltGameTest.place(h,ModItems.PIPE.get(),pipe,Direction.NORTH);
         var refinery=(OilProcessingBlockEntity)h.getLevel().getBlockEntity(h.absolutePos(pos));
         h.assertTrue(refinery.select(OilData.recipe("coal_liquefaction")),"coal liquefaction refused");
-        h.assertTrue(refinery.machine().insertInput("minecraft:coal",10,false)==10,"coal refused");
+        h.assertTrue(refinery.machine().insertInput("minetorio:coal",10,false)==10,"coal refused");
         refinery.fluidBox(0).insert("heavy_oil",25);
         var player=MachineGameTest.player(h,new BlockPos(5,1,9));
         var menu=(OilMenu)refinery.createMenu(1,player.getInventory(),player); player.containerMenu=menu;
         h.runAtTickTime(5,()->{
             int basic=OilMenu.RECIPES.indexOf(OilData.recipe("basic_oil_processing"));
             h.assertTrue(menu.clickMenuButton(player,basic),"recipe switch refused");
-            h.assertTrue(player.getInventory().contains(new ItemStack(Items.COAL)),"input coal not returned");
+            h.assertTrue(player.getInventory().contains(new ItemStack(BaseMaterials.COAL.get())),"input coal not returned");
             var segment=dev.minetorio.content.fluid.FluidAccess.segmentAt(h.getLevel(),h.absolutePos(pipe));
             h.assertTrue(segment!=null && "heavy_oil".equals(segment.fluid()) && Math.abs(segment.amount()-25)<1e-6,"heavy oil not returned to pipe");
             research.restore(Set.of(),null,Map.of()); h.succeed();
@@ -165,7 +166,7 @@ public class OilGameTest {
         ItemStack plate=new ItemStack(ModItems.IRON_PLATE.get(),5);
         h.assertTrue(furnace.itemHandler().insertItem(SteelFurnaceBlockEntity.INPUT_SLOT,plate,false).getCount()==5,"locked steel input accepted");
         furnace.machine().insertInput("minetorio:iron_plate",5,false);
-        furnace.burner().insertFuel("minecraft:coal",1,false);
+        furnace.burner().insertFuel("minetorio:coal",1,false);
         h.runAtTickTime(25,()->{
             h.assertTrue(furnace.machine().progress()==0,"locked steel recipe advanced");
             research.restore(Set.of("steel_processing"),null,Map.of());
@@ -186,7 +187,7 @@ public class OilGameTest {
         ItemStack plate=new ItemStack(ModItems.IRON_PLATE.get(),5);
         h.assertTrue(furnace.itemHandler().insertItem(StoneFurnaceBlockEntity.INPUT_SLOT,plate,false).getCount()==5,"locked steel input accepted");
         furnace.machine().insertInput("minetorio:iron_plate",5,false);
-        furnace.burner().insertFuel("minecraft:coal",1,false);
+        furnace.burner().insertFuel("minetorio:coal",1,false);
         h.runAtTickTime(25,()->{
             h.assertTrue(furnace.machine().progress()==0,"locked steel recipe advanced");
             research.restore(Set.of("steel_processing"),null,Map.of());

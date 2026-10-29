@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "minetorio:block/crash_site_chest"
+    },
+    "facing=east": {
+      "model": "minetorio:block/crash_site_chest",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "minetorio:block/crash_site_chest",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "minetorio:block/crash_site_chest",
+      "y": 270
+    }
+  }
+}

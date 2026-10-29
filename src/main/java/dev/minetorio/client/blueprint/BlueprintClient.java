@@ -587,15 +587,21 @@ public final class BlueprintClient {
     @SubscribeEvent
     public static void onInventoryClick(ScreenEvent.MouseButtonPressed.Pre event) {
         if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
-        if (!(event.getScreen() instanceof InventoryScreen) && !(event.getScreen() instanceof CreativeModeInventoryScreen)) return;
+        if (!(event.getScreen() instanceof InventoryScreen) && !(event.getScreen() instanceof CreativeModeInventoryScreen)
+                && !(event.getScreen() instanceof dev.minetorio.client.character.CharacterScreen)) return;
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) event.getScreen();
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || !screen.getMenu().getCarried().isEmpty()) return;
         Slot slot = screen.getSlotUnderMouse();
-        if (slot == null || !(slot.container instanceof Inventory) || slot.getContainerSlot() >= Inventory.INVENTORY_SIZE) return;
+        if (slot == null) return;
+        int index;
+        if (dev.minetorio.content.character.CharacterInventory.isMainView(slot.container, mc.player.getInventory())) {
+            index = dev.minetorio.content.character.CharacterInventory.inventoryIndex(slot.getContainerSlot());
+        } else if (slot.container == mc.player.getInventory() && slot.getContainerSlot() < Inventory.INVENTORY_SIZE) {
+            index = slot.getContainerSlot();
+        } else return;
         ItemStack s = slot.getItem();
         if (!BlueprintStacks.isBlueprintLike(s)) return;
-        int index = slot.getContainerSlot();
         mc.setScreen(BlueprintStacks.isBook(s) ? new BlueprintBookScreen(screen, index) : BlueprintMetaScreen.forSlot(screen, index, List.of()));
         event.setCanceled(true);
     }

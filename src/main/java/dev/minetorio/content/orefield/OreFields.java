@@ -180,6 +180,7 @@ public final class OreFields {
         OreType type = mineOne(level, pos);
         if (type == null) return;
         Block.popResourceFromFace(level, pos, Direction.UP, ore(type));
+        dev.minetorio.content.stats.Statistics.record(level, type.item(), 1, 0);
         player.displayClientMessage(amountMessage(type, remaining(level, pos)), true);
     }
 

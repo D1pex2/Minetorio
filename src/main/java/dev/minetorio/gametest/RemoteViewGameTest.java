@@ -259,7 +259,8 @@ public class RemoteViewGameTest {
         BlockPos body = h.absolutePos(new BlockPos(14, 1, 14));
         p.moveTo(body.getX() + 0.5, body.getY(), body.getZ() + 0.5);
         p.getInventory().clearContent();
-        for (int i = 0; i < p.getInventory().items.size(); i++) p.getInventory().items.set(i, new ItemStack(Blocks.DIRT, 64));
+        var main = dev.minetorio.content.character.CharacterInventory.main(p.getInventory());
+        for (int i = 0; i < main.getContainerSize(); i++) main.setItem(i, new ItemStack(Blocks.DIRT, 64));
         h.assertTrue(AssemblerBlockEntity.select(p, pos, "iron_gear_wheel") == SelectResult.OK, "third recipe change refused");
         be.machine().insertInput(PLATE, 2, false);
         h.assertTrue(AssemblerBlockEntity.select(p, pos, "pipe") == SelectResult.OK, "fourth recipe change refused");

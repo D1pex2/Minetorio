@@ -44,10 +44,8 @@ public class RoboportMenu extends AbstractContainerMenu {
                 public boolean mayPlace(ItemStack stack) { return RoboportBlockEntity.isRobotItem(stack); }
             });
         }
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
-        }
-        for (int col = 0; col < 9; col++) addSlot(new Slot(inventory, col, 8 + col * 18, INVENTORY_Y + 58));
+        var main=dev.minetorio.content.character.CharacterInventory.main(inventory);
+        for(int row=0;row<8;row++)for(int col=0;col<10;col++)addSlot(new Slot(main,row*10+col,210+col*18,32+row*18));
         addDataSlots(data);
     }
 
@@ -70,8 +68,12 @@ public class RoboportMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) { return valid.test(player); }
 
+    @Override public void clicked(int slot,int button,net.minecraft.world.inventory.ClickType type,Player player) {
+        if(!dev.minetorio.content.map.RemoteView.blocksTransfer(player))super.clicked(slot,button,type,player);
+    }
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if(index<0 || index>=slots.size() || dev.minetorio.content.map.RemoteView.blocksTransfer(player))return ItemStack.EMPTY;
         Slot slot = slots.get(index);
         if (!slot.hasItem()) return ItemStack.EMPTY;
         ItemStack stack = slot.getItem();

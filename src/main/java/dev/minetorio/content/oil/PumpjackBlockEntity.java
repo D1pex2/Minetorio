@@ -51,7 +51,9 @@ public final class PumpjackBlockEntity extends MultiblockControllerBlockEntity i
         if (be.progress >= 20) {
             double amount = source.amountPerCycle();
             if (be.output.room() >= amount && (be.output.fluid() == null || be.output.fluid().equals("crude_oil"))) {
-                be.output.insert("crude_oil", amount); source.extracted(); be.progress -= 20;
+                double generated=be.output.insert("crude_oil", amount);
+                dev.minetorio.content.stats.Statistics.record(level,"fluid:crude_oil",generated,0);
+                source.extracted(); be.progress -= 20;
             } else be.progress = 20;
         }
         be.setChanged();

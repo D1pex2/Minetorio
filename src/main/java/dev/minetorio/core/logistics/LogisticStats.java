@@ -25,8 +25,8 @@ public final class LogisticStats {
     public static final double PLAYER_REACH = 1.5;
 
     // --- logistic chests ---
-    /** Inventory slots of a logistic chest (Factorio: 48; here a vanilla chest's 27 so the GUI fits). */
-    public static final int CHEST_SLOTS = 27;
+    /** Every Factorio 1.1 logistic chest has 48 real inventory slots. */
+    public static final int CHEST_SLOTS = 48;
     /** Request slots of a requester or buffer chest (one row). */
     public static final int CHEST_REQUEST_SLOTS = 9;
 

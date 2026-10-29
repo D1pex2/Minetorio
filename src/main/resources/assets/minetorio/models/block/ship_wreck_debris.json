@@ -1,0 +1,231 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minetorio:block/ship_wreck_debris",
+    "d": "minetorio:block/ship_wreck_debris"
+  },
+  "elements": [
+    {
+      "from": [
+        1,
+        0,
+        3
+      ],
+      "to": [
+        14,
+        1.5,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#d",
+          "uv": [
+            1,
+            14.5,
+            14,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#d",
+          "uv": [
+            1,
+            14.5,
+            14,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#d",
+          "uv": [
+            3,
+            14.5,
+            13,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#d",
+          "uv": [
+            3,
+            14.5,
+            13,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#d",
+          "uv": [
+            1,
+            3,
+            14,
+            13
+          ]
+        },
+        "down": {
+          "texture": "#d",
+          "uv": [
+            1,
+            3,
+            14,
+            13
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        1.5,
+        4
+      ],
+      "to": [
+        12,
+        3,
+        7
+      ],
+      "faces": {
+        "north": {
+          "texture": "#d",
+          "uv": [
+            3,
+            13,
+            12,
+            14.5
+          ]
+        },
+        "south": {
+          "texture": "#d",
+          "uv": [
+            3,
+            13,
+            12,
+            14.5
+          ]
+        },
+        "east": {
+          "texture": "#d",
+          "uv": [
+            4,
+            13,
+            7,
+            14.5
+          ]
+        },
+        "west": {
+          "texture": "#d",
+          "uv": [
+            4,
+            13,
+            7,
+            14.5
+          ]
+        },
+        "up": {
+          "texture": "#d",
+          "uv": [
+            3,
+            4,
+            12,
+            7
+          ]
+        },
+        "down": {
+          "texture": "#d",
+          "uv": [
+            3,
+            4,
+            12,
+            7
+          ]
+        }
+      },
+      "rotation": {
+        "angle": 22.5,
+        "axis": "x",
+        "origin": [
+          8,
+          1.5,
+          4
+        ]
+      }
+    },
+    {
+      "from": [
+        4,
+        0.5,
+        9
+      ],
+      "to": [
+        10,
+        5.5,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#d",
+          "uv": [
+            4,
+            10.5,
+            10,
+            15.5
+          ]
+        },
+        "south": {
+          "texture": "#d",
+          "uv": [
+            4,
+            10.5,
+            10,
+            15.5
+          ]
+        },
+        "east": {
+          "texture": "#d",
+          "uv": [
+            9,
+            10.5,
+            10.5,
+            15.5
+          ]
+        },
+        "west": {
+          "texture": "#d",
+          "uv": [
+            9,
+            10.5,
+            10.5,
+            15.5
+          ]
+        },
+        "up": {
+          "texture": "#d",
+          "uv": [
+            4,
+            9,
+            10,
+            10.5
+          ]
+        },
+        "down": {
+          "texture": "#d",
+          "uv": [
+            4,
+            9,
+            10,
+            10.5
+          ]
+        }
+      },
+      "rotation": {
+        "angle": -22.5,
+        "axis": "y",
+        "origin": [
+          7,
+          0,
+          9
+        ]
+      }
+    }
+  ]
+}

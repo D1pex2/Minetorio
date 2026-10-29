@@ -11,7 +11,9 @@
     "MouseHandlerMixin",
     "RenderChunkRegionMixin",
     "BlockEntityRenderDispatcherMixin",
-    "EntityRenderDispatcherMixin"
+    "EntityRenderDispatcherMixin",
+    "WorldCreationUiStateMixin",
+    "EngineerSkinMixin"
   ],
   "injectors": {
     "defaultRequire": 1

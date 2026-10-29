@@ -37,7 +37,7 @@ public final class BlueprintBookOps {
     }
 
     static boolean validSlot(int slot) {
-        return slot >= 0 && slot < Inventory.INVENTORY_SIZE;
+        return (slot >= 0 && slot < Inventory.INVENTORY_SIZE) || (slot >= 41 && slot < 85);
     }
 
     static boolean mayEdit(ServerPlayer player) {
@@ -107,7 +107,7 @@ public final class BlueprintBookOps {
             case EXTRACT -> {
                 if (!inRange) return false;
                 int to = validSlot(b) && b != slot && inv.getItem(b).isEmpty() ? b : inv.getFreeSlot();
-                if (to < 0 || to >= Inventory.INVENTORY_SIZE) return false;
+                if (to < 0 || (to >= Inventory.INVENTORY_SIZE && (to < 41 || to >= 85))) return false;
                 ItemStack out = BlueprintStacks.stack(book.entries().get(a));
                 if (!store(stack, replaced(root, path, target.withBook(book.removed(a))))) return false;
                 inv.setItem(to, out);

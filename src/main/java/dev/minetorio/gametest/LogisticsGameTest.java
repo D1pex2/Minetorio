@@ -320,4 +320,19 @@ public class LogisticsGameTest {
             cleanUp(h, port);
         }));
     }
+    @GameTest(template = "empty16")
+    public static void logisticChestsStoreFortyEightStacks(GameTestHelper h) {
+        int x = 2;
+        for (LogisticMode mode : LogisticMode.values()) {
+            var be = chest(h, new BlockPos(x++, 1, 3), mode);
+            h.assertTrue(be.container().getContainerSize() == 48, "wrong capacity " + mode);
+            be.container().setItem(47, plates(7));
+            var tag = be.saveWithoutMetadata(h.getLevel().registryAccess());
+            be.container().clearContent();
+            be.loadWithComponents(tag, h.getLevel().registryAccess());
+            h.assertTrue(be.container().getItem(47).getCount() == 7, "last slot did not survive save " + mode);
+        }
+        h.succeed();
+    }
+
 }

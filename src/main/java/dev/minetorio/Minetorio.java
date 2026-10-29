@@ -23,6 +23,7 @@ import dev.minetorio.content.registry.ModDataComponents;
 import dev.minetorio.content.registry.ModEntities;
 import dev.minetorio.content.registry.ModFeatures;
 import dev.minetorio.content.registry.ModItems;
+import dev.minetorio.content.registry.BaseMaterials;
 import dev.minetorio.content.registry.ModMenus;
 import dev.minetorio.content.registry.ModPayloads;
 import dev.minetorio.content.research.ResearchSavedData;
@@ -39,6 +40,11 @@ public class Minetorio {
     public Minetorio(IEventBus modBus) {
         ModBlocks.register(modBus);
         ModItems.register(modBus);
+        BaseMaterials.register(modBus);
+        dev.minetorio.content.registry.ModWorld.register(modBus);
+        dev.minetorio.content.world.BasicChests.register(modBus);
+        dev.minetorio.content.machineui.MachineUi.register(modBus);
+        dev.minetorio.content.stats.StatsPayloads.register(modBus);
         dev.minetorio.content.registry.OilMaterials.register(modBus);
         dev.minetorio.content.oil.OilRegistry.register(modBus);
         dev.minetorio.content.oilmap.OilMapPayloads.register(modBus);
@@ -67,6 +73,7 @@ public class Minetorio {
         RemoteView.register();
         DragPlacement.register();
         DemoCommand.register();
+        dev.minetorio.content.demo.NauvisDemoBuild.register();
         ConstructionManager.register();
         HandGhosts.register();
         dev.minetorio.content.blueprint.BlueprintPaste.register();

@@ -11,8 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class Phase1DataTest {
     static final Set<String> BASE = Set.of(
-            "minetorio:iron_ore", "minetorio:copper_ore", "minecraft:raw_iron",
-            "minecraft:raw_copper", "minecraft:coal", "minecraft:cobblestone", "minecraft:stick");
+            "minetorio:iron_ore", "minetorio:copper_ore", "minetorio:coal", "minetorio:stone", "minetorio:wood");
     final RecipeBook book = Phase1Data.recipes();
 
     @Test
@@ -29,13 +28,13 @@ class Phase1DataTest {
     @Test void redScienceTicks() { assertEquals(100, book.get("automation_science_pack").get().ticks()); }
 
     @Test
-    void ironPlateSmeltsFromBootstrapRawIron() {
+    void ironPlateSmeltsFromSurfaceIronOre() {
         assertEquals("minetorio:iron_plate",
-                book.smeltingFor("minecraft:raw_iron").get().outputs().get(0).item());
+                book.smeltingFor("minetorio:iron_ore").get().outputs().get(0).item());
     }
 
     @Test void beltRecipeMakesTwo() { assertEquals(2, book.get("transport_belt").get().outputs().get(0).count()); }
-    @Test void coalIs4MJ() { assertEquals(4_000_000L, Phase1Data.fuelValues().get("minecraft:coal")); }
+    @Test void coalIs4MJ() { assertEquals(4_000_000L, Phase1Data.fuelValues().get("minetorio:coal")); }
 
     @Test
     void unitsConvert() {
@@ -101,9 +100,9 @@ class Phase1DataTest {
     @Test
     void fuelValues() {
         var f = Phase1Data.fuelValues();
-        assertEquals(2_000_000L, f.get("minecraft:cherry_log"));
-        assertEquals(500_000L, f.get("minecraft:bamboo_planks"));
-        assertEquals(250_000L, f.get("minecraft:stick"));
-        assertEquals(36_000_000L, f.get("minecraft:coal_block"));
+        assertEquals(2_000_000L, f.get("minetorio:wood"));
+        assertEquals(4_000_000L, f.get("minetorio:coal"));
+        assertEquals(12_000_000L, f.get("minetorio:solid_fuel"));
+        assertEquals(3, f.size());
     }
 }

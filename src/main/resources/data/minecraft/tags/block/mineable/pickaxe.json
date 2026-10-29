@@ -47,6 +47,12 @@
     "minetorio:oil_refinery",
     "minetorio:chemical_plant",
     "minetorio:steel_furnace",
-    "minetorio:steel_chest"
+    "minetorio:steel_chest",
+    "minetorio:big_rock",
+    "minetorio:sand_rock",
+    "minetorio:huge_rock",
+    "minetorio:ship_wreck_hull",
+    "minetorio:ship_wreck_debris",
+    "minetorio:crash_site_chest"
   ]
 }

@@ -235,7 +235,8 @@ public final class RemoteView {
         Session s = SESSIONS.get(sp.getUUID());
         if (s == null || s.menuPos == null || s.menuId != menu.containerId || !inArea(sp, s.menuPos)) return false;
         BlockEntity be = sp.level().getBlockEntity(s.menuPos);
-        return be instanceof MenuProvider && !be.isRemoved();
+        return be != null && !be.isRemoved() && (be instanceof MenuProvider
+            || dev.minetorio.content.machineui.MachineUi.kind(be) != null);
     }
 
     /** Whether clicks in a machine GUI must move no items: it is open from the remote view (either side). */
@@ -295,7 +296,10 @@ public final class RemoteView {
         if (!level.isLoaded(pos) || !inArea(player, pos)) return Result.OUT_OF_AREA;
         BlockPos at = menuTarget(player, pos);
         if (at == null) return Result.NO_MACHINE;
-        player.openMenu((MenuProvider) level.getBlockEntity(at), at);
+        BlockEntity machine=level.getBlockEntity(at);
+        if (dev.minetorio.content.machineui.MachineUi.kind(machine) != null)
+            dev.minetorio.content.machineui.MachineUi.open(player,machine);
+        else player.openMenu((MenuProvider) machine, at);
         return attachMenu(player, at) ? Result.OK : Result.NO_MACHINE;
     }
 
@@ -312,7 +316,8 @@ public final class RemoteView {
         BlockEntity be = level.getBlockEntity(at);
         return be instanceof AssemblerBlockEntity || be instanceof StoneFurnaceBlockEntity
                 || be instanceof dev.minetorio.content.oil.OilProcessingBlockEntity
-                || be instanceof dev.minetorio.content.oil.SteelFurnaceBlockEntity ? at.immutable() : null;
+                || be instanceof dev.minetorio.content.oil.SteelFurnaceBlockEntity
+                || dev.minetorio.content.machineui.MachineUi.kind(be) != null ? at.immutable() : null;
     }
 
     /**

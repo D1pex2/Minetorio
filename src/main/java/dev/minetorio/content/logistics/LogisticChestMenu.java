@@ -42,9 +42,9 @@ public class LogisticChestMenu extends RequestMenu {
         this.mode = be != null ? be.mode() : LogisticMode.PASSIVE_PROVIDER;
         this.chest = be != null && !inventory.player.level().isClientSide() ? be.container() : new SimpleContainer(LogisticStats.CHEST_SLOTS);
         this.chestY = chestY(mode);
-        this.inventoryY = chestY + 3 * 18 + 14;
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) addSlot(new Slot(chest, col + row * 9, 8 + col * 18, chestY + row * 18));
+        this.inventoryY = chestY + 6 * 18 + 14;
+        for (int row = 0; row < 6; row++) {
+            for (int col = 0; col < 8; col++) addSlot(new Slot(chest, col + row * 8, 8 + col * 18, chestY + row * 18));
         }
         addPlayerInventory(inventory, inventoryY);
     }

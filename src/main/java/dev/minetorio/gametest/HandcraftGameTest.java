@@ -247,7 +247,8 @@ public class HandcraftGameTest {
         give(p, ModItems.COPPER_PLATE.get(), 1);
         h.assertTrue(HandcraftTicker.enqueue(p, "automation_science_pack", 1) == EnqueueResult.OK, "pack refused");
         tick(p, 3);
-        for (int i = 0; i < p.getInventory().items.size(); i++) p.getInventory().items.set(i, new ItemStack(Items.DIRT, 64));
+        var main = dev.minetorio.content.character.CharacterInventory.main(p.getInventory());
+        for (int i = 0; i < main.getContainerSize(); i++) main.setItem(i, new ItemStack(Items.DIRT, 64));
         HandcraftPayloads.Cancel.handle(new HandcraftPayloads.Cancel(0, "automation_science_pack", 2), context(p));
         HandcraftPayloads.Cancel.handle(new HandcraftPayloads.Cancel(0, "iron_gear_wheel", 1), context(p));
         h.assertTrue(entries(p).size() == 1, "an entry other than the one the client saw was cancelled");
@@ -336,7 +337,8 @@ public class HandcraftGameTest {
         give(p, ModItems.COPPER_PLATE.get(), 2);
         h.assertTrue(HandcraftTicker.enqueue(p, "inserter", 1) == EnqueueResult.OK, "inserter refused");
         tick(p, 25);
-        for (int i = 0; i < p.getInventory().items.size(); i++) p.getInventory().items.set(i, new ItemStack(Items.DIRT, 64));
+        var main = dev.minetorio.content.character.CharacterInventory.main(p.getInventory());
+        for (int i = 0; i < main.getContainerSize(); i++) main.setItem(i, new ItemStack(Items.DIRT, 64));
         die(p);
         h.assertTrue(entries(p).isEmpty(), "queue survived death");
         AABB near = p.getBoundingBox().inflate(1.5);
