@@ -243,6 +243,8 @@ S1: у всех `connection_distance=3`, `joint_distance=4`; у локомоти
 
 - [ ] Signal-only edit при движущемся automatic составе: stale traction отклоняется, старый подтвержденный тормозной коридор не освобождается для второго поезда, последовательное торможение выполняется внутри него без мгновенного обнуления скорости. Проверить новый сигнал ближе текущего stoppingDistance, occupancy и атомарный replan. Физическое разрушение пути остается отдельным Task7 сценарием.
 
+- [ ] Два последовательных длинных блока с обычным сигналом допускают независимые occupancy/claims, когда тела не пересекают границу. Общий endpoint соседних connected rails из Graph.conflicts не сливает cuts; настоящий crossing без маршрутного перехода остается конфликтом.
+
 ### Task 6: Станции, расписания и все условия ожидания
 
 **Files:** создать `C/TrainSchedule.java`, `C/TrainWait.java`, `C/TrainDispatcher.java`, `C/RailCircuitInputs.java`, `T/TrainScheduleTest.java`, `T/TrainWaitTest.java`, `T/TrainDispatcherTest.java`; дополнить RailwayState/NBT.
