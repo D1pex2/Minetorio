@@ -47,6 +47,7 @@ public final class Phase1Data {
                         "fast_transport_belt,fast_underground_belt,fast_splitter")));
         technologies.addAll(OilData.technologies());
         technologies.addAll(CombatData.technologies());
+        technologies.addAll(RailData.technologies());
         return new TechTree(technologies);
     }
 
@@ -113,6 +114,7 @@ public final class Phase1Data {
         for (Recipe recipe : r) merged.put(recipe.id(), recipe);
         for (Recipe recipe : OilData.itemRecipes()) merged.put(recipe.id(), recipe);
         for (Recipe recipe : CombatData.recipes()) merged.put(recipe.id(), recipe);
+        for (Recipe recipe : RailData.recipes()) merged.put(recipe.id(), recipe);
         return new RecipeBook(merged.values());
     }
 
@@ -128,6 +130,7 @@ public final class Phase1Data {
         Set<String> locked = new HashSet<>();
         for (Technology technology : OilData.technologies()) locked.addAll(technology.unlocksRecipes());
         for (Technology technology : CombatData.technologies()) locked.addAll(technology.unlocksRecipes());
+        for (Technology technology : RailData.technologies()) locked.addAll(technology.unlocksRecipes());
         locked.addAll(List.of("assembling_machine_1", "assembling_machine_2", "long_handed_inserter",
                 "fast_inserter", "filter_inserter", "underground_belt", "splitter", "logistic_science_pack"));
         Set<String> s = new LinkedHashSet<>();

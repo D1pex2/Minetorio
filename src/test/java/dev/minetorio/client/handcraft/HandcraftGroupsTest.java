@@ -24,6 +24,8 @@ class HandcraftGroupsTest {
         assertEquals(HandcraftGroups.Group.PRODUCTION, HandcraftGroups.of("assembling_machine_1"));
         assertEquals(HandcraftGroups.Group.INTERMEDIATES, HandcraftGroups.of("iron_gear_wheel"));
         assertEquals(HandcraftGroups.Group.SCIENCE, HandcraftGroups.of("automation_science_pack"));
+        for (String id : List.of("rail", "locomotive", "cargo_wagon", "fluid_wagon", "train_stop", "rail_signal", "rail_chain_signal"))
+            assertEquals(HandcraftGroups.Group.LOGISTICS, HandcraftGroups.of(id), id);
         assertEquals(HandcraftGroups.Group.INTERMEDIATES, HandcraftGroups.of("unknown_recipe"));
     }
 

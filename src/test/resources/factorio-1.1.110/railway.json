@@ -1,0 +1,579 @@
+{
+  "tag": "1.1.110",
+  "sources": {
+    "recipes": "https://github.com/wube/factorio-data/blob/1.1.110/base/prototypes/recipe.lua",
+    "technologies": "https://github.com/wube/factorio-data/blob/1.1.110/base/prototypes/technology.lua",
+    "items": "https://github.com/wube/factorio-data/blob/1.1.110/base/prototypes/item.lua",
+    "stock": "https://github.com/wube/factorio-data/blob/1.1.110/base/prototypes/entity/trains.lua"
+  },
+  "defaults_source": "https://lua-api.factorio.com/1.1.110/prototype-api.json",
+  "defaults": {
+    "fuel_acceleration_multiplier": 1.0,
+    "fuel_top_speed_multiplier": 1.0,
+    "enabled": true,
+    "energy_required": 0.5,
+    "result_count": 1
+  },
+  "recipes": [
+    {
+      "name": "rail",
+      "normal": null,
+      "enabled": false,
+      "result": "rail",
+      "result_count": 2,
+      "ingredients": [
+        [
+          "stone",
+          1
+        ],
+        [
+          "iron-stick",
+          1
+        ],
+        [
+          "steel-plate",
+          1
+        ]
+      ]
+    },
+    {
+      "name": "locomotive",
+      "normal": null,
+      "enabled": false,
+      "energy_required": 4,
+      "result": "locomotive",
+      "ingredients": [
+        [
+          "engine-unit",
+          20
+        ],
+        [
+          "electronic-circuit",
+          10
+        ],
+        [
+          "steel-plate",
+          30
+        ]
+      ]
+    },
+    {
+      "name": "cargo-wagon",
+      "normal": null,
+      "enabled": false,
+      "energy_required": 1,
+      "result": "cargo-wagon",
+      "ingredients": [
+        [
+          "iron-gear-wheel",
+          10
+        ],
+        [
+          "iron-plate",
+          20
+        ],
+        [
+          "steel-plate",
+          20
+        ]
+      ]
+    },
+    {
+      "name": "fluid-wagon",
+      "normal": null,
+      "enabled": false,
+      "energy_required": 1.5,
+      "result": "fluid-wagon",
+      "ingredients": [
+        [
+          "iron-gear-wheel",
+          10
+        ],
+        [
+          "steel-plate",
+          16
+        ],
+        [
+          "pipe",
+          8
+        ],
+        [
+          "storage-tank",
+          1
+        ]
+      ]
+    },
+    {
+      "name": "train-stop",
+      "normal": null,
+      "enabled": false,
+      "result": "train-stop",
+      "ingredients": [
+        [
+          "electronic-circuit",
+          5
+        ],
+        [
+          "iron-plate",
+          6
+        ],
+        [
+          "iron-stick",
+          6
+        ],
+        [
+          "steel-plate",
+          3
+        ]
+      ]
+    },
+    {
+      "name": "rail-signal",
+      "normal": null,
+      "enabled": false,
+      "result": "rail-signal",
+      "ingredients": [
+        [
+          "electronic-circuit",
+          1
+        ],
+        [
+          "iron-plate",
+          5
+        ]
+      ]
+    },
+    {
+      "name": "rail-chain-signal",
+      "normal": null,
+      "enabled": false,
+      "result": "rail-chain-signal",
+      "ingredients": [
+        [
+          "electronic-circuit",
+          1
+        ],
+        [
+          "iron-plate",
+          5
+        ]
+      ]
+    }
+  ],
+  "items": [
+    {
+      "name": "rail",
+      "stack_size": 100
+    },
+    {
+      "name": "locomotive",
+      "stack_size": 5
+    },
+    {
+      "name": "cargo-wagon",
+      "stack_size": 5
+    },
+    {
+      "name": "fluid-wagon",
+      "stack_size": 5
+    },
+    {
+      "name": "train-stop",
+      "stack_size": 10
+    },
+    {
+      "name": "rail-signal",
+      "stack_size": 50
+    },
+    {
+      "name": "rail-chain-signal",
+      "stack_size": 50
+    }
+  ],
+  "technologies": [
+    {
+      "name": "railway",
+      "prerequisites": [
+        "logistics-2",
+        "engine"
+      ],
+      "unit": {
+        "count": 75,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [
+        "rail",
+        "locomotive",
+        "cargo-wagon"
+      ]
+    },
+    {
+      "name": "automated-rail-transportation",
+      "prerequisites": [
+        "railway"
+      ],
+      "unit": {
+        "count": 75,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [
+        "train-stop"
+      ]
+    },
+    {
+      "name": "rail-signals",
+      "prerequisites": [
+        "automated-rail-transportation"
+      ],
+      "unit": {
+        "count": 100,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [
+        "rail-signal",
+        "rail-chain-signal"
+      ]
+    },
+    {
+      "name": "fluid-wagon",
+      "prerequisites": [
+        "railway",
+        "fluid-handling"
+      ],
+      "unit": {
+        "count": 200,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [
+        "fluid-wagon"
+      ]
+    },
+    {
+      "name": "braking-force-1",
+      "prerequisites": [
+        "railway",
+        "chemical-science-pack"
+      ],
+      "unit": {
+        "count": 100,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.1
+    },
+    {
+      "name": "braking-force-2",
+      "prerequisites": [
+        "braking-force-1"
+      ],
+      "unit": {
+        "count": 200,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.15
+    },
+    {
+      "name": "braking-force-3",
+      "prerequisites": [
+        "braking-force-2"
+      ],
+      "unit": {
+        "count": 250,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ],
+          [
+            "production-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.15
+    },
+    {
+      "name": "braking-force-4",
+      "prerequisites": [
+        "braking-force-3"
+      ],
+      "unit": {
+        "count": 350,
+        "time": 30,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ],
+          [
+            "production-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.15
+    },
+    {
+      "name": "braking-force-5",
+      "prerequisites": [
+        "braking-force-4"
+      ],
+      "unit": {
+        "count": 450,
+        "time": 35,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ],
+          [
+            "production-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.15
+    },
+    {
+      "name": "braking-force-6",
+      "prerequisites": [
+        "braking-force-5"
+      ],
+      "unit": {
+        "count": 550,
+        "time": 45,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ],
+          [
+            "production-science-pack",
+            1
+          ],
+          [
+            "utility-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.15
+    },
+    {
+      "name": "braking-force-7",
+      "prerequisites": [
+        "braking-force-6"
+      ],
+      "unit": {
+        "count": 650,
+        "time": 60,
+        "ingredients": [
+          [
+            "automation-science-pack",
+            1
+          ],
+          [
+            "logistic-science-pack",
+            1
+          ],
+          [
+            "chemical-science-pack",
+            1
+          ],
+          [
+            "production-science-pack",
+            1
+          ],
+          [
+            "utility-science-pack",
+            1
+          ]
+        ]
+      },
+      "unlocks": [],
+      "train-braking-force-bonus": 0.15
+    }
+  ],
+  "stock": [
+    {
+      "name": "locomotive",
+      "weight": 2000,
+      "max_speed": 1.2,
+      "braking_force": 10,
+      "friction_force": 0.5,
+      "air_resistance": 0.0075,
+      "max_health": 1000,
+      "fuel_inventory_size": 3,
+      "connection_distance": 3,
+      "joint_distance": 4,
+      "max_power": "600kW",
+      "reversing_power_modifier": 0.6,
+      "energy_per_hit_point": 5
+    },
+    {
+      "name": "cargo-wagon",
+      "weight": 1000,
+      "max_speed": 1.5,
+      "braking_force": 3,
+      "friction_force": 0.5,
+      "air_resistance": 0.01,
+      "max_health": 600,
+      "inventory_size": 40,
+      "connection_distance": 3,
+      "joint_distance": 4,
+      "energy_per_hit_point": 5
+    },
+    {
+      "name": "fluid-wagon",
+      "weight": 1000,
+      "max_speed": 1.5,
+      "braking_force": 3,
+      "friction_force": 0.5,
+      "air_resistance": 0.01,
+      "max_health": 600,
+      "capacity": 25000,
+      "connection_distance": 3,
+      "joint_distance": 4,
+      "energy_per_hit_point": 6
+    }
+  ],
+  "fuels": [
+    {
+      "name": "wood",
+      "fuel_value": "2MJ",
+      "fuel_category": "chemical"
+    },
+    {
+      "name": "coal",
+      "fuel_value": "4MJ",
+      "fuel_category": "chemical"
+    },
+    {
+      "name": "solid-fuel",
+      "fuel_value": "12MJ",
+      "fuel_category": "chemical",
+      "fuel_acceleration_multiplier": 1.2,
+      "fuel_top_speed_multiplier": 1.05
+    },
+    {
+      "name": "rocket-fuel",
+      "fuel_value": "100MJ",
+      "fuel_category": "chemical",
+      "fuel_acceleration_multiplier": 1.8,
+      "fuel_top_speed_multiplier": 1.15
+    },
+    {
+      "name": "nuclear-fuel",
+      "fuel_value": "1.21GJ",
+      "fuel_category": "chemical",
+      "fuel_acceleration_multiplier": 2.5,
+      "fuel_top_speed_multiplier": 1.15
+    }
+  ]
+}
