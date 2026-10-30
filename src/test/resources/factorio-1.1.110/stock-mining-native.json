@@ -1,0 +1,32 @@
+{
+  "metadata": {
+  "engine": "Factorio 1.1.110 build 62357 linux64 headless",
+  "factorio_archive_sha256": "485fe6db36e5decd7dd0d70e7c97e61f818100fa3e48d87884b287027c7a646a",
+  "environment": "Debian 12, QEMU TCG 1 CPU / 2048 MiB, offline, seed 12345",
+  "numeric_literals": "Original JSON literals from serial output; selection without numeric reserialization",
+  "raw_sources": {
+    "mining-5-raw.json": {
+      "sha256": "124fd3c91d28cc9827ac342b35a15ba77c3fdd3905b4c66434d888dd5709ebaf"
+    },
+    "serial-mining-5.log": {
+      "sha256": "ef95304558ebd4dab519fdc64dd2c63dd78e0c54a3ff226b2ada58b3a7707301"
+    }
+  },
+  "benchmark_checksum": 1366911532,
+  "note": "create_entity(item=actual mined stack) is not a complete player placement; recreated entity health is full despite damaged item health"
+},
+  "cases": {
+    "cold_loco": [
+      {"kind":"roundtrip","case":"cold_loco","tick":1,"before":{"name":"locomotive","health":1000,"position":{"y":0,"x":17},"speed":0,"weight":2000,"color":{"r":0.20000000298023223876953125,"g":0.4000000059604644775390625,"b":0.60000002384185791015625,"a":1},"grid_present":false,"fuel":[{"name":"coal","count":7,"health":1,"type":"item","entity_data":false,"grid_present":false}],"burner":{"remaining":0,"heat":0}},"success":true,"target_valid":false,"items":[{"name":"coal","count":7,"health":1,"type":"item","entity_data":false,"grid_present":false},{"name":"locomotive","count":1,"health":1,"type":"item-with-entity-data","entity_data":true,"label":"","grid_present":false}],"source_stack_found":true,"restored":{"name":"locomotive","health":1000,"position":{"y":20,"x":17},"speed":0,"weight":2000,"grid_present":false,"fuel":{},"burner":{"remaining":0,"heat":0}}}
+    ],
+    "cargo_damaged": [
+      {"kind":"roundtrip","case":"cargo_damaged","tick":1,"before":{"name":"cargo-wagon","health":275,"position":{"y":0,"x":33},"speed":0,"weight":1000,"color":{"r":0.20000000298023223876953125,"g":0.4000000059604644775390625,"b":0.60000002384185791015625,"a":1},"grid_present":false,"cargo":[{"name":"iron-plate","count":30,"health":1,"type":"item","entity_data":false,"grid_present":false}]},"success":true,"target_valid":false,"items":[{"name":"iron-plate","count":30,"health":1,"type":"item","entity_data":false,"grid_present":false},{"name":"cargo-wagon","count":1,"health":0.4583333432674407958984375,"type":"item-with-entity-data","entity_data":true,"label":"","grid_present":false}],"source_stack_found":true,"restored":{"name":"cargo-wagon","health":600,"position":{"y":20,"x":33},"speed":0,"weight":1000,"grid_present":false,"cargo":{}}}
+    ],
+    "fluid_damaged": [
+      {"kind":"roundtrip","case":"fluid_damaged","tick":1,"before":{"name":"fluid-wagon","health":300,"position":{"y":0,"x":49},"speed":0,"weight":1000,"color":{"r":0.20000000298023223876953125,"g":0.4000000059604644775390625,"b":0.60000002384185791015625,"a":1},"grid_present":false,"fluid":{"name":"water","amount":1234,"temperature":42}},"success":true,"target_valid":false,"items":[{"name":"fluid-wagon","count":1,"health":0.5,"type":"item-with-entity-data","entity_data":true,"label":"","grid_present":false}],"source_stack_found":true,"restored":{"name":"fluid-wagon","health":600,"position":{"y":20,"x":49},"speed":0,"weight":1000,"grid_present":false}}
+    ],
+    "warm_loco": [
+      {"kind":"roundtrip","case":"warm_loco","tick":111,"before":{"name":"locomotive","health":1000,"position":{"y":-13.99609375,"x":65},"speed":0,"weight":2000,"color":{"r":0.20000000298023223876953125,"g":0.4000000059604644775390625,"b":0.60000002384185791015625,"a":1},"grid_present":false,"fuel":[{"name":"coal","count":6,"health":1,"type":"item","entity_data":false,"grid_present":false}],"burner":{"remaining":3399333.3333333334885537624359130859375,"burning":"coal","heat":10666.666666666666060336865484714508056640625}},"success":true,"target_valid":false,"items":[{"name":"coal","count":6,"health":1,"type":"item","entity_data":false,"grid_present":false},{"name":"locomotive","count":1,"health":1,"type":"item-with-entity-data","entity_data":true,"label":"","grid_present":false}],"source_stack_found":true,"restored":{"name":"locomotive","health":1000,"position":{"y":20,"x":65},"speed":0,"weight":2000,"grid_present":false,"fuel":{},"burner":{"remaining":0,"heat":0}}}
+    ]
+  }
+}
