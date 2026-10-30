@@ -20,6 +20,8 @@ public final class PersonalRobotActivity extends SavedData {
     private static final Map<MinecraftServer,PersonalRobotCensus.Result> STARTUP=new WeakHashMap<>();
     private final Map<UUID,PersonalRobotCensus.Entry> robots=new LinkedHashMap<>();
     private final Map<UUID,LogisticRobotEntity> live=new HashMap<>();
+    // Конкурентные accepted UUID нельзя разрешать по одной только loaded выборке.
+    private final Map<UUID,Set<UUID>> ambiguousOwners=new HashMap<>();
     private boolean complete,imported;
     private PersonalRobotActivity() {}
     public static void register() {
@@ -43,7 +45,7 @@ public final class PersonalRobotActivity extends SavedData {
     }
     public static OptionalInt count(MinecraftServer server,Set<UUID> owners) {
         if(owners.isEmpty())return OptionalInt.of(0);
-        var data=get(server);if(!data.complete)return OptionalInt.empty();
+        var data=get(server);if(!data.complete||data.ambiguousOwners.values().stream().anyMatch(affected->affected.stream().anyMatch(owners::contains)))return OptionalInt.empty();
         return OptionalInt.of((int)data.robots.values().stream().filter(e->owners.contains(e.owner())).count());
     }
     public static void admitted(LogisticRobotEntity entity) {
@@ -51,8 +53,12 @@ public final class PersonalRobotActivity extends SavedData {
         var data=get(level.getServer());UUID owner=entity.homePlayer();
         if(owner==null){data.complete=false;data.setDirty();return;}
         var entry=new PersonalRobotCensus.Entry(owner,level.dimension().location().toString(),entity.chunkPosition().x,entity.chunkPosition().z);
-        var old=data.robots.get(entity.getUUID());
-        if(old!=null&&!old.owner().equals(owner)){data.complete=false;data.setDirty();return;}
+        var old=data.robots.get(entity.getUUID());var accepted=data.live.get(entity.getUUID());
+        if(accepted!=null&&accepted!=entity||old!=null&&!old.owner().equals(owner)) {
+            Set<UUID> affected=data.ambiguousOwners.computeIfAbsent(entity.getUUID(),id->new HashSet<>());affected.add(owner);if(old!=null)affected.add(old.owner());
+            LogUtils.getLogger().error("Неоднозначный accepted robot UUID {}: сохранено {}, новый {}. Activity затронутых owners неизвестна до полной startup переписи",entity.getUUID(),old,entry);
+            return;
+        }
         data.robots.put(entity.getUUID(),entry);data.live.put(entity.getUUID(),entity);data.setDirty();
     }
     public static void removed(LogisticRobotEntity entity,Entity.RemovalReason reason) {

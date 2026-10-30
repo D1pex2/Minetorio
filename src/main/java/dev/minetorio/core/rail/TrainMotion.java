@@ -12,7 +12,11 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 public final class TrainMotion {
     private TrainMotion() {}
     public enum Turn { LEFT, STRAIGHT, RIGHT }
-    public record Control(double throttle, boolean brake, Turn turn) {}
+    public enum DriverContext { SEATED, ABSENT }
+    public record Control(double throttle, boolean brake, Turn turn, DriverContext driver) {
+        public Control { Objects.requireNonNull(driver); }
+        public Control(double throttle,boolean brake,Turn turn) {this(throttle,brake,turn,DriverContext.SEATED);}
+    }
     private record Mover(Car car, double modifier, BigDecimal budget, TrainFuel.Draw preview) {}
     private record Path(List<Traversal> tape, double head, double distance) {}
 
@@ -45,7 +49,7 @@ public final class TrainMotion {
             path=extend(state,train,sign,magnitude,control.turn());
         }
         if (magnitude > 0 && path.distance() == 0 && train.mode()==Mode.MANUAL) {
-            return Optional.of(proposal(state,train,graphRevision,path,0,sign,Status.NO_PATH,bonus,brake,()->{}));
+            return Optional.of(proposal(state,train,graphRevision,path,0,0,sign,Status.NO_PATH,bonus,brake,control.driver(),()->{}));
         }
         if(train.mode()==Mode.AUTOMATIC && path.distance()+1e-12<magnitude) return Optional.empty();
         double distance = Math.min(magnitude,path.distance());
@@ -53,8 +57,8 @@ public final class TrainMotion {
         double speed = blockedByTrackEnd ? 0 : magnitude*sign;
         boolean spend=!brake;
         Runnable fuel=()-> { if(spend) for(Mover mover:movers) TrainFuel.draw(mover.car(),mover.budget()); };
-        return Optional.of(proposal(state,train,graphRevision,new Path(path.tape(),path.head(),distance),speed,sign,
-                blockedByTrackEnd ? Status.NO_PATH : stoppedStatus,bonus,brake,fuel));
+        return Optional.of(proposal(state,train,graphRevision,new Path(path.tape(),path.head(),distance),speed,magnitude*sign,sign,
+                blockedByTrackEnd ? Status.NO_PATH : stoppedStatus,bonus,brake,control.driver(),fuel));
     }
     private record Dynamics(double sign,double magnitude,boolean brake,List<Mover> movers) {}
     /** Чистый расчет для регулятора прибытия; списания топлива и изменения позы здесь нет. */
@@ -109,20 +113,23 @@ public final class TrainMotion {
         private final Train before;
         private final long graphRevision,networkRevision;
         private final Path path;
-        private final double speed,sign,bonus;
+        private final double speed,contactSpeed,sign,bonus;
         private final Status stopped;
         private final boolean braking;
+        private final DriverContext driver;
         private final Runnable fuel;
         private final List<FuelSnapshot> fuelBefore;
         private boolean used;
-        private Proposal(RailwayState owner,Train before,long revision,Path path,double speed,double sign,Status stopped,double bonus,boolean braking,Runnable fuel) {
+        private Proposal(RailwayState owner,Train before,long revision,Path path,double speed,double contactSpeed,double sign,Status stopped,double bonus,boolean braking,DriverContext driver,Runnable fuel) {
             this.owner=owner;this.before=before;this.graphRevision=revision;this.networkRevision=owner.signals().revision();this.path=path;
-            this.speed=speed;this.sign=sign;this.stopped=stopped;this.bonus=bonus;this.braking=braking;this.fuel=fuel;this.fuelBefore=fuelSnapshot(owner,before);
+            this.speed=speed;this.contactSpeed=contactSpeed;this.sign=sign;this.stopped=stopped;this.bonus=bonus;this.braking=braking;this.driver=driver;this.fuel=fuel;this.fuelBefore=fuelSnapshot(owner,before);
         }
         public UUID trainId() { return before.id(); }
         public Train before() { return before; }
         public double distance() { return path.distance(); }
         public double speed() { return speed; }
+        /** Скорость попытки движения до финального ограничения концом рельса. */
+        public double contactSpeed() { return contactSpeed; }
         public Map<UUID,Pose> poses(double fraction) {
             if(!Double.isFinite(fraction)||fraction<0||fraction>1) throw new IllegalArgumentException("Недопустимая доля пути");
             Map<UUID,Pose> result=new LinkedHashMap<>();
@@ -156,14 +163,14 @@ public final class TrainMotion {
             if(sign>0) while(tape.size()>1 && q-7*(before.cars().size()-1)-3.5>=owner.railLength(tape.getFirst())) q-=owner.railLength(tape.removeFirst());
             if(sign<0) while(tape.size()>1 && q+3.5<=owner.tapeLength(tape)-owner.railLength(tape.getLast())) tape.removeLast();
             var head=owner.locate(tape,q); double actualSpeed=magnitude*sign;
-            Status status=before.mode()==Mode.MANUAL?(actualSpeed==0?Status.MANUAL_CONTROL_STOP:Status.MANUAL_CONTROL):(actualSpeed==0?stopped:Status.ON_THE_PATH);
+            Status status=before.mode()==Mode.MANUAL?(driver==DriverContext.ABSENT&&actualSpeed!=0?Status.MANUAL_CONTROL_STOP:Status.MANUAL_CONTROL):(actualSpeed==0?stopped:Status.ON_THE_PATH);
             return owner.commitMotion(before,graphRevision,new MotionUpdate(Optional.of(head.cursor()),head.index(),tape,actualSpeed,status),
                     (int)sign,distance,bonus,braking,fuel);
         }
     }
-    private static Proposal proposal(RailwayState state,Train train,long revision,Path path,double speed,double sign,
-                                     Status stopped,double bonus,boolean braking,Runnable fuel) {
-        return new Proposal(state,train,revision,path,speed,sign,stopped,bonus,braking,fuel);
+    private static Proposal proposal(RailwayState state,Train train,long revision,Path path,double speed,double contactSpeed,double sign,
+                                     Status stopped,double bonus,boolean braking,DriverContext driver,Runnable fuel) {
+        return new Proposal(state,train,revision,path,speed,contactSpeed,sign,stopped,bonus,braking,driver,fuel);
     }
     /** Полный бюджет и на cap (native1.1.110 coal/full throttle); сила - только из доступных порций. */
     private static BigDecimal force(List<Mover> movers) {

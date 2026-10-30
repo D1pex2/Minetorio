@@ -14,13 +14,14 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 
 /** Строгая схема: груз никогда не обрезается и не пропускается при ошибке. */
 public final class RailwayNbt {
-    public static final int SCHEMA_VERSION = 5;
+    public static final int SCHEMA_VERSION = 6;
     private RailwayNbt() {}
 
     public static CompoundTag write(RailwayState state, HolderLookup.Provider registries) {
         CompoundTag root = new CompoundTag();
         root.putInt("schemaVersion", SCHEMA_VERSION);
         root.put("worldStops",new ListTag());
+        root.put("worldSignals",new ListTag());
         ListTag rails = new ListTag();
         for (Piece piece : state.rails()) {
             CompoundTag tag = new CompoundTag();

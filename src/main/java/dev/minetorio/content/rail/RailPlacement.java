@@ -107,7 +107,8 @@ public final class RailPlacement {
         if(!canAttach(player,at)||!has(player,item,1))return Optional.empty();
         var signals=new ArrayList<>(state.signalDefinitions());signals.add(signal);
         try { RailSignals.rebuild(state.graph(),signals,state.signals().revision()+1); } catch(IllegalArgumentException invalid){return Optional.empty();}
-        state.replaceSignals(signals);pay(player,item,1);RailwayManager.reconcileViews(level);return Optional.of(signal.id());
+        RailwaySavedData.get(level).putSignal(new RailwaySavedData.WorldSignal(signal.id(),at,state.graph().piece(port.piece()).orElseThrow(),port.end(),into,kind));
+        pay(player,item,1);RailwayManager.reconcileViews(level);return Optional.of(signal.id());
     }
     private static boolean canAttach(ServerPlayer player,BlockPos pos) {
         var level=player.serverLevel();return allowed(player,pos)&&reachable(player,pos)&&level.getBlockState(pos).canBeReplaced()
@@ -130,7 +131,8 @@ public final class RailPlacement {
     public static boolean destroyAttachment(ServerLevel level,BlockPos pos) {
         var data=RailwaySavedData.get(level);var state=data.state();
         var stops=data.worldStops().values().stream().filter(s->s.position().equals(pos)).map(RailwaySavedData.WorldStop::id).toList();stops.forEach(data::removeStop);
-        var signals=state.signalDefinitions().stream().filter(s->!signalPosition(state,s).equals(pos)).toList();boolean removed=!stops.isEmpty()||signals.size()!=state.signalDefinitions().size();
+        var ownedSignals=data.worldSignals().values().stream().filter(s->s.position().equals(pos)).map(RailwaySavedData.WorldSignal::id).toList();ownedSignals.forEach(data::removeSignal);
+        var signals=state.signalDefinitions().stream().filter(s->!signalPosition(state,s).equals(pos)).toList();boolean removed=!stops.isEmpty()||!ownedSignals.isEmpty()||signals.size()!=state.signalDefinitions().size();
         state.replaceSignals(signals);return removed;
     }
 }

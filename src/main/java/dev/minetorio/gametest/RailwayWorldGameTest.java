@@ -144,8 +144,11 @@ public class RailwayWorldGameTest {
         h.assertTrue(state.cars().get(line.car()).remainingJ().compareTo(new java.math.BigDecimal("3990000"))==0,"Удар при тяге списывает один native бюджет");line.cleanup();h.succeed();
     }
 
-    private static ServerPlayer realPlayer(GameTestHelper h) {
-        var profile=new GameProfile(UUID.randomUUID(),"rail-rider");
+    static ServerPlayer realPlayer(GameTestHelper h) {
+        return realPlayer(h,UUID.randomUUID());
+    }
+    static ServerPlayer realPlayer(GameTestHelper h,UUID id) {
+        var profile=new GameProfile(id,"rail-rider");
         var player=new ServerPlayer(h.getLevel().getServer(),h.getLevel(),profile,net.minecraft.server.level.ClientInformation.createDefault());
         var connection=new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
         new io.netty.channel.embedded.EmbeddedChannel(connection);
@@ -153,13 +156,13 @@ public class RailwayWorldGameTest {
         var cookie=new net.minecraft.server.network.CommonListenerCookie(profile,0,net.minecraft.server.level.ClientInformation.createDefault(),false,net.neoforged.neoforge.network.connection.ConnectionType.NEOFORGE);
         h.getLevel().getServer().getPlayerList().placeNewPlayer(connection,player,cookie);player.setGameMode(GameType.SURVIVAL);return player;
     }
-    private static List<dev.minetorio.core.rail.RailGeometry.Piece> loadedTrack(GameTestHelper h) {
+    static List<dev.minetorio.core.rail.RailGeometry.Piece> loadedTrack(GameTestHelper h) {
         var at=h.absolutePos(new BlockPos(8,2,24));int x=Math.floorDiv(at.getX(),2)*2,z=Math.floorDiv(at.getZ(),2)*2+20;
         List<dev.minetorio.core.rail.RailGeometry.Piece> rails=new ArrayList<>();
         for(int n=0;n<20;n++)rails.add(new dev.minetorio.core.rail.RailGeometry.Piece(UUID.randomUUID(),new dev.minetorio.core.rail.RailGeometry.Point(x,at.getY(),z-n*2),dev.minetorio.core.rail.RailGeometry.Shape.STRAIGHT,0,false));
         var state=RailwaySavedData.get(h.getLevel()).state();var combined=new ArrayList<>(state.rails());combined.addAll(rails);state.replaceRails(combined);RailwayManager.reconcileViews(h.getLevel());return rails;
     }
-    private static void cleanupTrack(GameTestHelper h,List<dev.minetorio.core.rail.RailGeometry.Piece> rails) {
+    static void cleanupTrack(GameTestHelper h,List<dev.minetorio.core.rail.RailGeometry.Piece> rails) {
         var state=RailwaySavedData.get(h.getLevel()).state();var ids=rails.stream().map(dev.minetorio.core.rail.RailGeometry.Piece::id).collect(java.util.stream.Collectors.toSet());
         var cars=state.trains().values().stream().filter(t->t.tape().stream().anyMatch(p->ids.contains(p.piece()))).flatMap(t->t.cars().stream()).distinct().toList();
         cars.forEach(id->state.removeCar(id,true));state.replaceRails(state.rails().stream().filter(p->!ids.contains(p.id())).toList());RailwayManager.reconcileViews(h.getLevel());
@@ -301,7 +304,7 @@ public class RailwayWorldGameTest {
             h.assertTrue(stopIds.stream().allMatch(id->state.stations().containsKey(id)),"Повторная укладка восстанавливает attachment");
             for(UUID id:stopIds)h.assertTrue(RailPlacement.destroyAttachment(h.getLevel(),data.worldStops().get(id).position()),"Демонтаж остановки удаляет owner config");h.succeed();
         } finally {
-            for(UUID id:stopIds)data.removeStop(id);state.replaceSignals(state.signalDefinitions().stream().filter(v->!signalIds.contains(v.id())).toList());research.restore(old,current,progress);cleanupTrack(h,rails);
+            for(UUID id:stopIds)data.removeStop(id);for(UUID id:signalIds)data.removeSignal(id);state.replaceSignals(state.signalDefinitions().stream().filter(v->!signalIds.contains(v.id())).toList());research.restore(old,current,progress);cleanupTrack(h,rails);
         }
     }
     @GameTest(template="rail48",batch="railway_riding_robot",timeoutTicks=800)
@@ -320,17 +323,38 @@ public class RailwayWorldGameTest {
         var ghost=player.blockPosition().offset(4,-1,4);h.getLevel().setBlockAndUpdate(ghost.below(),Blocks.STONE.defaultBlockState());h.getLevel().setBlockAndUpdate(ghost,Blocks.AIR.defaultBlockState());
         player.getInventory().add(new ItemStack(dev.minetorio.content.logistics.LogisticsRegistry.PERSONAL_ROBOPORT.get()));player.getInventory().add(new ItemStack(dev.minetorio.content.registry.ModItems.CONSTRUCTION_ROBOT.get()));player.getInventory().add(new ItemStack(dev.minetorio.content.registry.ModItems.INSERTER.get()));
         h.assertTrue(dev.minetorio.content.robot.Ghosts.place(h.getLevel(),ghost,dev.minetorio.content.registry.ModItems.INSERTER.get(),Direction.EAST),"Настоящий ghost для запуска робота");
+        h.assertTrue(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(0)),"До launch известен ноль");
+        java.util.function.Consumer<net.neoforged.neoforge.event.entity.EntityJoinLevelEvent> cancel=event->{if(event.getEntity() instanceof dev.minetorio.content.logistics.LogisticRobotEntity robot&&player.getUUID().equals(robot.homePlayer()))event.setCanceled(true);};
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(cancel);
+        try {dev.minetorio.content.logistics.PersonalRoboport.tick(player);} finally {net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(cancel);}
+        h.assertTrue(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(0)),"Canceled actual EntityJoin не создает membership");
+        h.assertTrue(dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.CONSTRUCTION_ROBOT.get())==1&&dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.INSERTER.get())==1,"Canceled launch вернул robot/material inventory ровно один раз");
+        h.assertTrue(!dev.minetorio.content.robot.ConstructionManager.get(h.getLevel()).queue().get(dev.minetorio.content.robot.ConstructionManager.cell(ghost)).orElseThrow().isClaimed(),"Canceled launch освободил ghost claim");
         dev.minetorio.content.logistics.PersonalRoboport.tick(player);
         h.assertTrue(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(1)),"Реальный launch сразу учитывает активного робота");
+        var inactive=new dev.minetorio.core.rail.TrainSchedule.Wait(dev.minetorio.core.rail.TrainSchedule.Type.ROBOTS_INACTIVE,dev.minetorio.core.rail.TrainSchedule.Join.AND,0,Optional.empty());
+        UUID stationId=UUID.randomUUID();var leading=dev.minetorio.core.rail.TrainReservations.leading(state,train,1).start();
+        state.dispatcher().upsertStation(new dev.minetorio.core.rail.RailwayState.Station(stationId,"Ожидание робота",leading,true,OptionalInt.empty()));
+        var target=new dev.minetorio.core.rail.TrainSchedule.RailTarget(new dev.minetorio.core.rail.RailGeometry.Cursor(new dev.minetorio.core.rail.RailGeometry.Traversal(rails.get(17).id(),true),1),false);
+        state.dispatcher().setSchedule(train,new dev.minetorio.core.rail.TrainSchedule(List.of(
+                new dev.minetorio.core.rail.TrainSchedule.Stop(Optional.of("Ожидание робота"),Optional.empty(),false,List.of(inactive)),
+                new dev.minetorio.core.rail.TrainSchedule.Stop(Optional.empty(),Optional.of(target),false,List.of(new dev.minetorio.core.rail.TrainSchedule.Wait(dev.minetorio.core.rail.TrainSchedule.Type.TIME,dev.minetorio.core.rail.TrainSchedule.Join.AND,1000,Optional.empty())))),0));
+        state.cars().get(carId).fuel().orElseThrow().insert(0,"minetorio:coal",2,false);state.dispatcher().setMode(train,dev.minetorio.core.rail.RailwayState.Mode.AUTOMATIC);
+        var waitingHead=state.trains().get(train).head();boolean[] sawReturning={false};
         RailwayManager.tick(h.getLevel());
         var context=state.dispatcher().context(train,dev.minetorio.core.rail.RailCircuitInputs.NONE);
-        var inactive=new dev.minetorio.core.rail.TrainSchedule.Wait(dev.minetorio.core.rail.TrainSchedule.Type.ROBOTS_INACTIVE,dev.minetorio.core.rail.TrainSchedule.Join.AND,0,Optional.empty());
         h.assertTrue(context.passengers().orElseThrow().present()&&!dev.minetorio.core.rail.TrainWait.evaluate(List.of(inactive),context),"Actual rider bridge не разрешает robots inactive во время полета");
         h.succeedWhen(()->{
+            for(var entity:h.getLevel().getAllEntities())if(entity instanceof dev.minetorio.content.logistics.LogisticRobotEntity robot&&player.getUUID().equals(robot.homePlayer())&&robot.phase()==dev.minetorio.content.logistics.LogisticRobotEntity.Phase.RETURNING) {
+                sawReturning[0]=true;h.assertTrue(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(1)),"RETURNING сохраняет count1");
+            }
+            if(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(1)))h.assertTrue(state.trains().get(train).head().equals(waitingHead)&&state.trains().get(train).status()==dev.minetorio.core.rail.RailwayState.Status.WAIT_STATION,"Реальный AUTO не уезжает до возврата робота");
             h.assertTrue(h.getLevel().getBlockState(ghost).is(dev.minetorio.content.registry.ModBlocks.INSERTER.get()),"Робот построил inserter");
             h.assertTrue(dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.CONSTRUCTION_ROBOT.get())==1,"Робот реально вернулся в inventory");
+            h.assertTrue(sawReturning[0],"Фаза RETURNING фактически наблюдалась до terminal return");
             RailwayManager.tick(h.getLevel());h.assertTrue(dev.minetorio.core.rail.TrainWait.evaluate(List.of(inactive),state.dispatcher().context(train,dev.minetorio.core.rail.RailCircuitInputs.NONE)),"Terminal return разрешает ожидание");
-            player.server.getPlayerList().remove(player);cleanupTrack(h,rails);
+            h.assertTrue(!state.trains().get(train).head().equals(waitingHead)&&state.trains().get(train).speed()>0,"Actual AUTO departure после normal return");
+            state.dispatcher().removeStation(stationId);player.server.getPlayerList().remove(player);cleanupTrack(h,rails);
         });
     }
     @GameTest(template="rail48")

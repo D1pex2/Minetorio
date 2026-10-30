@@ -13,6 +13,23 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class TrainMotionTest {
     static final Control GO = new Control(1,false,Turn.STRAIGHT);
+    @Test void manualDriverContextMatchesNativeCoastAndAbsentBrakeStates() {
+        var f=new TrainTestFixture();var car=f.car(StockKind.LOCOMOTIVE,false);var train=f.train(50,.45509709775705626,Mode.MANUAL,car);
+        step(f.state,train.id(),new Control(0,false,Turn.STRAIGHT,DriverContext.SEATED),0);
+        assertEquals(.4531414211404673,f.state.trains().get(train.id()).speed(),1e-14);assertEquals(Status.MANUAL_CONTROL,f.state.trains().get(train.id()).status());
+        var coast=f.state.trains().get(train.id()).speed();step(f.state,train.id(),new Control(0,true,Turn.STRAIGHT,DriverContext.ABSENT),0);
+        assertEquals(coast-.005,f.state.trains().get(train.id()).speed(),1e-14);assertEquals(Status.MANUAL_CONTROL_STOP,f.state.trains().get(train.id()).status());
+        for(int n=0;n<100;n++)step(f.state,train.id(),new Control(0,true,Turn.STRAIGHT,DriverContext.ABSENT),0);
+        assertEquals(0,f.state.trains().get(train.id()).speed());assertEquals(Status.MANUAL_CONTROL,f.state.trains().get(train.id()).status());
+        step(f.state,train.id(),new Control(1,false,Turn.STRAIGHT,DriverContext.SEATED),0);assertEquals(0,f.state.trains().get(train.id()).speed());assertEquals(Status.MANUAL_CONTROL,f.state.trains().get(train.id()).status());
+        assertEquals(DriverContext.SEATED,GO.driver());assertThrows(NullPointerException.class,()->new Control(0,false,Turn.STRAIGHT,null));
+    }
+    @Test void terminalProposalRetainsContactSpeedButCannotRaiseFinalSpeedOrReuseFuel() {
+        var f=new TrainTestFixture();var car=f.car(StockKind.LOCOMOTIVE,false);car.setActiveFuel("minetorio:coal",new BigDecimal("100000"));var train=f.train(1196.49,.1,Mode.MANUAL,car);
+        var proposal=propose(f.state,train.id(),GO,0).orElseThrow();assertTrue(proposal.distance()>0);assertEquals(0,proposal.speed());assertTrue(proposal.contactSpeed()>.1);
+        assertThrows(IllegalArgumentException.class,()->proposal.commit(1,proposal.contactSpeed()));assertEquals(train,f.state.trains().get(train.id()));assertEquals(new BigDecimal("100000"),car.remainingJ());
+        assertTrue(proposal.commit(1,0));assertEquals(0,f.state.trains().get(train.id()).speed());assertEquals(0,new BigDecimal("90000").compareTo(car.remainingJ()));assertFalse(proposal.commit(1,0));assertEquals(0,new BigDecimal("90000").compareTo(car.remainingJ()));
+    }
     @Test void coalFirstThreeSubstepsAndSixtyFullBudgets() {
         var f=new TrainTestFixture(); var c=f.car(StockKind.LOCOMOTIVE,false); c.fuel().get().insert(0,"minetorio:coal",1,false);
         var t=f.train(50,0,Mode.MANUAL,c);

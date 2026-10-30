@@ -29,16 +29,36 @@ public final class RailwaySavedData extends SavedData {
                 throw new IllegalArgumentException("Неверная мировая станция");
         }
     }
+    public record WorldSignal(UUID id,BlockPos position,Piece geometry,End end,boolean intoPiece,dev.minetorio.core.rail.RailSignals.Kind kind) {
+        public WorldSignal {Objects.requireNonNull(id);position=position.immutable();Objects.requireNonNull(geometry);Objects.requireNonNull(end);Objects.requireNonNull(kind);}
+    }
+    private final Map<UUID,WorldSignal> worldSignals=new LinkedHashMap<>();
+    public Map<UUID,WorldSignal> worldSignals(){return Collections.unmodifiableMap(worldSignals);}
+    public void putSignal(WorldSignal signal){worldSignals.put(signal.id(),signal);rebindSignals();changed();}
+    public boolean removeSignal(UUID id){if(worldSignals.remove(id)==null)return false;state.replaceSignals(state.signalDefinitions().stream().filter(s->!s.id().equals(id)).toList());changed();return true;}
+    public void rebindSignals() {
+        var definitions=new ArrayList<>(state.signalDefinitions().stream().filter(s->!worldSignals.containsKey(s.id())).toList());
+        for(WorldSignal signal:worldSignals.values())state.rails().stream().filter(p->RailPlacement.samePath(p,signal.geometry())).findFirst().ifPresent(rail->{
+            boolean reversed=!endpoint(signal.geometry(),End.A).equals(endpoint(rail,End.A));End end=reversed?(signal.end()==End.A?End.B:End.A):signal.end();
+            definitions.add(new dev.minetorio.core.rail.RailSignals.Signal(signal.id(),new Port(rail.id(),end),signal.intoPiece(),signal.kind()));
+        });
+        if(!new HashSet<>(definitions).equals(new HashSet<>(state.signalDefinitions())))state.replaceSignals(definitions);
+    }
     private final Map<UUID,WorldStop> stops=new LinkedHashMap<>();
     public Map<UUID,WorldStop> worldStops() { return Collections.unmodifiableMap(stops); }
     public void putStop(WorldStop stop) { stops.put(stop.id(),stop); rebindStops(); changed(); }
     public boolean removeStop(UUID id) { if(stops.remove(id)==null)return false;state.dispatcher().removeStation(id);changed();return true; }
     public void rebindStops() {
         for(WorldStop stop:stops.values()) {
-            Optional<Piece> rail=state.rails().stream().filter(p->p.origin().equals(stop.railOrigin())&&p.shape()==stop.shape()&&p.quarterTurns()==stop.rotation()&&p.mirrored()==stop.mirrored()).findFirst();
-            if(rail.isPresent()&&stop.distance()<=length(rail.get())) state.dispatcher().upsertStation(new RailwayState.Station(stop.id(),stop.name(),new Cursor(new Traversal(rail.get().id(),stop.forward()),stop.distance()),stop.enabled(),stop.limit()));
+            Piece reference=new Piece(stop.id(),stop.railOrigin(),stop.shape(),stop.rotation(),stop.mirrored());
+            Optional<Piece> rail=state.rails().stream().filter(p->RailPlacement.samePath(p,reference)).findFirst();
+            if(rail.isPresent()&&stop.distance()<=length(rail.get())) {
+                boolean reversed=!endpoint(reference,End.A).equals(endpoint(rail.get(),End.A));
+                state.dispatcher().upsertStation(new RailwayState.Station(stop.id(),stop.name(),new Cursor(new Traversal(rail.get().id(),stop.forward()^reversed),stop.distance()),stop.enabled(),stop.limit()));
+            }
             else state.dispatcher().removeStation(stop.id());
         }
+        rebindSignals();
     }
 
     private RailwaySavedData(HolderLookup.Provider registries) {
@@ -60,6 +80,24 @@ public final class RailwaySavedData extends SavedData {
                         Shape.valueOf(t.getString("shape")),t.getInt("rotation"),t.getBoolean("mirrored"),t.getBoolean("forward"),t.getDouble("distance"));
                 if(stops.put(stop.id(),stop)!=null) throw new IllegalArgumentException("Повторная мировая станция");
             }
+        }
+        if(tag.getInt("schemaVersion")>=6) {
+            if(!tag.contains("worldSignals",Tag.TAG_LIST))throw new IllegalArgumentException("Отсутствует worldSignals");
+            ListTag saved=(ListTag)tag.get("worldSignals");if(!saved.isEmpty()&&saved.getElementType()!=Tag.TAG_COMPOUND)throw new IllegalArgumentException("Неверный список worldSignals");
+            for(Tag raw:saved) {
+                CompoundTag t=(CompoundTag)raw;
+                if(!t.hasUUID("id")||!t.hasUUID("railId")||!t.contains("pos",Tag.TAG_LONG))throw new IllegalArgumentException("Неверный мировой сигнал");
+                for(String key:List.of("shape","end","kind"))if(!t.contains(key,Tag.TAG_STRING))throw new IllegalArgumentException("Неверное поле сигнала "+key);
+                for(String key:List.of("rx","ry","rz","rotation"))if(!t.contains(key,Tag.TAG_INT))throw new IllegalArgumentException("Отсутствует поле сигнала "+key);
+                for(String key:List.of("mirrored","into"))if(!t.contains(key,Tag.TAG_BYTE)||t.getByte(key)<0||t.getByte(key)>1)throw new IllegalArgumentException("Неверный флаг сигнала "+key);
+                int rotation=t.getInt("rotation");if(rotation<0||rotation>3)throw new IllegalArgumentException("Неверный поворот сигнала");UUID id=t.getUUID("id");
+                var geometry=new Piece(t.getUUID("railId"),new Point(t.getInt("rx"),t.getInt("ry"),t.getInt("rz")),Shape.valueOf(t.getString("shape")),rotation,t.getBoolean("mirrored"));
+                var signal=new WorldSignal(id,BlockPos.of(t.getLong("pos")),geometry,End.valueOf(t.getString("end")),t.getBoolean("into"),dev.minetorio.core.rail.RailSignals.Kind.valueOf(t.getString("kind")));
+                if(worldSignals.put(id,signal)!=null)throw new IllegalArgumentException("Повторный мировой сигнал");
+            }
+        } else {
+            // Схемы1-5 сохраняли только подключенные logical signals; они становятся world owners.
+            for(var signal:state.signalDefinitions())worldSignals.put(signal.id(),new WorldSignal(signal.id(),RailPlacement.signalPosition(state,signal),state.graph().piece(signal.boundary().piece()).orElseThrow(),signal.boundary().end(),signal.intoPiece(),signal.kind()));
         }
         rebindStops(); setDirty(false);
     }
@@ -96,6 +134,12 @@ public final class RailwaySavedData extends SavedData {
             stop.limit().ifPresent(value->t.putInt("limit",value));t.putInt("rx",stop.railOrigin().x());t.putInt("ry",stop.railOrigin().y());t.putInt("rz",stop.railOrigin().z());
             t.putString("shape",stop.shape().name());t.putInt("rotation",stop.rotation());t.putBoolean("mirrored",stop.mirrored());t.putBoolean("forward",stop.forward());t.putDouble("distance",stop.distance());list.add(t);
         }
-        tag.put("worldStops",list);return tag;
+        tag.put("worldStops",list);ListTag signals=new ListTag();
+        for(WorldSignal signal:worldSignals.values()) {
+            var geometry=signal.geometry();CompoundTag t=new CompoundTag();t.putUUID("id",signal.id());t.putUUID("railId",geometry.id());t.putLong("pos",signal.position().asLong());
+            t.putInt("rx",geometry.origin().x());t.putInt("ry",geometry.origin().y());t.putInt("rz",geometry.origin().z());t.putString("shape",geometry.shape().name());t.putInt("rotation",geometry.quarterTurns());t.putBoolean("mirrored",geometry.mirrored());
+            t.putString("end",signal.end().name());t.putBoolean("into",signal.intoPiece());t.putString("kind",signal.kind().name());signals.add(t);
+        }
+        tag.put("worldSignals",signals);return tag;
     }
 }

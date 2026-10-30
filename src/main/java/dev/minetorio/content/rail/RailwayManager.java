@@ -49,6 +49,8 @@ public final class RailwayManager {
                 for(UUID id:ids)RailPlacement.remove(player,id);
             } else if(event.getState().getBlock() instanceof TrainStopBlock || event.getState().getBlock() instanceof RailSignalBlock) {
                 if(!RailPlacement.allowed(player,event.getPos())) {event.setCanceled(true);return;}
+                // Сигнал снимает owner через onRemove и возвращает item после успешного playerDestroy.
+                if(event.getState().getBlock() instanceof RailSignalBlock)return;
                 Item item=event.getState().is(RailRegistry.STOP_BLOCK.get())?RailRegistry.TRAIN_STOP.get():event.getState().is(RailRegistry.CHAIN_BLOCK.get())?RailRegistry.RAIL_CHAIN_SIGNAL.get():RailRegistry.RAIL_SIGNAL.get();
                 boolean removed=RailPlacement.destroyAttachment(level,event.getPos());
                 if(removed&&!player.isCreative())player.getInventory().placeItemBackInInventory(new ItemStack(item));
@@ -63,9 +65,10 @@ public final class RailwayManager {
         RailwayState state=RailwaySavedData.get(level).state();
         for(int substep=0;substep<3;substep++) {
             passengerInputs(level,state);
-            List<TrainMotion.Proposal> proposals=new ArrayList<>(state.dispatcher().beginTick(RailCircuitInputs.NONE,0));
+            double brakingBonus=RailData.brakingBonus(dev.minetorio.content.research.ResearchSavedData.get(level.getServer()).state().researched());
+            List<TrainMotion.Proposal> proposals=new ArrayList<>(state.dispatcher().beginTick(RailCircuitInputs.NONE,brakingBonus));
             for(Train train:state.trains().values().stream().sorted(Comparator.comparing(Train::id)).toList())
-                if(train.mode()==Mode.MANUAL)TrainMotion.propose(state,train.id(),control(level,state,train),0).ifPresent(proposals::add);
+                if(train.mode()==Mode.MANUAL)TrainMotion.propose(state,train.id(),control(level,state,train),brakingBonus).ifPresent(proposals::add);
             RailWorldCollision.resolve(level,state,proposals);
             state.dispatcher().finishTick(RailCircuitInputs.NONE);
         }
@@ -79,10 +82,10 @@ public final class RailwayManager {
                 double throttle=Float.isFinite(player.zza)?Math.max(-1,Math.min(1,player.zza)):0;
                 if(state.cars().get(car).reversed())throttle=-throttle;
                 var turn=player.xxa>0.1?TrainMotion.Turn.LEFT:player.xxa<-.1?TrainMotion.Turn.RIGHT:TrainMotion.Turn.STRAIGHT;
-                return new TrainMotion.Control(throttle,throttle==0,turn);
+                return new TrainMotion.Control(throttle,false,turn,TrainMotion.DriverContext.SEATED);
             }
         }
-        return new TrainMotion.Control(0,true,TrainMotion.Turn.STRAIGHT);
+        return new TrainMotion.Control(0,true,TrainMotion.Turn.STRAIGHT,TrainMotion.DriverContext.ABSENT);
     }
     private static void passengerInputs(ServerLevel level,RailwayState state) {
         for(Train train:state.trains().values()) {
@@ -129,10 +132,18 @@ public final class RailwayManager {
                 if(level.getBlockEntity(pos) instanceof RailCellBlockEntity cell){cell.project(pieces);view.cells.add(pos);}
             });
             for(var stop:RailwaySavedData.get(level).worldStops().values())projectBlock(level,stop.position(),RailRegistry.STOP_BLOCK.get().defaultBlockState());
+            var data=RailwaySavedData.get(level);data.rebindSignals();
+            Set<UUID> connectedSignals=new HashSet<>();
             for(var signal:state.signalDefinitions()) {
+                connectedSignals.add(signal.id());
                 Block block=signal.kind()==RailSignals.Kind.CHAIN?RailRegistry.CHAIN_BLOCK.get():RailRegistry.SIGNAL_BLOCK.get();
                 int aspect=Math.min(3,state.signals().aspect(signal.id(),state.reservations()).ordinal());
                 projectBlock(level,RailPlacement.signalPosition(state,signal),block.defaultBlockState().setValue(RailSignalBlock.ASPECT,aspect));
+            }
+            for(var signal:data.worldSignals().values())if(!connectedSignals.contains(signal.id())) {
+                Block block=signal.kind()==RailSignals.Kind.CHAIN?RailRegistry.CHAIN_BLOCK.get():RailRegistry.SIGNAL_BLOCK.get();
+                // Собственная cadence: белый/off по10Minecraft ticks, без logical permission.
+                int aspect=4+(int)((level.getGameTime()/10)%2);projectBlock(level,signal.position(),block.defaultBlockState().setValue(RailSignalBlock.ASPECT,aspect));
             }
             for(Entity entity:level.getAllEntities())if(entity instanceof RollingStockEntity stock)validateView(level,stock);
             Map<UUID,Pose> poses=new LinkedHashMap<>();for(Train train:state.trains().values())poses.putAll(TrainMotion.carPoses(state,train.id()));
@@ -191,7 +202,7 @@ public final class RailwayManager {
         var car=state.createCar(carId,kind,reversed);car.setHp(health*RailData.stock(kind).health());
         var train=state.createTrain(candidate);
         if(!player.isCreative())held.shrink(1);
-        for(UUID other:List.copyOf(state.cars().keySet()))if(!other.equals(carId))for(var end:TrainCoupling.End.values())for(var opposite:TrainCoupling.End.values())TrainCoupling.couple(state,carId,end,other,opposite);
+        for(UUID other:List.copyOf(state.cars().keySet()))if(!other.equals(carId))for(var end:TrainCoupling.End.values())for(var opposite:TrainCoupling.End.values())TrainCoupling.couple(state,other,opposite,carId,end);
         reconcileViews(level);return Optional.of(carId);
     }
     private static boolean placementClear(ServerLevel level,RailwayState state,Train candidate) {

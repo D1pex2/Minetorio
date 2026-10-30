@@ -45,7 +45,7 @@ public final class RailwayRenderers {
     public static final class Stock extends EntityRenderer<RollingStockEntity> {
         public Stock(EntityRendererProvider.Context context) { super(context);shadowRadius=1.2f; }
         @Override public void render(RollingStockEntity entity,float yaw,float partial,PoseStack pose,MultiBufferSource buffers,int light) {
-            pose.pushPose();pose.mulPose(Axis.YP.rotationDegrees(180-entity.getYRot()));pose.scale(1,1,2);pose.translate(-.5,0,-.5);
+            pose.pushPose();pose.mulPose(Axis.YP.rotationDegrees(StockPickShape.rotation(entity.getYRot())));pose.scale(1,1,(float)StockPickShape.LENGTH_SCALE);pose.translate(-.5,0,-.5);
             draw(switch(entity.kind()){case LOCOMOTIVE->LOCO;case CARGO->CARGO;case FLUID->FLUID;},pose,buffers,light);pose.popPose();
             super.render(entity,yaw,partial,pose,buffers,light);
         }

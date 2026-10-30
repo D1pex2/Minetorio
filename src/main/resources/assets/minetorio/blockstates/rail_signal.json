@@ -11,6 +11,12 @@
     },
     "aspect=3": {
       "model": "minetorio:block/rail_signal_3"
+    },
+    "aspect=4": {
+      "model": "minetorio:block/rail_signal_4"
+    },
+    "aspect=5": {
+      "model": "minetorio:block/rail_signal_5"
     }
   }
 }

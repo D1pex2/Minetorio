@@ -25,6 +25,9 @@ public final class RollingStockEntity extends Entity {
     public UUID carId() { return entityData.get(CAR).orElse(null); }
     public void bind(UUID id) { if(carId()!=null&&!carId().equals(id))throw new IllegalStateException("Проекция уже привязана");entityData.set(CAR,Optional.of(id)); }
     public StockKind kind() { int index=entityData.get(KIND);return StockKind.values()[Math.max(0,Math.min(index,StockKind.values().length-1))]; }
+    @Override protected net.minecraft.world.phys.AABB makeBoundingBox(){return StockPickShape.at(kind(),position(),getYRot());}
+    @Override public void setYRot(float yaw){super.setYRot(yaw);setBoundingBox(makeBoundingBox());}
+    @Override public void onSyncedDataUpdated(EntityDataAccessor<?> key){super.onSyncedDataUpdated(key);if(KIND.equals(key))setBoundingBox(makeBoundingBox());}
     public void project(dev.minetorio.core.rail.RailwayState.Car car,Pose pose) {
         bind(car.id());entityData.set(KIND,car.kind().ordinal());entityData.set(HEALTH,(float)car.hp());
         setPos(pose.position().x(),pose.position().y()+.125,pose.position().z());
