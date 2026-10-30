@@ -308,10 +308,10 @@ Task6 core/NBT принят в 0.8.0 после fix round1: три P2 закры
 - `RollingStockEntity.carId(): UUID`, `bind(UUID): void`; UUID, visual pose и health mirror могут синхронизироваться, cargo/fuel/fluid не сохраняются и не тикают здесь. Неожиданная дублированная проекция удаляется без дропа. Открытие меню и посадка требуют авторитетного car ID. При штатном снятии stationary stock содержимое возвращается игроку/дропается ровно один раз транзакцией manager, не при unload. При уничтожении вагон удаляется из состава и освобождает будущие брони; предмет вагона не выдается второй раз.
 - Registry включает все блоки, BlockEntityType, три EntityType либо один тип с верифицированным StockKind, семь предметов; форма и размеры проекции из car kind. Не добавлять бессмысленный блок-вагон с неподвижным сундуком.
 
-- [ ] RED GameTest: research-gated реальная постановка прямой/кривой/диагонали и локомотива; движение через поворот; 3 вагона сохраняют интервалы; снятие дает ровно исходные предметы; второй повтор command не дублирует; unloaded rail остается в graph; проекция не является владельцем cargo. Один и тот же ticker не исполняется через entity и level одновременно.
-- [ ] RED: `continuesAcrossUnloadedMiddleChunks`, `returnsWithSameCargoAndCarIds`, `staleEntityNbtCannotResurrectTrain`, `brokenRailStopsWithoutDroppingCargo`, `loadedCellReconcilesReferencesIdempotently`. Для unload теста доказать `hasChunk/isLoaded=false`, а не просто удалить entity. При невозможности штатного unload в GameTest проверить через отдельный headless сервер в задаче 11; это открытый gate, не PASS.
-- [ ] Выполнить `./gradlew.bat runGameTestServer --console=plain`, RED, реализация с точными локальными NeoForge API по образцам `ModEntities`, `ResearchSavedData`, `CombatRegistry`, GREEN.
-- [ ] Ревью жизненного цикла, collision sweep на всех трех подшагах и отсутствия постоянного forceload всей дороги; коммит. Столкновения поездов проверять глобально, а не только по загруженным Minecraft entities.
+- [x] RED GameTest: research-gated реальная постановка прямой/кривой/диагонали и локомотива; движение через поворот; 3 вагона сохраняют интервалы; снятие дает ровно исходные предметы; второй повтор command не дублирует; unloaded rail остается в graph; проекция не является владельцем cargo. Один и тот же ticker не исполняется через entity и level одновременно.
+- [x] RED: `continuesAcrossUnloadedMiddleChunks`, `returnsWithSameCargoAndCarIds`, `staleEntityNbtCannotResurrectTrain`, `brokenRailStopsWithoutDroppingCargo`, `loadedCellReconcilesReferencesIdempotently`. Для unload теста доказать `hasChunk/isLoaded=false`, а не просто удалить entity. При невозможности штатного unload в GameTest проверить через отдельный headless сервер в задаче 11; это открытый gate, не PASS.
+- [x] Выполнить `./gradlew.bat runGameTestServer --console=plain`, RED, реализация с точными локальными NeoForge API по образцам `ModEntities`, `ResearchSavedData`, `CombatRegistry`, GREEN.
+- [x] Ревью жизненного цикла, collision sweep на всех трех подшагах и отсутствия постоянного forceload всей дороги; коммит. Столкновения поездов проверять глобально, а не только по загруженным Minecraft entities.
 
 - [ ] Реальный ServerTick orchestrator выполняет ровно три60Hz подшага наMinecraft tick, с authority/collision проверкой каждого; сравнить прогресс/расход с тремя вызовами core step и после unload/restart. Gate изTask4 не закрывается одним unit-тестом.
 
@@ -330,7 +330,7 @@ Task6 core/NBT принят в 0.8.0 после fix round1: три P2 закры
 - LogisticsManager.robots() по фактическому source хранит только loaded entities. Пустая выборка не доказывает отсутствие активных personal robots. Мировой bridge должен получать полное состояние владельца либо сохранять unknown до проверки; для закрытия ROBOTS_INACTIVE integration обязательны настоящий launch/return и unload/reload. Нельзя закрыть этот gate постоянным unknown или фиктивным нулем. Потребность в расширении owning учета роботов определить по фактическим источникам, без постоянного forceload дороги.
 - Passenger tickets должны действительно обеспечивать нужный ticking level. Наличие произвольного region ticket само по себе не доказывает entity ticking; проверить переезд, поворот, выход, logout и освобождение билетов. Unload projection удаляет только view, не глобальные rails/trains/claims.
 
-#### Уточнения после независимого ревью Task7, 0.9.1 WIP
+#### Уточнения после независимого ревью Task7, 0.9.1
 
 - После остановки или усечения одного proposal заново проверять остальные фактические траектории партии. Положительное перемещение с конечной speed=0 также проходит sweep; скорость контакта не подменяется конечной скоростью у конца пути.
 - При добавлении нового вагона сохранять UUID, режим и расписание существующего состава. Использовать настоящие исследования braking_force в ручных и автоматических шагах.
@@ -339,10 +339,13 @@ Task6 core/NBT принят в 0.8.0 после fix round1: три P2 закры
 - Выбор лучом и серверная дальность взаимодействия покрывают повернутые кузова трех видов. Консервативный broadphase не должен давать ложный выбор соседнего параллельного поезда.
 - Два одновременно принятых robot instance с одним UUID в разных измерениях не заменяют первую принятую identity и не дают known0 после удаления второй. Конфликт дает диагностируемый unknown для затронутых владельцев до полной канонической сверки. Легальный dimension transfer и повторный callback того же instance остаются идемпотентными.
 
-Все перечисленные дефекты сначала воспроизведены actual GameTest на3322081. Исправления и дополнительные обязательные lifecycle gates еще проходят приемку; этот раздел не отмечает Task7 завершенным.
+Все перечисленные дефекты воспроизведены runtime и исправлены. Три scoped review и второй раунд проверки robot gates одобрены. Мировая интеграция Task7 принята в0.9.1; полная restart matrix остается открытой вTask11.
+
+Принятая передача 2026-10-30:759 unit,405 обязательных GameTest, build27s, JAR0.9.1. Подробные команды и границы: [проверка мира](../../verification/2026-10-30-railway-world.md). Первый пункт с named tests закрыт для фактически проверенных unloaded/parked/resources сценариев; движущийся состав и пассажирское ожидание после process restart не объявлены проверенными. Составной checkbox orchestrator выше оставлен открытым именно для этой части Task11; три подшага и расход в активном/незагруженном мире доказаны отдельно. Визуальный плейтест пользователь отложил.
 
 ### Task 8: Погрузка существующими манипуляторами и помпами
 
+Статический preflight перед Task8: обычная остановка Task7 дает целую продольную координату центра вагона, исходный pumpPoint ниже дает полуцелую. Ошибка0.5 превышает tolerance0.0625. Перед реализацией воспроизвести actual world RED через настоящий stop и pump, затем записать явное решение для3D nozzle adapter и общей runtime/preview функции. Не менять принятую остановку, не округлять позу и не расширять tolerance. Формулы ниже пока сохраняют исходный проект, а не доказанную рабочую стыковку. Cargo допускает stopped MANUAL или automatic WAIT_STATION, включая temporary RailTarget; pump требует действительный physical stoppedStation, не только этот status. Не вводить новый canonical владелец для индекса докинга.
 **Files:** создать `C/RailDockGeometry.java`, `T/RailDockGeometryTest.java`, `W/RailCargoAccess.java`, `W/RailPumpDock.java`, `G/RailwayLoadingGameTest.java`; изменить `content/inserter/InserterEndpoints.java`, `content/fluid/FluidNetworkManager.java`, `content/fluid/PumpBlockEntity.java`; FluidPorts сохраняет назначение блочных портов.
 
 **Interfaces:**
