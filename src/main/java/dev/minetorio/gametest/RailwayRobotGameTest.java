@@ -106,6 +106,8 @@ public final class RailwayRobotGameTest {
     @GameTest(template="rail48",batch="railway_robot_unload",timeoutTicks=1400)
     public static void actualUnloadBlocksWaitThenOwnerRejoinsAndRobotReturns(GameTestHelper h) {
         var f=new Fixture(h,1);var level=h.getLevel();var initial=f.players.getFirst();var robot=launch(h,initial,4);UUID owner=initial.getUUID(),robotId=robot.getUUID();
+        var launchTarget=Endpoint.load(robot.saveWithoutId(new net.minecraft.nbt.CompoundTag()).getCompound("target"));
+        h.assertTrue(launchTarget!=null&&launchTarget.type()==Endpoint.Type.GHOST&&level.getBlockState(launchTarget.pos()).is(dev.minetorio.content.registry.ModBlocks.GHOST.get()),"Launch сохраняет фактическую цель существующего ghost из robot NBT");
         var inactive=new TrainSchedule.Wait(TrainSchedule.Type.ROBOTS_INACTIVE,TrainSchedule.Join.AND,0,Optional.empty());UUID station=UUID.randomUUID();
         f.state.dispatcher().upsertStation(new Station(station,"Выгруженный робот",TrainReservations.leading(f.state,f.train,1).start(),true,OptionalInt.empty()));
         f.state.dispatcher().setSchedule(f.train,new TrainSchedule(List.of(new TrainSchedule.Stop(Optional.of("Выгруженный робот"),Optional.empty(),false,List.of(inactive)),
@@ -128,7 +130,10 @@ public final class RailwayRobotGameTest {
             }).thenWaitUntil(()->h.assertTrue(level.getEntity(robotId) instanceof LogisticRobotEntity,"Actual disk reload возвращает UUID")).thenExecute(()->{
                 var loaded=(LogisticRobotEntity)level.getEntity(robotId);
                 h.assertTrue(loaded.carried().is(ModItems.INSERTER.get())&&loaded.carried().getCount()==1&&f.passengers().activePersonalRobots().equals(OptionalInt.of(1))&&f.state.trains().get(f.train).status()==Status.WAIT_STATION&&f.state.trains().get(f.train).head().equals(head),"Reload сохраняет carry/count1 и actual AUTO wait до normal return");
-                var ghost=initial.blockPosition().offset(4,-1,4);level.setBlockAndUpdate(ghost,Blocks.AIR.defaultBlockState());loaded.moveTo(ghost.getX()+.5,ghost.getY()+1+dev.minetorio.core.robot.RobotStats.CRUISE_HEIGHT,ghost.getZ()+.5);loaded.tick();
+                // Позиция rider после посадки меняется; цель берем из actual launch, не выводим заново.
+                var ghost=launchTarget.pos();
+                h.assertTrue(level.getBlockState(ghost).is(dev.minetorio.content.registry.ModBlocks.GHOST.get()),"После reload удаляется именно существующий target ghost запуска");
+                level.setBlockAndUpdate(ghost,Blocks.AIR.defaultBlockState());loaded.moveTo(ghost.getX()+.5,ghost.getY()+1+dev.minetorio.core.robot.RobotStats.CRUISE_HEIGHT,ghost.getZ()+.5);loaded.tick();
                 // Снятый после reload ghost отменяет задание штатной entity tick; материал не копируется fixture.
                 h.assertTrue(loaded.phase()==LogisticRobotEntity.Phase.RETURNING,"Снятие ghost после reload переводит отмененное задание в RETURNING");loaded.moveTo(rider[0].getX(),rider[0].getY()+rider[0].getBbHeight()+.4,rider[0].getZ());loaded.tick();
             h.assertTrue(PersonalRobotActivity.count(level.getServer(),Set.of(owner)).equals(OptionalInt.of(0)),"Normal return после actual reload очищает membership");

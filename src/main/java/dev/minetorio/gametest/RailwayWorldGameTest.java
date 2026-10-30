@@ -340,22 +340,39 @@ public class RailwayWorldGameTest {
                 new dev.minetorio.core.rail.TrainSchedule.Stop(Optional.of("Ожидание робота"),Optional.empty(),false,List.of(inactive)),
                 new dev.minetorio.core.rail.TrainSchedule.Stop(Optional.empty(),Optional.of(target),false,List.of(new dev.minetorio.core.rail.TrainSchedule.Wait(dev.minetorio.core.rail.TrainSchedule.Type.TIME,dev.minetorio.core.rail.TrainSchedule.Join.AND,1000,Optional.empty())))),0));
         state.cars().get(carId).fuel().orElseThrow().insert(0,"minetorio:coal",2,false);state.dispatcher().setMode(train,dev.minetorio.core.rail.RailwayState.Mode.AUTOMATIC);
-        var waitingHead=state.trains().get(train).head();boolean[] sawReturning={false};
+        var waitingHead=state.trains().get(train).head();boolean[] sawReturning={false};String[] firstViolation={null};
         RailwayManager.tick(h.getLevel());
         var context=state.dispatcher().context(train,dev.minetorio.core.rail.RailCircuitInputs.NONE);
         h.assertTrue(context.passengers().orElseThrow().present()&&!dev.minetorio.core.rail.TrainWait.evaluate(List.of(inactive),context),"Actual rider bridge не разрешает robots inactive во время полета");
-        h.succeedWhen(()->{
-            for(var entity:h.getLevel().getAllEntities())if(entity instanceof dev.minetorio.content.logistics.LogisticRobotEntity robot&&player.getUUID().equals(robot.homePlayer())&&robot.phase()==dev.minetorio.content.logistics.LogisticRobotEntity.Phase.RETURNING) {
-                sawReturning[0]=true;h.assertTrue(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(1)),"RETURNING сохраняет count1");
+        h.startSequence().thenWaitUntil(()->{
+            boolean activeRobot=false,returning=false;
+            for(var entity:h.getLevel().getAllEntities())if(entity instanceof dev.minetorio.content.logistics.LogisticRobotEntity robot&&player.getUUID().equals(robot.homePlayer())) {
+                activeRobot=true;if(robot.phase()==dev.minetorio.content.logistics.LogisticRobotEntity.Phase.RETURNING)returning=true;
             }
-            if(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(1)))h.assertTrue(state.trains().get(train).head().equals(waitingHead)&&state.trains().get(train).status()==dev.minetorio.core.rail.RailwayState.Status.WAIT_STATION,"Реальный AUTO не уезжает до возврата робота");
-            h.assertTrue(h.getLevel().getBlockState(ghost).is(dev.minetorio.content.registry.ModBlocks.INSERTER.get()),"Робот построил inserter");
-            h.assertTrue(dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.CONSTRUCTION_ROBOT.get())==1,"Робот реально вернулся в inventory");
+            sawReturning[0]|=returning;
+            int returned=dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.CONSTRUCTION_ROBOT.get());
+            // Polling ожидает возврат, но первое нарушение полета не исчезает на следующем тике.
+            // Завершение полета определяется entity/inventory, а не проверяемым activity count.
+            if(activeRobot||returned!=1) {
+                var count=dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID()));
+                if(firstViolation[0]==null&&!count.equals(OptionalInt.of(1)))firstViolation[0]=(returning?"RETURNING":"Полет")+" сохраняет count1: "+count;
+                if(firstViolation[0]==null&&(!state.trains().get(train).head().equals(waitingHead)||state.trains().get(train).status()!=dev.minetorio.core.rail.RailwayState.Status.WAIT_STATION))firstViolation[0]="Реальный AUTO не уезжает до возврата робота";
+                if(firstViolation[0]==null&&dev.minetorio.core.rail.TrainWait.evaluate(List.of(inactive),state.dispatcher().context(train,dev.minetorio.core.rail.RailCircuitInputs.NONE)))firstViolation[0]="Actual rider bridge не разрешает robots inactive до inventory return";
+            }
+            h.assertTrue(!activeRobot&&returned==1,"Робот реально вернулся в inventory и удален из мира");
+        }).thenExecute(()->{
+            // thenExecute завершает тест ошибкой, в отличие от повторяемого thenWaitUntil.
+            h.assertTrue(firstViolation[0]==null,"Первое нарушение до normal return: "+firstViolation[0]);
             h.assertTrue(sawReturning[0],"Фаза RETURNING фактически наблюдалась до terminal return");
+            h.assertTrue(h.getLevel().getBlockState(ghost).is(dev.minetorio.content.registry.ModBlocks.INSERTER.get()),"Робот построил inserter");
+            h.assertTrue(dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.CONSTRUCTION_ROBOT.get())==1&&dev.minetorio.content.logistics.PlayerItems.count(player,dev.minetorio.content.registry.ModItems.INSERTER.get())==0,"Normal return сохраняет ровно один robot и расходует один material на постройку");
+            h.assertTrue(dev.minetorio.content.logistics.PersonalRobotActivity.count(player.server,Set.of(player.getUUID())).equals(OptionalInt.of(0)),"Только terminal return дает count0");
             RailwayManager.tick(h.getLevel());h.assertTrue(dev.minetorio.core.rail.TrainWait.evaluate(List.of(inactive),state.dispatcher().context(train,dev.minetorio.core.rail.RailCircuitInputs.NONE)),"Terminal return разрешает ожидание");
+        }).thenWaitUntil(()->{
             h.assertTrue(!state.trains().get(train).head().equals(waitingHead)&&state.trains().get(train).speed()>0,"Actual AUTO departure после normal return");
+        }).thenExecute(()->{
             state.dispatcher().removeStation(stationId);player.server.getPlayerList().remove(player);cleanupTrack(h,rails);
-        });
+        }).thenSucceed();
     }
     @GameTest(template="rail48")
     public static void deniedLivingDamageStopsAtActualSurvivor(GameTestHelper h) {
