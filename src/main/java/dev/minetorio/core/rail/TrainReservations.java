@@ -87,6 +87,8 @@ public final class TrainReservations {
         double needed=Math.max(braking,TrainMotion.lookaheadDistance(train,cars,travelSign,brakingBonus));
         double safe=0; boolean exitFits=true;
         LinkedHashSet<UUID> blocks=new LinkedHashSet<>();
+        Set<UUID> interior=interiorBlocks(state,train,start,travelSign);
+        boolean inInitial=true;
         // Округление только до конца уже необходимого блока, а не до всей дороги.
         for(int i=0;i<sections.size();i++) {
             Section part=sections.get(i);
@@ -100,7 +102,8 @@ public final class TrainReservations {
                 needed=Math.max(needed,exit);
             }
             Set<UUID> resources=state.signals().blocks(part.traversal());
-            if(!free(state,id,resources)) break;
+            inInitial &= resources.equals(interior);
+            if(inInitial?protectedInterior(state,id,resources):!free(state,id,resources)) break;
             if(part.to()>part.from()) blocks.addAll(resources);
             safe=part.to();
         }
@@ -108,6 +111,11 @@ public final class TrainReservations {
         List<WeakReference<Plan>> issued=state.reservations().issued.computeIfAbsent(id,k->new ArrayList<>());
         issued.removeIf(reference->reference.get()==null); issued.add(new WeakReference<>(result));
         return result;
+    }
+    /** Только физическая сторона позади сцепки считается уже занятой, не будущий блок на границе. */
+    private static Set<UUID> interiorBlocks(RailwayState state,Train train,Leading start,int sign) {
+        Traversal behind=preceding(train,start,sign);
+        return state.signals().blocks(behind==null?start.start().traversal():behind);
     }
     private static Traversal preceding(Train train,Leading start,int sign) {
         if(start.start().distance()!=0) return null;
@@ -154,6 +162,10 @@ public final class TrainReservations {
         }
         return result;
     }
+    private static boolean protectedInterior(RailwayState state,UUID id,Collection<UUID> blocks) {
+        return state.reservations().authorities.entrySet().stream().anyMatch(e->!e.getKey().equals(id)&&e.getValue().brakingOnly()
+                &&!Collections.disjoint(e.getValue().plan().blocks(),blocks));
+    }
     private static boolean free(RailwayState state,UUID id,Collection<UUID> blocks) {
         TrainReservations owned=state.reservations();
         return blocks.stream().noneMatch(b->owned.occupants(b).stream().anyMatch(t->!t.equals(id))
@@ -161,7 +173,10 @@ public final class TrainReservations {
     }
     public static boolean commit(RailwayState state,UUID id,Plan plan,int travelSign,double brakingBonus) {
         Train train=train(state,id,travelSign,brakingBonus);
-        if(!matches(state,train,plan,travelSign,brakingBonus) || !free(state,id,plan.blocks())) return false;
+        if(!matches(state,train,plan,travelSign,brakingBonus)) return false;
+        Set<UUID> interior=interiorBlocks(state,train,leading(state,train,travelSign),travelSign);
+        if(protectedInterior(state,id,interior))return false;
+        if(!free(state,id,plan.blocks().stream().filter(block->!interior.contains(block)).toList())) return false;
         if(state.reservations().issued.getOrDefault(id,List.of()).stream().noneMatch(reference->reference.get()==plan)) return false;
         TrainReservations owned=state.reservations();
         Authority previous=owned.authorities.get(id);

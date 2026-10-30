@@ -38,6 +38,8 @@ public final class MinetorioClient {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(dev.minetorio.content.rail.RailRegistry.CELL_ENTITY.get(),dev.minetorio.client.rail.RailwayRenderers.Cells::new);
+        event.registerEntityRenderer(dev.minetorio.content.rail.RailRegistry.STOCK.get(),dev.minetorio.client.rail.RailwayRenderers.Stock::new);
         event.registerEntityRenderer(dev.minetorio.content.combat.CombatRegistry.SMALL_BITER.get(), c -> new dev.minetorio.client.combat.EnemyRenderer<>(c, true));
         event.registerEntityRenderer(dev.minetorio.content.combat.CombatRegistry.BITER_SPAWNER.get(), c -> new dev.minetorio.client.combat.EnemyRenderer<>(c, false));
         event.registerBlockEntityRenderer(dev.minetorio.content.oil.OilRegistry.PUMPJACK_BE.get(), dev.minetorio.client.oilrender.OilRender.Renderer::new);
@@ -89,6 +91,7 @@ public final class MinetorioClient {
     /** Models drawn by block entity renderers rather than through a blockstate. */
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
+        for(var model:dev.minetorio.client.rail.RailwayRenderers.MODELS)event.register(model);
         event.register(dev.minetorio.client.combat.EnemyRenderer.BITER);
         event.register(dev.minetorio.client.combat.EnemyRenderer.LEG);
         event.register(dev.minetorio.client.combat.EnemyRenderer.NEST);

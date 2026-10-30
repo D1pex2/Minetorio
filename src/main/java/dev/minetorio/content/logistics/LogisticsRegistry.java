@@ -114,6 +114,7 @@ public final class LogisticsRegistry {
         modBus.addListener(LogisticsRegistry::onCapabilities);
         LogisticsPayloads.register(modBus);
         LogisticsManager.register();
+        PersonalRobotActivity.register();
         PersonalRoboport.register();
     }
 

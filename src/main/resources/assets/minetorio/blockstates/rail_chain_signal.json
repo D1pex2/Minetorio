@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "aspect=0": {
+      "model": "minetorio:block/rail_chain_signal_0"
+    },
+    "aspect=1": {
+      "model": "minetorio:block/rail_chain_signal_1"
+    },
+    "aspect=2": {
+      "model": "minetorio:block/rail_chain_signal_2"
+    },
+    "aspect=3": {
+      "model": "minetorio:block/rail_chain_signal_3"
+    }
+  }
+}

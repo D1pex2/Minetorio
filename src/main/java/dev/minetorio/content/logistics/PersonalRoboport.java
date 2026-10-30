@@ -40,6 +40,8 @@ public final class PersonalRoboport {
 
     /** Personal construction robots of {@code player} now out. */
     static int robotsOut(ServerPlayer player) {
+        var complete=PersonalRobotActivity.count(player.server,java.util.Set.of(player.getUUID()));
+        if(complete.isPresent())return complete.getAsInt();
         int n = 0;
         for (LogisticRobotEntity r : LogisticsManager.get(player.serverLevel()).robots()) {
             if (!r.isRemoved() && r.kind() == LogisticRobotEntity.Kind.PERSONAL_CONSTRUCTION && player.getUUID().equals(r.homePlayer())) n++;

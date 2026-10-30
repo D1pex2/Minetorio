@@ -57,6 +57,12 @@ class TrainWaitTest {
         assertThrows(IllegalArgumentException.class,()->new PassengerState(true,-1));
         assertFalse(evaluate(List.of(wait(Type.ROBOTS_INACTIVE,0)),new Context(0,0,List.of(),List.of(),Optional.of(new PassengerState(true,1)),Optional.empty())));
     }
+    @Test void knownPassengerSurvivesUnknownRobotCount() {
+        var context=new Context(0,0,List.of(),List.of(),Optional.of(new PassengerState(true,OptionalInt.empty())),Optional.empty());
+        assertTrue(evaluate(List.of(wait(Type.PASSENGER_PRESENT,0)),context));
+        assertFalse(evaluate(List.of(wait(Type.PASSENGER_NOT_PRESENT,0)),context));
+        assertFalse(evaluate(List.of(wait(Type.ROBOTS_INACTIVE,0)),context));
+    }
     @Test void fullUsesExactPhysicalKeyFilterAndBarWithoutMutating() {
         var slots=new RailSlots(2,key->key.equals("minetorio:pistol#charged")?1:5);slots.setBar(1);
         slots.insert(0,"minetorio:pistol#charged",1,false);

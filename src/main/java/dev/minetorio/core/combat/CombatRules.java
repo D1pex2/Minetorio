@@ -17,7 +17,7 @@ public final class CombatRules {
     /** Формула Official Factorio Wiki, Damage#Resistance, oldid=220259; Lua задает только R и P. */
     public static double physicalDamage(double damage, double decrease, double percent) {
         double reduced = damage > decrease + 1 ? damage - decrease
-                : damage > 1 ? 1 / (decrease - damage + 2) : 1 / (decrease + 1);
+                : damage > 1 ? 1 / (decrease - damage + 2) : damage / (decrease + 1);
         return reduced * (1 - percent / 100);
     }
     /** Остаток после одного выстрела; ноль означает израсходованный магазин. */

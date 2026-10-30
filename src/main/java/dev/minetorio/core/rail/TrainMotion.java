@@ -17,11 +17,14 @@ public final class TrainMotion {
     private record Path(List<Traversal> tape, double head, double distance) {}
 
     public static void step(RailwayState state, UUID id, Control control, double bonus) {
+        propose(state,id,control,bonus).ifPresent(Proposal::commit);
+    }
+    public static Optional<Proposal> propose(RailwayState state, UUID id, Control control, double bonus) {
         Objects.requireNonNull(control); Objects.requireNonNull(control.turn());
         checkBonus(bonus);
         if (!Double.isFinite(control.throttle()) || Math.abs(control.throttle()) > 1) throw new IllegalArgumentException("Недопустимая тяга");
         Train train = Objects.requireNonNull(state.trains().get(id));
-        if (train.head().isEmpty()) return;
+        if (train.head().isEmpty()) return Optional.empty();
         List<Car> cars = train.cars().stream().map(state.cars()::get).toList();
         Dynamics dynamics=calculate(train,cars,control,bonus);
         double sign=dynamics.sign(), magnitude=dynamics.magnitude();
@@ -37,22 +40,21 @@ public final class TrainMotion {
         Path path = extend(state, train, sign, magnitude, control.turn());
         if(train.mode()==Mode.AUTOMATIC && !TrainReservations.permits(state,train,(int)sign,bonus,brake,magnitude,magnitude*sign)) {
             double brakingSpeed=brakeSpeed(Math.abs(train.speed()),cars,bonus,cars.stream().mapToDouble(c->RailData.stock(c.kind()).weight()).sum());
-            if(!TrainReservations.permits(state,train,(int)sign,bonus,true,brakingSpeed,brakingSpeed*sign)) return;
+            if(!TrainReservations.permits(state,train,(int)sign,bonus,true,brakingSpeed,brakingSpeed*sign)) return Optional.empty();
             brake=true; magnitude=brakingSpeed;
             path=extend(state,train,sign,magnitude,control.turn());
         }
         if (magnitude > 0 && path.distance() == 0 && train.mode()==Mode.MANUAL) {
-            commit(state,train,graphRevision,path,0,sign,Status.NO_PATH,bonus,brake,()->{});
-            return;
+            return Optional.of(proposal(state,train,graphRevision,path,0,sign,Status.NO_PATH,bonus,brake,()->{}));
         }
-        if(train.mode()==Mode.AUTOMATIC && path.distance()+1e-12<magnitude) return;
+        if(train.mode()==Mode.AUTOMATIC && path.distance()+1e-12<magnitude) return Optional.empty();
         double distance = Math.min(magnitude,path.distance());
         boolean blockedByTrackEnd = distance + 1e-12 < magnitude;
         double speed = blockedByTrackEnd ? 0 : magnitude*sign;
         boolean spend=!brake;
         Runnable fuel=()-> { if(spend) for(Mover mover:movers) TrainFuel.draw(mover.car(),mover.budget()); };
-        commit(state,train,graphRevision,new Path(path.tape(),path.head(),distance),speed,sign,
-                blockedByTrackEnd ? Status.NO_PATH : stoppedStatus,bonus,brake,fuel);
+        return Optional.of(proposal(state,train,graphRevision,new Path(path.tape(),path.head(),distance),speed,sign,
+                blockedByTrackEnd ? Status.NO_PATH : stoppedStatus,bonus,brake,fuel));
     }
     private record Dynamics(double sign,double magnitude,boolean brake,List<Mover> movers) {}
     /** Чистый расчет для регулятора прибытия; списания топлива и изменения позы здесь нет. */
@@ -96,20 +98,72 @@ public final class TrainMotion {
                 train.mode(),train.status(),train.routeRevision(),train.consistRevision(),train.motionRevision());
         return speed+stoppingDistance(after,cars,bonus);
     }
-    private static void commit(RailwayState state,Train train,long revision,Path path,double speed,double sign,
-                               Status stoppedStatus,double bonus,boolean braking,Runnable consumeFuel) {
-        var tape = new ArrayList<>(path.tape());
-        double q = path.head()+sign*path.distance();
-        // Удаляется лишь полностью вышедшая история позади движущегося состава.
-        if (sign > 0) while (tape.size()>1 && q-7*(train.cars().size()-1)-3.5 >= state.railLength(tape.getFirst())) {
-            q-=state.railLength(tape.removeFirst());
+    private record FuelSnapshot(UUID car, List<RailSlots.Slot> slots, String active, BigDecimal joules) {}
+    private static List<FuelSnapshot> fuelSnapshot(RailwayState state,Train train) {
+        return train.cars().stream().map(state.cars()::get).filter(c->c.fuel().isPresent())
+                .map(c->new FuelSnapshot(c.id(),List.copyOf(c.fuel().orElseThrow().snapshot()),c.activeFuel(),c.remainingJ())).toList();
+    }
+    /** Неподделываемый одноразовый расчет: ни путь, ни расход не принимаются от клиента. */
+    public static final class Proposal {
+        private final RailwayState owner;
+        private final Train before;
+        private final long graphRevision,networkRevision;
+        private final Path path;
+        private final double speed,sign,bonus;
+        private final Status stopped;
+        private final boolean braking;
+        private final Runnable fuel;
+        private final List<FuelSnapshot> fuelBefore;
+        private boolean used;
+        private Proposal(RailwayState owner,Train before,long revision,Path path,double speed,double sign,Status stopped,double bonus,boolean braking,Runnable fuel) {
+            this.owner=owner;this.before=before;this.graphRevision=revision;this.networkRevision=owner.signals().revision();this.path=path;
+            this.speed=speed;this.sign=sign;this.stopped=stopped;this.bonus=bonus;this.braking=braking;this.fuel=fuel;this.fuelBefore=fuelSnapshot(owner,before);
         }
-        if (sign < 0) while (tape.size()>1 && q+3.5 <= state.tapeLength(tape)-state.railLength(tape.getLast())) tape.removeLast();
-        var head = state.locate(tape,q);
-        Status status = train.mode() == Mode.MANUAL ? speed == 0 ? Status.MANUAL_CONTROL_STOP : Status.MANUAL_CONTROL
-                : speed == 0 ? stoppedStatus : Status.ON_THE_PATH;
-        state.commitMotion(train,revision,new MotionUpdate(Optional.of(head.cursor()),head.index(),tape,speed,status),
-                (int)sign,path.distance(),bonus,braking,consumeFuel);
+        public UUID trainId() { return before.id(); }
+        public Train before() { return before; }
+        public double distance() { return path.distance(); }
+        public double speed() { return speed; }
+        public Map<UUID,Pose> poses(double fraction) {
+            if(!Double.isFinite(fraction)||fraction<0||fraction>1) throw new IllegalArgumentException("Недопустимая доля пути");
+            Map<UUID,Pose> result=new LinkedHashMap<>();
+            for(int i=0;i<before.cars().size();i++) {
+                UUID id=before.cars().get(i);
+                result.put(id,owner.pose(path.tape(),path.head()+sign*path.distance()*fraction-7*i,owner.cars().get(id).reversed()));
+            }
+            return Map.copyOf(result);
+        }
+        /** Точки тел и сцепок вычисляются на пройденной ленте, включая повороты. */
+        public Pose point(int carIndex,double longitudinal,double fraction) {
+            if(carIndex<0||carIndex>=before.cars().size()||Math.abs(longitudinal)>3.5||fraction<0||fraction>1)
+                throw new IllegalArgumentException("Точка вне состава");
+            return owner.pose(path.tape(),path.head()+sign*path.distance()*fraction-7*carIndex+longitudinal,false);
+        }
+        /** Проверка права на попытку контакта, без расхода топлива и без consumption proposal. */
+        public boolean validFor(RailwayState state) {
+            return owner==state&&!used&&before.equals(owner.trains().get(before.id()))&&graphRevision==owner.graph().revision()
+                    &&networkRevision==owner.signals().revision()&&fuelBefore.equals(fuelSnapshot(owner,before))
+                    &&(before.mode()!=Mode.AUTOMATIC||TrainReservations.permits(owner,before,(int)sign,bonus,braking,path.distance(),speed));
+        }
+        public boolean commit() { return commit(1,Math.abs(speed)); }
+        /** Контакт разрешает лишь префикс уже рассчитанного пути и не увеличивает скорость. */
+        public boolean commit(double fraction,double magnitude) {
+            if(!Double.isFinite(fraction)||fraction<0||fraction>1||!Double.isFinite(magnitude)||magnitude<0||magnitude>Math.abs(speed)+1e-12)
+                throw new IllegalArgumentException("Контакт увеличивает движение");
+            boolean valid=validFor(owner);used=true;
+            if(!valid)return false;
+            var tape=new ArrayList<>(path.tape()); double distance=path.distance()*fraction;
+            double q=path.head()+sign*distance;
+            if(sign>0) while(tape.size()>1 && q-7*(before.cars().size()-1)-3.5>=owner.railLength(tape.getFirst())) q-=owner.railLength(tape.removeFirst());
+            if(sign<0) while(tape.size()>1 && q+3.5<=owner.tapeLength(tape)-owner.railLength(tape.getLast())) tape.removeLast();
+            var head=owner.locate(tape,q); double actualSpeed=magnitude*sign;
+            Status status=before.mode()==Mode.MANUAL?(actualSpeed==0?Status.MANUAL_CONTROL_STOP:Status.MANUAL_CONTROL):(actualSpeed==0?stopped:Status.ON_THE_PATH);
+            return owner.commitMotion(before,graphRevision,new MotionUpdate(Optional.of(head.cursor()),head.index(),tape,actualSpeed,status),
+                    (int)sign,distance,bonus,braking,fuel);
+        }
+    }
+    private static Proposal proposal(RailwayState state,Train train,long revision,Path path,double speed,double sign,
+                                     Status stopped,double bonus,boolean braking,Runnable fuel) {
+        return new Proposal(state,train,revision,path,speed,sign,stopped,bonus,braking,fuel);
     }
     /** Полный бюджет и на cap (native1.1.110 coal/full throttle); сила - только из доступных порций. */
     private static BigDecimal force(List<Mover> movers) {
@@ -181,6 +235,19 @@ public final class TrainMotion {
         double weight=cars.stream().mapToDouble(c->RailData.stock(c.kind()).weight()).sum(), speed=Math.abs(train.speed()),distance=0;
         while(speed>0) { speed=brakeSpeed(speed,cars,bonus,weight); distance+=speed; }
         return distance;
+    }
+    public static Set<UUID> occupiedRails(RailwayState state,Train train) {
+        if(train.head().isEmpty())return Set.of();Set<UUID> result=new HashSet<>();
+        double high=state.headCoordinate(train)+3.5,low=high-7*train.cars().size(),q=0;
+        for(Traversal step:train.tape()) {double end=q+state.railLength(step);if(Math.min(end,high)>Math.max(q,low))result.add(step.piece());q=end;}
+        return Set.copyOf(result);
+    }
+    public static Pose bodyPoint(RailwayState state,Train train,int index,double longitudinal) {
+        if(train.head().isPresent())return state.pose(train.tape(),state.headCoordinate(train)-7*index+longitudinal,false);
+        Pose pose=state.lastPoses().get(train.cars().get(index));
+        if(pose==null)throw new IllegalStateException("Последняя поза неизвестна");
+        double direction=state.cars().get(train.cars().get(index)).reversed()?-1:1;
+        return new Pose(new Vec(pose.position().x()+pose.tangent().x()*longitudinal*direction,pose.position().y(),pose.position().z()+pose.tangent().z()*longitudinal*direction),pose.tangent());
     }
     public static Map<UUID,Pose> carPoses(RailwayState state,UUID id) { return state.poses(Objects.requireNonNull(state.trains().get(id)),Set.of()); }
 }

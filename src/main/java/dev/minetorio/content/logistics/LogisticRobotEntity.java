@@ -524,6 +524,18 @@ public class LogisticRobotEntity extends Entity {
         }
     }
 
+    /** non-NULL callback назначается платформой только после успешного UUID admission. */
+    @Override public void setLevelCallback(net.minecraft.world.level.entity.EntityInLevelCallback callback) {
+        if(callback==net.minecraft.world.level.entity.EntityInLevelCallback.NULL) {super.setLevelCallback(callback);return;}
+        super.setLevelCallback(new net.minecraft.world.level.entity.EntityInLevelCallback() {
+            @Override public void onMove() {callback.onMove();}
+            @Override public void onRemove(RemovalReason reason) {
+                PersonalRobotActivity.removed(LogisticRobotEntity.this,getRemovalReason()==null?reason:getRemovalReason());callback.onRemove(reason);
+            }
+        });
+        PersonalRobotActivity.admitted(this);
+    }
+
     @Override
     public void remove(RemovalReason reason) {
         if (level() instanceof ServerLevel server) {

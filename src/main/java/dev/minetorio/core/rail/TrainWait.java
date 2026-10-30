@@ -5,8 +5,9 @@ import static dev.minetorio.core.rail.TrainSchedule.*;
 
 public final class TrainWait {
     private TrainWait() {}
-    public record PassengerState(boolean present, int activePersonalRobots) {
-        public PassengerState { if (activePersonalRobots < 0) throw new IllegalArgumentException("Отрицательное число роботов"); }
+    public record PassengerState(boolean present, OptionalInt activePersonalRobots) {
+        public PassengerState { Objects.requireNonNull(activePersonalRobots);if(activePersonalRobots.isPresent()&&activePersonalRobots.getAsInt()<0)throw new IllegalArgumentException("Отрицательное число роботов"); }
+        public PassengerState(boolean present,int robots) { this(present,OptionalInt.of(robots)); }
     }
     public record Context(long elapsed, long inactive, List<List<RailSlots.WaitSlot>> cargo,
                           List<RailwayState.Fluid> fluids, Optional<PassengerState> passengers,
@@ -37,7 +38,7 @@ public final class TrainWait {
                     && c.fluids().stream().allMatch(f -> f.amount() == 0);
             case PASSENGER_PRESENT -> c.passengers().map(PassengerState::present).orElse(false);
             case PASSENGER_NOT_PRESENT -> c.passengers().map(p -> !p.present()).orElse(false);
-            case ROBOTS_INACTIVE -> c.passengers().map(p -> p.activePersonalRobots() == 0).orElse(false);
+            case ROBOTS_INACTIVE -> c.passengers().map(p -> p.activePersonalRobots().isPresent() && p.activePersonalRobots().getAsInt() == 0).orElse(false);
             case CIRCUIT -> c.circuit().map(sample -> compare(wait, sample, null)).orElse(false);
             case ITEM_COUNT -> compare(wait, items(c), SignalKind.ITEM);
             case FLUID_COUNT -> compare(wait, fluids(c), SignalKind.FLUID);

@@ -262,7 +262,7 @@ public class RailwaySaveGameTest {
         var migrated=RailwayNbt.read(legacy,registries);
         h.assertTrue(migrated.trains().equals(original.trains()),"Однозначная schema1 изменила layout");
         h.assertTrue(TrainMotion.carPoses(migrated,new UUID(0,20)).equals(TrainMotion.carPoses(original,new UUID(0,20))),"Миграция изменила позы");
-        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==4,"Миграция не записывает schema4");
+        h.assertTrue(RailwayNbt.write(migrated,registries).getInt("schemaVersion")==RailwayNbt.SCHEMA_VERSION,"Миграция не записывает текущую schema");
         CompoundTag shortHistory=legacy.copy(); var train=shortHistory.getList("trains",Tag.TAG_COMPOUND).getCompound(0);
         var shortTape=new ListTag(); shortTape.add(train.getList("tape",Tag.TAG_COMPOUND).getCompound(10).copy()); train.put("tape",shortTape);
         CompoundTag ambiguous=loopFixture(h); var ambiguousTrain=ambiguous.getList("trains",Tag.TAG_COMPOUND).getCompound(0);

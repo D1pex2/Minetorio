@@ -14,12 +14,13 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 
 /** Строгая схема: груз никогда не обрезается и не пропускается при ошибке. */
 public final class RailwayNbt {
-    public static final int SCHEMA_VERSION = 4;
+    public static final int SCHEMA_VERSION = 5;
     private RailwayNbt() {}
 
     public static CompoundTag write(RailwayState state, HolderLookup.Provider registries) {
         CompoundTag root = new CompoundTag();
         root.putInt("schemaVersion", SCHEMA_VERSION);
+        root.put("worldStops",new ListTag());
         ListTag rails = new ListTag();
         for (Piece piece : state.rails()) {
             CompoundTag tag = new CompoundTag();
@@ -55,6 +56,13 @@ public final class RailwayNbt {
             cars.add(tag);
         }
         root.put("cars", cars);
+        ListTag poses=new ListTag();
+        for(var entry:state.lastPoses().entrySet()) {
+            CompoundTag p=new CompoundTag();p.putUUID("car",entry.getKey());Pose pose=entry.getValue();
+            p.putDouble("x",pose.position().x());p.putDouble("y",pose.position().y());p.putDouble("z",pose.position().z());
+            p.putDouble("tx",pose.tangent().x());p.putDouble("tz",pose.tangent().z());poses.add(p);
+        }
+        root.put("lastPoses",poses);
         ListTag trains = new ListTag();
         for (Train train : state.trains().values()) {
             CompoundTag tag = new CompoundTag();
@@ -249,6 +257,16 @@ public final class RailwayNbt {
             try { TrainReservations.restoreBrakingCorridors(state,corridors); } catch(RuntimeException error) { throw invalid("brakingCorridors",error); }
         }
         if (schema >= 4) RailwayScheduleNbt.read(tag, state);
+        if(schema>=5) {
+            Map<UUID,Pose> poses=new LinkedHashMap<>();
+            for(Tag raw:list(tag,"lastPoses","root")) {
+                CompoundTag p=(CompoundTag)raw; UUID id=uuid(p,"car","lastPoses");
+                Pose pose=new Pose(new Vec(number(p,"x","lastPoses"),number(p,"y","lastPoses"),number(p,"z","lastPoses")),
+                        new Vec(number(p,"tx","lastPoses"),0,number(p,"tz","lastPoses")));
+                if(poses.put(id,pose)!=null) throw invalid("lastPoses","Повторный вагон");
+            }
+            state.restoreLastPoses(poses);
+        }
         return state;
     }
 

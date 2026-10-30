@@ -15,7 +15,8 @@ class CombatRulesTest {
     @Test void physicalDamageScalesAndAppliesSpawnerResistance() {
         assertEquals(0.4f, CombatRules.health(CombatRules.physicalDamage(5, 0, 0)), 0.00001);
         assertEquals(0.204f, CombatRules.health(CombatRules.physicalDamage(5, 2, 15)), 0.00001);
-        assertEquals(0.16, CombatRules.physicalDamage(0.5, 4, 20), 0.00001);
+        // Native rail-impact-native.json: при raw<=1 масштабируется raw, а не константа1.
+        assertEquals(0.08, CombatRules.physicalDamage(0.5, 4, 20), 0.00001);
         assertEquals(0.5, CombatRules.physicalDamage(4, 4, 0), 0.00001);
         assertEquals(1, CombatRules.physicalDamage(5, 4, 0), 0.00001);
         assertEquals(1.0 / 3, CombatRules.physicalDamage(3, 4, 0), 0.00001);

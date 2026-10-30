@@ -55,6 +55,7 @@ public final class TrainDispatcher {
     private record Choice(Optional<UUID> station, Cursor point, RailRouter.Route route, int sign) {}
     private record Selection(Optional<Choice> choice, Status failure, boolean skip) {}
     private final RailwayState owner;
+    private final Set<UUID> blockedThisTick=new HashSet<>();
     TrainDispatcher(RailwayState owner) { this.owner = owner; }
     public Runtime runtime(UUID train) { return owner.dispatchRuntime.getOrDefault(train, Runtime.empty()); }
     public Map<UUID,Runtime> runtimes() {
@@ -140,6 +141,7 @@ public final class TrainDispatcher {
             return;
         }
     }
+    public void passengers(UUID train,TrainWait.PassengerState snapshot) { train(train);owner.passengerInputs.put(train,Objects.requireNonNull(snapshot)); }
     public void passengers(UUID train, boolean present, int robots) {
         train(train); owner.passengerInputs.put(train,new TrainWait.PassengerState(present,robots));
     }
@@ -173,6 +175,11 @@ public final class TrainDispatcher {
         if (!next.equals(owner.effectiveStations)) { owner.effectiveStations.clear(); owner.effectiveStations.putAll(next); owner.stationRevision++; owner.dispatchChanged(); }
     }
     public void tick(RailCircuitInputs inputs, double brakingBonus) {
+        List<TrainMotion.Proposal> proposals=beginTick(inputs,brakingBonus);
+        proposals.forEach(TrainMotion.Proposal::commit); finishTick(inputs);
+    }
+    public List<TrainMotion.Proposal> beginTick(RailCircuitInputs inputs,double brakingBonus) {
+        List<TrainMotion.Proposal> proposals=new ArrayList<>(); blockedThisTick.clear();
         Objects.requireNonNull(inputs);
         if (!Double.isFinite(brakingBonus) || brakingBonus < 0) throw new IllegalArgumentException("Неверный бонус торможения");
         owner.railClock = Math.addExact(owner.railClock,1); owner.dispatchChanged(); effective(inputs); TrainReservations.refreshOccupancy(owner);
@@ -193,10 +200,18 @@ public final class TrainDispatcher {
             r = runtime(id);
             if (r.assignment().isPresent()) {
                 extendWaypoints(id,brakingBonus);
-                move(id,inputs,brakingBonus);
-                arrive(id,inputs);
-            } else if (train(id).speed()!=0) TrainMotion.step(owner,id,new TrainMotion.Control(0,true,TrainMotion.Turn.STRAIGHT),brakingBonus);
+                move(id,inputs,brakingBonus).ifPresent(proposals::add);
+            } else if (train(id).speed()!=0) TrainMotion.propose(owner,id,new TrainMotion.Control(0,true,TrainMotion.Turn.STRAIGHT),brakingBonus).ifPresent(proposals::add);
         }
+        return List.copyOf(proposals);
+    }
+    public void finishTick(RailCircuitInputs inputs) {
+        for(UUID id:owner.trains().keySet().stream().sorted().toList()) if(train(id).mode()==Mode.AUTOMATIC) {
+            if(blockedThisTick.contains(id) && train(id).speed()==0 && runtime(id).assignment().isPresent()
+                    && runtime(id).assignment().orElseThrow().visits().getLast().remaining()>1e-6) status(id,Status.WAIT_SIGNAL);
+            arrive(id,inputs);
+        }
+        blockedThisTick.clear();
     }
     private boolean validAssignment(Train train, Runtime runtime) {
         Assignment a = runtime.assignment().orElseThrow();
@@ -318,7 +333,7 @@ public final class TrainDispatcher {
             owner.dispatchTrain(id,t.mode(),t.status(),true);
         }
     }
-    private void move(UUID id, RailCircuitInputs inputs, double bonus) {
+    private Optional<TrainMotion.Proposal> move(UUID id, RailCircuitInputs inputs, double bonus) {
         Runtime r=runtime(id);Assignment a=r.assignment().orElseThrow();Train t=train(id);
         double limit=Math.max(0,a.visits().getLast().remaining());var leading=TrainReservations.leading(owner,id,a.sign());Cursor start=leading.start();
         int precedingIndex=leading.tapeIndex()-a.sign();
@@ -335,7 +350,7 @@ public final class TrainDispatcher {
         for(Traversal step:a.route()) {movementRoute.add(step);covered+=owner.railLength(step);if(covered>=limit) break;}
         var plan=TrainReservations.plan(owner,id,new RailRouter.Route(movementRoute,limit,owner.graph().revision()),a.sign(),bonus);
         boolean committed=TrainReservations.commit(owner,id,plan,a.sign(),bonus);
-        if(!committed) { TrainMotion.step(owner,id,new TrainMotion.Control(0,true,TrainMotion.Turn.STRAIGHT),bonus);return; }
+        if(!committed) return TrainMotion.propose(owner,id,new TrainMotion.Control(0,true,TrainMotion.Turn.STRAIGHT),bonus);
         double available=Math.min(limit,plan.safeDistance());
         List<Car> cars=t.cars().stream().map(owner.cars()::get).toList();
         double throttle=1;boolean brake=false;
@@ -347,9 +362,9 @@ public final class TrainDispatcher {
                 throttle=low;
             }
         }
-        TrainMotion.step(owner,id,new TrainMotion.Control(a.sign()*throttle,brake,TrainMotion.Turn.STRAIGHT),bonus);
-        if(train(id).speed()==0 && runtime(id).assignment().isPresent() && runtime(id).assignment().get().visits().getLast().remaining()>1e-6
-                && plan.safeDistance()+1e-8<a.visits().getLast().remaining()) status(id,Status.WAIT_SIGNAL);
+        var proposal=TrainMotion.propose(owner,id,new TrainMotion.Control(a.sign()*throttle,brake,TrainMotion.Turn.STRAIGHT),bonus);
+        if(plan.safeDistance()+1e-8<a.visits().getLast().remaining()) blockedThisTick.add(id);
+        return proposal;
     }
     private double required(Train t,List<Car> cars,int sign,double throttle,double bonus) {
         double speed=TrainMotion.previewSpeed(t,cars,new TrainMotion.Control(sign*throttle,false,TrainMotion.Turn.STRAIGHT),bonus);

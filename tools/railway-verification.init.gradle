@@ -1,0 +1,10 @@
+// Только headless verification. Обычный build.gradle и личные миры не меняются.
+allprojects {
+    afterEvaluate {
+        def target = System.getenv('MINETORIO_TASK7_GT_DIR')
+        if (!target) throw new GradleException('MINETORIO_TASK7_GT_DIR must name an isolated verification directory')
+        neoForge.runs.gameTestServer.gameDirectory = file(target)
+        def namespace = System.getenv('MINETORIO_TASK7_NAMESPACE')
+        if (namespace) neoForge.runs.gameTestServer.systemProperty 'neoforge.enabledGameTestNamespaces', namespace
+    }
+}

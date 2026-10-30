@@ -110,6 +110,41 @@ public final class RailwayState {
     private final Runnable changed;
     private final Map<UUID, Car> cars = new LinkedHashMap<>();
     private final Map<UUID, Train> trains = new LinkedHashMap<>();
+    private final Map<UUID, Pose> lastPoses = new LinkedHashMap<>();
+    public Map<UUID, Pose> lastPoses() { return Collections.unmodifiableMap(lastPoses); }
+    public void restoreLastPoses(Map<UUID, Pose> poses) {
+        for (var entry:poses.entrySet()) {
+            Pose pose=Objects.requireNonNull(entry.getValue());
+            if (!cars.containsKey(entry.getKey()) || !Double.isFinite(pose.position().x()) || !Double.isFinite(pose.position().y())
+                    || !Double.isFinite(pose.position().z()) || !Double.isFinite(pose.tangent().x()) || !Double.isFinite(pose.tangent().z())
+                    || pose.tangent().y()!=0 || Math.abs(Math.hypot(pose.tangent().x(),pose.tangent().z())-1)>1e-6)
+                throw new IllegalArgumentException("Недопустимая сохраненная поза");
+        }
+        lastPoses.putAll(poses); rememberPoses(); changed.run();
+    }
+    private void rememberPoses() {
+        for (Train train:trains.values()) if(train.head().isPresent()) lastPoses.putAll(poses(train,Set.of()));
+    }
+    /** Удаление одного вагона сохраняет позы остальных частей и освобождает назначения. */
+    public Optional<Car> removeCar(UUID id, boolean destroyed) {
+        Car car=cars.get(id); if(car==null) return Optional.empty();
+        Train old=trains.values().stream().filter(t->t.cars().contains(id)).findFirst().orElse(null);
+        if(old!=null && !destroyed && Math.abs(old.speed())>1e-6) return Optional.empty();
+        rememberPoses();
+        if(old!=null) {
+            int index=old.cars().indexOf(id); List<Train> parts=new ArrayList<>();
+            for(int[] range:List.of(new int[]{0,index},new int[]{index+1,old.cars().size()})) {
+                if(range[0]==range[1]) continue;
+                Optional<Cursor> head=Optional.empty(); int headIndex=-1;
+                if(old.head().isPresent()) { Indexed at=locate(old.tape(),headCoordinate(old)-7*range[0]);head=Optional.of(at.cursor());headIndex=at.index(); }
+                parts.add(new Train(parts.isEmpty()?old.id():UUID.randomUUID(),old.cars().subList(range[0],range[1]),head,headIndex,old.tape(),
+                        0,Mode.MANUAL,head.isPresent()?Status.MANUAL_CONTROL_STOP:Status.PATH_LOST,old.routeRevision()+1,old.consistRevision()+1,old.motionRevision()+1));
+            }
+            trains.remove(old.id());parts.forEach(t->trains.put(t.id(),t));
+            reservations.consistsChanged(this,Set.of(old.id()));dispatcher.consistsChanged(List.of(old),parts);
+        }
+        cars.remove(id);lastPoses.remove(id); TrainReservations.refreshOccupancy(this); changed.run();return Optional.of(car);
+    }
     private final RailGraph graph = new RailGraph(List.of());
     private List<Piece> rails = List.of();
     private List<RailSignals.Signal> signalDefinitions = List.of();
@@ -188,6 +223,7 @@ public final class RailwayState {
         RailGraph validated=new RailGraph(next);
         List<RailSignals.Signal> surviving=signalDefinitions.stream().filter(s->validated.piece(s.boundary().piece()).isPresent()).toList();
         RailSignals.rebuild(validated,surviving,networkRevision+1);
+        rememberPoses();
         graph.rebuild(next);
         signalDefinitions=surviving;
         signals=RailSignals.rebuild(graph,signalDefinitions,++networkRevision);
@@ -213,6 +249,7 @@ public final class RailwayState {
             throw new IllegalArgumentException("Вагон уже принадлежит другому составу " + id);
         Train train = normalizeRoute(initial);
         trains.put(id, train);
+        rememberPoses();
         TrainReservations.refreshOccupancy(this);
         changed.run();
         return train;
@@ -233,10 +270,14 @@ public final class RailwayState {
         candidate = canonical(candidate);
         if(expected.mode()==Mode.AUTOMATIC && !TrainReservations.permitsLayout(this,expected,candidate,sign,distance,bonus,braking)) return false;
         consumeFuel.run();
-        if (candidate.equals(expected)) return true;
+        if (candidate.equals(expected)) {
+            if(expected.mode()==Mode.AUTOMATIC && sign!=0)TrainReservations.consumed(this,expected,expected,sign,distance);
+            return true;
+        }
         boolean routeChanged = Math.signum(expected.speed()) != Math.signum(candidate.speed()) || changedBranch(expected.tape(), candidate.tape());
         trains.put(candidate.id(), revisions(candidate, expected.routeRevision() + (routeChanged ? 1 : 0),
                 expected.consistRevision(), expected.motionRevision() + 1));
+        rememberPoses();
         Train current=trains.get(candidate.id());
         dispatcher.motionCommitted(expected, current, sign, distance);
         if(expected.mode()==Mode.AUTOMATIC) TrainReservations.consumed(this,expected,current,sign,distance);
@@ -348,7 +389,11 @@ public final class RailwayState {
         return new Pose(raw.position(), flip ? new Vec(-raw.tangent().x(), -raw.tangent().y(), -raw.tangent().z()) : raw.tangent());
     }
     Map<UUID,Pose> poses(Train t, Set<UUID> flips) {
-        if (t.head().isEmpty()) return Map.of();
+        if (t.head().isEmpty()) {
+            Map<UUID,Pose> fallback=new LinkedHashMap<>();
+            for(UUID id:t.cars()) if(lastPoses.containsKey(id)) fallback.put(id,lastPoses.get(id));
+            return Collections.unmodifiableMap(fallback);
+        }
         Map<UUID,Pose> result = new LinkedHashMap<>();
         for (int i=0;i<t.cars().size();i++) {
             UUID id = t.cars().get(i);
