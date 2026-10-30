@@ -12,7 +12,7 @@ Task 8 еще не принят. Последняя принятая основ�
 
 Это адаптация геометрии Minecraft и существующей модели жидкостей. Закрытый native latch algorithm и точное поведение сочленений Factorio не воспроизведены и не заявляются.
 
-## Проверки
+## Проверки checkpoint 49c7510
 
 Полный unit-прогон: 763 теста, 0 failures/errors/skipped, BUILD SUCCESSFUL за 29 с.
 GameTest проверяют настоящие сундуки, манипуляторы, помпы, трубы, баки, вагоны и серверные тики.
@@ -39,7 +39,7 @@ $env:MINETORIO_TASK7_GT_DIR = Join-Path (Get-Location) 'build/railway-verificati
 Maven mirror init-script для загрузки зависимостей. Он не нужен как обязательная часть проекта.
 Автоматические fixtures не используют личные сохранения. Визуальный плейтест пропущен по указанию пользователя.
 
-## Что исправить и проверить дальше
+## Исправления после checkpoint
 
 После checkpoint 49c7510 исправлена граница красного сигнала: TrainMotion ограничивает фактический
 шаг текущим authority.remaining до построения sweep, а owner commit отклоняет превышение до расхода
@@ -58,12 +58,29 @@ departure, отказ прямого commit до fuel callback и разреше
 1.500000000000007 при target.distance 1.5 на том же traversal. Изолированный replay на старом JAR
 0.9.1 подтвердил: без смены revision следующий подшаг дает speed0/WAIT_STATION; replaceRails
 с неизмененной геометрией перед ним сбрасывает assignment, и router отвергает цель чуть позади.
-Это отдельный подтвержденный дефект, не устраненный исправлением сигнала. Итоговый успешный build
-выше относится к checkpoint, новый JAR с этим исправлением пока не заявляется.
+Это отдельный подтвержденный дефект, не устраненный одним исправлением сигнала.
 
-1. Исправление границы красного сигнала выполнено в указанном выше объеме. Далее устранить подтвержденный terminal target overrun: ограничивать остаток свежей геометрией той же route occurrence, сохранив строгие правила настоящей цели позади, loops и revision guards. Нужен deterministic regression с global revision change между terminal movement и braking step, physical/temporary, forward/reverse. Не заменять исправление принудительным WAIT_STATION.
+Затем исправлен terminal target overrun: TrainDispatcher.move ограничивает terminal limit свежим
+геометрическим остатком до той же направленной route occurrence. Кратчайший маршрут не подменяет
+назначенную петлю, global revision и behind-goal проверки сохранены. TrainTargetBoundaryTest до
+исправления дал 6 падений из 7, после исправления все 7 прошли. Покрыты physical/temporary,
+forward/reverse, смена revision между terminal и braking, настоящий curve prefix перед прямой
+остановкой, цель позади и удаление target rail. Все 182 railway core tests прошли, scoped review APPROVED.
+
+На объединенном snapshot с новыми ITEM-тестами: 777 unit, 0 failures/errors/skipped; все 436 required
+GameTest за 47.84 с (команда 67 с); build за 29 с. Версия внутри JAR - 0.10.0,
+SHA-256 `377e77fba7fd146c98661a575a9286ceb6536596de5c5066780b8879df6a2ffd`.
+Контроллер отдельно проверил XML, raw GT log, внутреннюю версию и SHA JAR. Это еще не приемка Task 8.
+
+```powershell
+.\gradlew.bat test --tests 'dev.minetorio.core.rail.*' --console=plain
+```
+
+## Что проверить дальше
+
+1. Оба подтвержденных численных дефекта исправлены в указанном выше объеме. Не отменять regression tests ради последующих изменений и не заменять штатное прибытие принудительным WAIT_STATION.
 2. Добавить задержку подключения помпы до переноса. Текущий bridge переносит сразу; native эксперимент причинно связал задержку со скоростью connector: 64 native ticks после первого питания при default 1/64. Mapping на Minecraft 20 Hz, удержание/сброс подключения и чистоту preview нужно явно определить и проверить до приемки. [Native измерение](factorio-1.1.110-pump-connector-timing.md).
-3. Закончить gate stationary endpoint на том же port, независимое ревью Task 8 и полный успешный unit/GameTest/build. ITEM review нашел тест, который игнорировал отказ commitMotion для AUTO и дважды проверял NO_SCHEDULE вместо WAIT_SIGNAL/NO_PATH; требуется настоящий NO_PATH producer и проверка фактического статуса. Также дополняются доказательства same-tick pose freshness, геометрических границ и nearest/UUID tie.
+3. Закончить gate stationary endpoint на том же port и финальное ревью жидкостей/Task 8, затем повторить полную проверку после warmup. ITEM review нашел тест, который игнорировал отказ commitMotion для AUTO и дважды проверял NO_SCHEDULE вместо WAIT_SIGNAL/NO_PATH. Исправление заменило его настоящим NO_PATH producer с сохранной геометрией, свежими и захваченными endpoints. Добавлены same-tick speed0 pose freshness, геометрические границы всех направлений, reversed и speed epsilon, nearest/train UUID/car UUID tie с проверкой canonical slots. Все новые world tests прошли; scoped ITEM re-review APPROVED, исходный I1 и три пробела ADDRESSED, новых замечаний нет.
 4. Затем Task 9: интерфейсы, включая настоящий menu shift-click заряженного пистолета; Task 10: чертежи; Task 11: полная матрица restart с движением, пассажиром, chain, split, reverse и fluid-in-flight.
 
 Подробные согласованные правила: [план железной дороги](../superpowers/plans/2026-10-29-minetorio-railway.md).

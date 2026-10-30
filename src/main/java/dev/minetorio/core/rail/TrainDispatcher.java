@@ -336,6 +336,14 @@ public final class TrainDispatcher {
     private Optional<TrainMotion.Proposal> move(UUID id, RailCircuitInputs inputs, double bonus) {
         Runtime r=runtime(id);Assignment a=r.assignment().orElseThrow();Train t=train(id);
         double limit=Math.max(0,a.visits().getLast().remaining());var leading=TrainReservations.leading(owner,id,a.sign());Cursor start=leading.start();
+        // Накопленное remaining может опередить фактический cursor на несколько ULP.
+        // Сверяем тот же назначенный occurrence, не сокращая петлю по одному UUID.
+        Visit terminal=a.visits().getLast();int terminalIndex=terminal.occurrence()-a.routeIndex();
+        if(terminalIndex>=0 && terminalIndex<a.route().size() && a.route().get(terminalIndex).equals(terminal.point().traversal())) {
+            double geometric=terminal.point().distance()-start.distance();
+            for(int i=0;i<terminalIndex;i++)geometric+=owner.railLength(a.route().get(i));
+            limit=Math.min(limit,Math.max(0,geometric));
+        }
         int precedingIndex=leading.tapeIndex()-a.sign();
         if(start.distance()==0 && precedingIndex>=0 && precedingIndex<t.tape().size()) {
             Traversal preceding=t.tape().get(precedingIndex);if(a.sign()<0) preceding=RailwayState.reverse(preceding);

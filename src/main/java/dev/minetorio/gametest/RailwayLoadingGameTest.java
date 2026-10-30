@@ -40,6 +40,9 @@ public final class RailwayLoadingGameTest {
             this(h,kind,automatic,-1,false);
         }
         Fixture(GameTestHelper h, StockKind kind, boolean automatic,int rotation,boolean mirrored) {
+            this(h,kind,automatic,rotation,mirrored,false);
+        }
+        Fixture(GameTestHelper h, StockKind kind, boolean automatic,int rotation,boolean mirrored,boolean reversed) {
             this.h=h;
             state=RailwaySavedData.get(h.getLevel()).state();
             if(rotation<0)rails=RailwayWorldGameTest.loadedTrack(h);
@@ -53,7 +56,7 @@ public final class RailwayLoadingGameTest {
                 }
                 var all=new ArrayList<>(state.rails());all.addAll(rails);state.replaceRails(all);RailwayManager.reconcileViews(h.getLevel());
             }
-            car=state.createCar(UUID.randomUUID(),kind,false);
+            car=state.createCar(UUID.randomUUID(),kind,reversed);
             List<UUID> cars=new ArrayList<>(List.of(car.id()));
             if (automatic) {
                 var loco=state.createCar(UUID.randomUUID(),StockKind.LOCOMOTIVE,false);
@@ -91,7 +94,21 @@ public final class RailwayLoadingGameTest {
             state.dispatcher().setSchedule(train,new TrainSchedule(List.of(stop),0));
         }
         Pose pose(){return TrainMotion.carPoses(state,train).get(car.id());}
-        void assertArrived(){h.assertTrue(state.trains().get(train).status()==Status.WAIT_STATION,"AUTO должен прибыть к настоящей станции: "+state.trains().get(train).status());}
+        String diagnostic() {
+            var t=state.trains().get(train);var runtime=state.dispatcher().runtime(train);
+            var assignment=runtime.assignment();
+            int sign=assignment.map(TrainDispatcher.Assignment::sign).orElse(t.speed()<0?-1:1);
+            String leading=t.head().isPresent()?TrainReservations.leading(state,train,sign).start().toString():"none";
+            String target=assignment.filter(a->!a.visits().isEmpty()).map(a->{var v=a.visits().getLast();return v.point()+", remaining="+v.remaining();}).orElseGet(()->{
+                var schedule=runtime.schedule();if(schedule.stops().isEmpty())return "none";
+                var stop=schedule.stops().get(schedule.current());
+                return stop.railTarget().map(tgt->tgt.point().toString()).orElseGet(()->state.stations().values().stream()
+                        .filter(s->stop.station().equals(Optional.of(s.name()))).map(s->s.stop().toString()).findFirst().orElse("missing station"));
+            });
+            return "status="+t.status()+", head="+t.head()+", leading="+leading+", speed="+t.speed()+", target="+target
+                    +", revisions="+state.graph().revision()+"/"+state.signals().revision()+"/"+t.routeRevision()+"/"+t.motionRevision();
+        }
+        void assertArrived(){h.assertTrue(state.trains().get(train).status()==Status.WAIT_STATION,"AUTO должен прибыть: "+diagnostic());}
         PumpBlockEntity pump() {
             return pump(1,0);
         }
@@ -309,10 +326,8 @@ public final class RailwayLoadingGameTest {
             h.assertTrue(RailCargoAccess.target(h.getLevel(),cell.above(2),Direction.DOWN)!=null&&RailCargoAccess.target(h.getLevel(),cell.above(3),Direction.DOWN)==null,"3D contact учитывает actual Y");
             var captured=RailCargoAccess.source(h.getLevel(),cell,Direction.EAST);
             f.state.dispatcher().setMode(f.train,Mode.AUTOMATIC);
-            for(Status status:List.of(Status.WAIT_SIGNAL,Status.NO_PATH)) {
-                var t=f.state.trains().get(f.train);f.state.commitMotion(t,f.state.graph().revision(),new MotionUpdate(t.head(),t.headIndex(),t.tape(),0,status));
-                h.assertTrue(RailCargoAccess.target(h.getLevel(),cell,Direction.EAST)==null&&!target.accept("minetorio:iron_plate")&&captured.peek(key->true).isEmpty()&&!captured.take("minetorio:iron_plate"),"AUTO "+status+" не загружается через свежий или captured endpoint");
-            }
+            h.assertTrue(f.state.trains().get(f.train).status()==Status.NO_SCHEDULE,"AUTO действительно без расписания");
+            h.assertTrue(RailCargoAccess.target(h.getLevel(),cell,Direction.EAST)==null&&!target.accept("minetorio:iron_plate")&&captured.peek(key->true).isEmpty()&&!captured.take("minetorio:iron_plate"),"AUTO NO_SCHEDULE не загружается через свежий или captured endpoint");
             f.state.dispatcher().setMode(f.train,Mode.MANUAL);
             var chest=relative(h,cell);h.setBlock(chest,Blocks.CHEST);
             var handler=InserterGameTest.handler(h,chest);
@@ -323,6 +338,115 @@ public final class RailwayLoadingGameTest {
             h.assertTrue(!target.accept("minetorio:iron_plate")&&!captured.take("minetorio:iron_plate"),"Captured endpoints отвергают удаленного owner");
             h.succeed();
         }
+    }
+
+    @GameTest(template="rail48",batch="railway_loading_item_modes",timeoutTicks=40)
+    public static void actualNoPathProducerRejectsFreshAndCapturedCargoEndpoints(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.CARGO,true);f.state.dispatcher().setMode(f.train,Mode.MANUAL);
+        var pose=f.pose();var p=pose.position();var cell=BlockPos.containing(p.x(),p.y(),p.z());
+        var target=RailCargoAccess.target(h.getLevel(),cell,Direction.EAST);var source=RailCargoAccess.source(h.getLevel(),cell,Direction.EAST);
+        h.assertTrue(target!=null&&source!=null&&target.accept("minetorio:iron_plate"),"Оба endpoint захвачены при доступном stopped owner");
+        var slots=f.car.cargo().orElseThrow().snapshot();
+        f.state.dispatcher().setSchedule(f.train,new TrainSchedule(List.of(new TrainSchedule.Stop(Optional.of("missing-"+f.train),Optional.empty(),false,List.of())),0));
+        f.state.dispatcher().setMode(f.train,Mode.AUTOMATIC);
+        h.runAfterDelay(10,()->{
+            h.assertTrue(f.state.trains().get(f.train).status()==Status.NO_PATH,"Настоящий dispatcher получил NO_PATH для отсутствующей станции");
+            h.assertTrue(f.pose().equals(pose)&&f.rails.stream().allMatch(r->f.state.graph().piece(r.id()).isPresent()),"Pose и рельсы сохранны, отказ не маскируется потерей geometry");
+            h.assertTrue(RailCargoAccess.source(h.getLevel(),cell,Direction.EAST)==null&&RailCargoAccess.target(h.getLevel(),cell,Direction.EAST)==null,"Свежие endpoints не допускают NO_PATH");
+            h.assertTrue(source.peek(key->true).isEmpty()&&!source.take("minetorio:iron_plate")&&!target.wants("minetorio:iron_plate")&&!target.accept("minetorio:iron_plate"),"Захваченные endpoints повторно проверяют NO_PATH");
+            h.assertTrue(slots.equals(f.car.cargo().orElseThrow().snapshot()),"NO_PATH не изменил canonical slots");h.succeed();
+        });
+    }
+
+    @GameTest(template="rail48",batch="railway_loading_item_pose")
+    public static void stoppedOwnerPoseChangesInvalidateCapturedEndpointsWithinSameTick(GameTestHelper h) {
+        try(var f=new Fixture(h,StockKind.CARGO,false)) {
+            long tick=h.getLevel().getGameTime();var p=f.pose().position();var oldCell=BlockPos.containing(p.x(),p.y(),p.z());
+            var target=RailCargoAccess.target(h.getLevel(),oldCell,Direction.EAST);var source=RailCargoAccess.source(h.getLevel(),oldCell,Direction.EAST);
+            h.assertTrue(target!=null&&source!=null&&target.accept("minetorio:iron_plate"),"Исходный owner доступен");
+            var train=f.state.trains().get(f.train);
+            h.assertTrue(f.state.commitMotion(train,f.state.graph().revision(),new MotionUpdate(Optional.of(new Cursor(train.tape().get(14),1)),14,train.tape(),0,train.status())),"Настоящий MANUAL owner переместился при speed0");
+            h.assertTrue(h.getLevel().getGameTime()==tick&&f.state.trains().get(f.train).speed()==0,"Нет межтикового или speed guard обхода");
+            h.assertTrue(source.peek(key->true).isEmpty()&&!source.take("minetorio:iron_plate")&&!target.wants("minetorio:iron_plate")&&!target.accept("minetorio:iron_plate"),"Старая захваченная pose запрещает все операции");
+            h.assertTrue(RailCargoAccess.source(h.getLevel(),oldCell,Direction.EAST)==null&&RailCargoAccess.target(h.getLevel(),oldCell,Direction.EAST)==null,"Старое место больше не индексируется");
+            var next=f.pose().position();var cell=BlockPos.containing(next.x(),next.y(),next.z());
+            var fresh=RailCargoAccess.target(h.getLevel(),cell,Direction.EAST);var pickup=RailCargoAccess.source(h.getLevel(),cell,Direction.EAST);
+            h.assertTrue(fresh!=null&&pickup!=null&&fresh.accept("minetorio:iron_plate")&&pickup.take("minetorio:iron_plate"),"Новые endpoints этого же tick используют новую pose");
+            h.assertTrue(f.car.cargo().orElseThrow().get(0).count()==1,"Остался ровно исходный предмет");h.succeed();
+        }
+    }
+
+    @GameTest(template="rail48wide",batch="railway_loading_item_pose")
+    public static void reversedWorldCargoUsesAllDirectionsAndExactSpeedThreshold(GameTestHelper h) {
+        try(var f=new Fixture(h,StockKind.CARGO,false,0,false,true)) {
+            h.assertTrue(f.car.reversed()&&f.pose().tangent().z()>0,"Реальный reversed owner");
+            var p=f.pose().position();var cell=BlockPos.containing(p.x(),p.y(),p.z());
+            for(double speed:new double[]{0,1e-6,-1e-6,Math.nextUp(1e-6),-Math.nextUp(1e-6)}) {
+                var train=f.state.trains().get(f.train);h.assertTrue(f.state.commitMotion(train,f.state.graph().revision(),new MotionUpdate(train.head(),train.headIndex(),train.tape(),speed,train.status())),"Установлена настоящая скорость owner");
+                for(Direction from:Direction.values()) {
+                    var target=RailCargoAccess.target(h.getLevel(),cell,from);var source=RailCargoAccess.source(h.getLevel(),cell,from);
+                    boolean eligible=Math.abs(speed)<=1e-6;
+                    h.assertTrue((target!=null)==eligible&&(source!=null)==eligible,"Reversed, from="+from+", speed="+speed);
+                    if(eligible)h.assertTrue(target.accept("minetorio:iron_plate")&&source.take("minetorio:iron_plate"),"Каждая сторона меняет настоящий owner");
+                }
+            }
+            h.assertTrue(f.car.cargo().orElseThrow().get(0).count()==0,"Матрица направлений сохраняет груз");h.succeed();
+        }
+    }
+
+    @GameTest(template="rail48",batch="railway_loading_item_selection")
+    public static void nearestContactThenTrainUuidSelectCanonicalCargo(GameTestHelper h) {
+        try(var f=new Fixture(h,StockKind.CARGO,false)) {
+            var p=f.pose().position();var cell=BlockPos.containing(p.x(),p.y(),p.z());
+            var tape=f.state.trains().get(f.train).tape();f.state.removeCar(f.car.id(),true);
+            UUID nearCar=new UUID(81,101),farCar=new UUID(81,102),nearTrain=new UUID(81,202),farTrain=new UUID(81,201);
+            for(boolean tied:new boolean[]{false,true}) {
+                for(UUID id:tied?List.of(nearCar,farCar):List.of(farCar,nearCar)) {
+                    var car=f.state.createCar(id,StockKind.CARGO,false);double distance=id.equals(nearCar)||tied?.75:1;
+                    f.state.createTrain(new Train(id.equals(nearCar)?nearTrain:farTrain,List.of(car.id()),Optional.of(new Cursor(tape.get(11),distance)),11,tape,0,Mode.MANUAL,Status.MANUAL_CONTROL_STOP,0,0,0));
+                }
+                var q=new Vec(cell.getX()+.5,cell.getY()+.5,cell.getZ()+.5);var from=new Vec(0,0,1);
+                double a=RailDockGeometry.itemContact(TrainMotion.carPoses(f.state,nearTrain).get(nearCar),q,from).orElseThrow();
+                double b=RailDockGeometry.itemContact(TrainMotion.carPoses(f.state,farTrain).get(farCar),q,from).orElseThrow();
+                h.assertTrue(tied?a==b:a<b,"Оба кандидата допустимы; " +(tied?"точный tie":"первый геометрически ближе"));
+                var endpoint=RailCargoAccess.target(h.getLevel(),cell,Direction.SOUTH);
+                h.assertTrue(endpoint!=null&&endpoint.accept("minetorio:iron_plate"),"Выбран реальный canonical cargo");
+                UUID selected=tied?farCar:nearCar;
+                h.assertTrue(f.state.cars().get(selected).cargo().orElseThrow().get(0).count()==1&&f.state.cars().get(tied?nearCar:farCar).cargo().orElseThrow().get(0).count()==0,"Nearest имеет приоритет, при tie побеждает меньший train UUID, а не car UUID или порядок вставки");
+                h.assertTrue(RailCargoAccess.source(h.getLevel(),cell,Direction.SOUTH).take("minetorio:iron_plate"),"Source выбирает тот же canonical owner");
+                f.state.removeCar(nearCar,true);f.state.removeCar(farCar,true);
+            }
+            h.succeed();
+        }
+    }
+
+    @GameTest(template="rail48wide",batch="railway_loading_item_selection")
+    public static void sameTrainContactTieUsesCarUuidOnRepeatedRealLoop(GameTestHelper h) {
+        var state=RailwaySavedData.get(h.getLevel()).state();var origin=h.absolutePos(new BlockPos(10,2,24));
+        int bx=Math.floorDiv(origin.getX(),2)*2,bz=Math.floorDiv(origin.getZ(),2)*2;
+        var quarter=List.of(new Piece(UUID.randomUUID(),new Point(0,0,0),Shape.CURVE,0,false),
+                new Piece(UUID.randomUUID(),new Point(4,0,-8),Shape.DIAGONAL,0,false),
+                new Piece(UUID.randomUUID(),new Point(12,0,-12),Shape.CURVE,3,true));
+        int[][] translations={{0,0},{12,-12},{24,0},{12,12}};List<Piece> rails=new ArrayList<>();List<UUID> cars=new ArrayList<>();
+        try {
+            for(int turn=0;turn<4;turn++)for(var p:quarter) {
+                var transformed=transform(p,turn,false);var at=transformed.origin();
+                rails.add(new Piece(UUID.randomUUID(),new Point(bx+at.x()+translations[turn][0],origin.getY(),bz+at.z()+translations[turn][1]),transformed.shape(),transformed.quarterTurns(),transformed.mirrored()));
+            }
+            var all=new ArrayList<>(state.rails());all.addAll(rails);state.replaceRails(all);
+            List<Traversal> tape=new ArrayList<>();var step=new Traversal(rails.getFirst().id(),true);
+            for(int i=0;i<36;i++){tape.add(step);step=state.graph().next(step).getFirst();}
+            for(int i=0;i<11;i++){UUID id=new UUID(82,i==10?1:100+i);cars.add(id);state.createCar(id,StockKind.CARGO,false);}
+            UUID train=new UUID(82,300);state.createTrain(new Train(train,cars,Optional.of(new Cursor(tape.get(24),2)),24,tape,0,Mode.MANUAL,Status.MANUAL_CONTROL_STOP,0,0,0));
+            h.assertTrue(state.trains().get(train).head().isPresent(),"Повторенный реальный loop принят owner без PATH_LOST/fake poses");
+            var poses=TrainMotion.carPoses(state,train);var at=poses.get(cars.getFirst()).position();var cell=BlockPos.containing(at.x(),at.y(),at.z());
+            var q=new Vec(cell.getX()+.5,cell.getY()+.5,cell.getZ()+.5);var up=new Vec(0,1,0);
+            h.assertTrue(RailDockGeometry.itemContact(poses.get(cars.getFirst()),q,up).orElseThrow()==0&&RailDockGeometry.itemContact(poses.get(cars.getLast()),q,up).orElseThrow()==0,"Два вагона одного canonical train одновременно допустимы с точным tie0");
+            var target=RailCargoAccess.target(h.getLevel(),cell,Direction.UP);
+            h.assertTrue(target!=null&&target.accept("minetorio:iron_plate"),"Contact выбрал canonical slot");
+            h.assertTrue(state.cars().get(cars.getLast()).cargo().orElseThrow().get(0).count()==1&&cars.subList(0,10).stream().allMatch(id->state.cars().get(id).cargo().orElseThrow().get(0).count()==0),"Меньший car UUID победил при равном train/contact, хотя стоит последним в consist");
+            h.succeed();
+        } finally {cars.forEach(id->state.removeCar(id,true));RailwayWorldGameTest.cleanupTrack(h,rails);}
     }
 
     @GameTest(template="rail48",batch="railway_loading_reload")
@@ -400,7 +524,7 @@ public final class RailwayLoadingGameTest {
             h.assertTrue(state.signalDefinitions().contains(signal),"Сигнал остается в owner");
             h.assertTrue(!state.signals().blocks(tape.get(12)).equals(state.signals().blocks(tape.get(13))),"Сигнал разделил блоки");
             h.assertTrue(state.signals().aspect(signal.id(),state.reservations())==RailSignals.Aspect.RED,"Занятый блок реально дает RED, actual="+state.signals().aspect(signal.id(),state.reservations()));
-        }).thenWaitUntil(()->h.assertTrue(state.trains().get(f.train).status()==Status.WAIT_SIGNAL,"Настоящий AUTO доехал до занятого signal block: "+state.trains().get(f.train)+", runtime="+state.dispatcher().runtime(f.train)))
+        }).thenWaitUntil(()->h.assertTrue(state.trains().get(f.train).status()==Status.WAIT_SIGNAL,"Настоящий AUTO должен ждать занятый signal block: "+f.diagnostic()))
                 .thenExecute(()->{
                     var p=f.pose().position();var cell=BlockPos.containing(p.x(),p.y(),p.z());source[0]=relative(h,cell.east(2));
                     InserterGameTest.container(h,Blocks.CHEST,source[0],new ItemStack(ModItems.IRON_PLATE.get()));

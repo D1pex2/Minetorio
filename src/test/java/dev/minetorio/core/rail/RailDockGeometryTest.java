@@ -75,4 +75,17 @@ class RailDockGeometryTest {
             assertTrue(RailDockGeometry.connectorFrame(state,train.id(),car.id(),0).isEmpty(),"Cardinal lead-in кривой не становится STRAIGHT");
         }
     }
+    @Test void itemBodyBoundariesAcceptAllSixDirectionsIncludingReversedPose() {
+        Vec[] directions={new Vec(1,0,0),new Vec(-1,0,0),new Vec(0,1,0),new Vec(0,-1,0),new Vec(0,0,1),new Vec(0,0,-1)};
+        double[] low={-2.75,-.6,.15},high={2.75,.6,2.65};
+        for(Vec axis:TANGENTS)for(boolean reversed:new boolean[]{false,true}) {
+            Vec t=reversed?new Vec(-axis.x(),0,-axis.z()):axis;var pose=new Pose(new Vec(0,0,0),t);
+            for(int dimension=0;dimension<3;dimension++)for(int side:new int[]{-1,1})for(int offset:new int[]{-1,0,1}) {
+                double[] q={0,0,1.4};q[dimension]=(side<0?low[dimension]:high[dimension])+side*offset*1e-7;
+                Vec world=new Vec(q[0]*t.x()-q[1]*t.z(),q[2],q[0]*t.z()+q[1]*t.x());
+                for(Vec direction:directions)assertEquals(offset<=0,RailDockGeometry.itemContact(pose,world,direction).isPresent(),
+                        "OBB axis="+dimension+", side="+side+", offset="+offset+", reversed="+reversed+", from="+direction);
+            }
+        }
+    }
 }
