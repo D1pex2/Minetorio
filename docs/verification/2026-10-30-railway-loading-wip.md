@@ -41,9 +41,29 @@ Maven mirror init-script для загрузки зависимостей. Он 
 
 ## Что исправить и проверить дальше
 
-1. Исправить подтвержденный дефект границы красного сигнала. Read-only replay на стабильном JAR 0.9.1 показал: перед boundary q26 leading=25.998323498436307, authority=0.001676501563695254; разрешенный подшаг дает q26.000000000000004. Следующая проверка preceding требует точный ноль, не узнает границу и принимает следующий блок за начальный interior. Authority возрастает до 5.5, поезд пересекает красный и останавливается уже перед физическим blocker. Это дефект прежнего ядра, не повод обходить новый тест или подменять его состояние на WAIT_SIGNAL. Нужен узкий regression test и согласованное исправление owning seam.
+После checkpoint 49c7510 исправлена граница красного сигнала: TrainMotion ограничивает фактический
+шаг текущим authority.remaining до построения sweep, а owner commit отклоняет превышение до расхода
+топлива. Допуски планирования и shared-initial-interior policy сохранены. Новый TrainSignalBoundaryTest
+до исправления дал 3 падения из 6; после исправления все 77 покрывающих core-тестов прошли за 21 с.
+Проверены forward/reverse, каждый подшаг sweep/owner, точная граница, освобождение блока и штатный
+departure, отказ прямого commit до fuel callback и разрешенный shared start. Независимое scoped
+ревью APPROVED, Critical/Important не найдено. Команда:
+
+```powershell
+.\gradlew.bat test --tests dev.minetorio.core.rail.TrainSignalBoundaryTest --tests dev.minetorio.core.rail.TrainReservationsTest --tests dev.minetorio.core.rail.TrainDispatcherTest --tests dev.minetorio.core.rail.TrainMotionTest --console=plain
+```
+
+После этого full world прогон дал 429 из 431: настоящий WAIT_SIGNAL и отказ погрузки прошли,
+но повторились два NO_PATH у physical и temporary arrival. Точный snapshot: leading.distance
+1.500000000000007 при target.distance 1.5 на том же traversal. Изолированный replay на старом JAR
+0.9.1 подтвердил: без смены revision следующий подшаг дает speed0/WAIT_STATION; replaceRails
+с неизмененной геометрией перед ним сбрасывает assignment, и router отвергает цель чуть позади.
+Это отдельный подтвержденный дефект, не устраненный исправлением сигнала. Итоговый успешный build
+выше относится к checkpoint, новый JAR с этим исправлением пока не заявляется.
+
+1. Исправление границы красного сигнала выполнено в указанном выше объеме. Далее устранить подтвержденный terminal target overrun: ограничивать остаток свежей геометрией той же route occurrence, сохранив строгие правила настоящей цели позади, loops и revision guards. Нужен deterministic regression с global revision change между terminal movement и braking step, physical/temporary, forward/reverse. Не заменять исправление принудительным WAIT_STATION.
 2. Добавить задержку подключения помпы до переноса. Текущий bridge переносит сразу; native эксперимент причинно связал задержку со скоростью connector: 64 native ticks после первого питания при default 1/64. Mapping на Minecraft 20 Hz, удержание/сброс подключения и чистоту preview нужно явно определить и проверить до приемки. [Native измерение](factorio-1.1.110-pump-connector-timing.md).
-3. Закончить gate stationary endpoint на том же port, независимое ревью Task 8 и полный успешный unit/GameTest/build. В двух промежуточных прогонах встречался NO_PATH у AUTO fixtures; причина пока не доказана, исчезновение в последующих прогонах не равно исправлению.
+3. Закончить gate stationary endpoint на том же port, независимое ревью Task 8 и полный успешный unit/GameTest/build. ITEM review нашел тест, который игнорировал отказ commitMotion для AUTO и дважды проверял NO_SCHEDULE вместо WAIT_SIGNAL/NO_PATH; требуется настоящий NO_PATH producer и проверка фактического статуса. Также дополняются доказательства same-tick pose freshness, геометрических границ и nearest/UUID tie.
 4. Затем Task 9: интерфейсы, включая настоящий menu shift-click заряженного пистолета; Task 10: чертежи; Task 11: полная матрица restart с движением, пассажиром, chain, split, reverse и fluid-in-flight.
 
 Подробные согласованные правила: [план железной дороги](../superpowers/plans/2026-10-29-minetorio-railway.md).

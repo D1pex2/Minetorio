@@ -206,6 +206,7 @@ public final class TrainReservations {
         if(!permits(state,old,sign,bonus,braking,distance,next.speed())) return false;
         Authority authority=state.reservations().authorities.get(old.id());
         if(authority==null) return distance==0 && old.head().equals(next.head()) && old.tape().equals(next.tape());
+        if(distance>authority.remaining()) return false;
         Plan plan=authority.plan(); Leading target=leading(state,next,sign);
         // Сравниваем весь пройденный хвост route occurrence, а не равенство конечного Cursor.
         double left=distance+plan.start().distance(); int index=0;

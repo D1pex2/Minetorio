@@ -53,6 +53,9 @@ public final class TrainMotion {
         }
         if(train.mode()==Mode.AUTOMATIC && path.distance()+1e-12<magnitude) return Optional.empty();
         double distance = Math.min(magnitude,path.distance());
+        // Допуск расчета торможения не разрешает физически пересекать конец authority.
+        // Нормализуем подтвержденный префикс до построения sweep и расхода ресурсов.
+        if(train.mode()==Mode.AUTOMATIC) distance=Math.min(distance,state.reservations().remainingDistance(train.id()));
         boolean blockedByTrackEnd = distance + 1e-12 < magnitude;
         double speed = blockedByTrackEnd ? 0 : magnitude*sign;
         boolean spend=!brake;
