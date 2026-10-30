@@ -11,13 +11,17 @@ import static dev.minetorio.core.rail.RailGeometry.*;
 
 /** Производные подключения помп; груз остается только в существующих Car и PumpBlockEntity. */
 public final class RailPumpDock {
+    public static final long WARMUP_RAIL_TICKS=64;
     private RailPumpDock() {}
     public record Dock(UUID train,UUID car,BlockPos controller,int port,int side,int connector,int anchor) {}
+    public record Connection(Dock dock,long firstPoweredRailClock,OptionalLong firstTransferRailClock) {}
     private record Candidate(Dock dock,RailwayState owner,RailwayState.Car car,PumpBlockEntity pump,
-                             long consist,Pose frame,FluidPorts.Port port) {}
+                             long epoch,long consist,FluidPorts.Port port) {}
     private static final class Connections {
         long tick=Long.MIN_VALUE;
         List<Candidate> selected=List.of();
+        Map<Candidate,Long> starts=Map.of();
+        Map<Candidate,Long> firstTransfers=Map.of();
     }
     // Удаляется вместе с FluidNetworkManager при выгрузке измерения; NBT не имеет этих данных.
     private static final Map<ServerLevel,Connections> CONNECTIONS=new HashMap<>();
@@ -43,7 +47,7 @@ public final class RailPumpDock {
                             for(int side:new int[]{-1,1}) {
                                 var anchor=RailDockGeometry.anchor(frame.get(),side,0,cell(port),direction(port));
                                 if(anchor.isPresent())result.add(new Candidate(new Dock(train.id(),id,pump.getBlockPos(),port.index(),side,connector,anchor.getAsInt()),
-                                        state,car,pump,train.consistRevision(),frame.get(),port));
+                                        state,car,pump,pump.railConnectionEpoch(),train.consistRevision(),port));
                             }
                         }
                     }
@@ -78,21 +82,33 @@ public final class RailPumpDock {
         Connections connections=CONNECTIONS.get(level);
         return computeSelection(level,connections==null?List.of():connections.selected).stream().map(Candidate::dock).toList();
     }
+    /** Чистый снимок уже подтвержденных runtime подключений для диагностики и preview. */
+    public static List<Connection> committedConnections(ServerLevel level) {
+        Connections connections=CONNECTIONS.get(level);
+        return connections==null?List.of():connections.selected.stream().map(c->new Connection(c.dock(),connections.starts.get(c),
+                connections.firstTransfers.containsKey(c)?OptionalLong.of(connections.firstTransfers.get(c)):OptionalLong.empty())).toList();
+    }
     public static void beginTick(ServerLevel level) {
         Connections connections=CONNECTIONS.computeIfAbsent(level,key->new Connections());
         long tick=level.getGameTime();if(connections.tick==tick)return;
-        connections.selected=computeSelection(level,connections.selected);connections.tick=tick;
+        var selected=computeSelection(level,connections.selected);Map<Candidate,Long> starts=new HashMap<>();
+        long clock=RailwaySavedData.get(level).state().railClock();
+        for(Candidate candidate:selected)starts.put(candidate,connections.starts.getOrDefault(candidate,clock));
+        Map<Candidate,Long> transfers=new HashMap<>();
+        for(Candidate candidate:selected)if(connections.firstTransfers.containsKey(candidate))transfers.put(candidate,connections.firstTransfers.get(candidate));
+        connections.selected=selected;connections.starts=starts;connections.firstTransfers=transfers;connections.tick=tick;
     }
     private static boolean current(ServerLevel level,Candidate candidate) {
         if(RailwaySavedData.get(level).state()!=candidate.owner()||candidate.owner().cars().get(candidate.dock().car())!=candidate.car()
                 ||candidate.pump().isRemoved()||!level.isLoaded(candidate.dock().controller())
+                ||candidate.pump().railConnectionEpoch()!=candidate.epoch()
                 ||level.getBlockEntity(candidate.dock().controller())!=candidate.pump()
                 ||!Double.isFinite(candidate.pump().satisfaction())||candidate.pump().satisfaction()<=0
                 ||!FluidNetworkManager.get(level).loadedPumps().contains(candidate.pump()))return false;
         var train=candidate.owner().trains().get(candidate.dock().train());
         if(train==null||!stopped(train)||train.consistRevision()!=candidate.consist())return false;
         var frame=RailDockGeometry.connectorFrame(candidate.owner(),train.id(),candidate.car().id(),candidate.dock().connector());
-        if(frame.isEmpty()||!frame.get().equals(candidate.frame()))return false;
+        if(frame.isEmpty())return false;
         var port=FluidPorts.ports(level,candidate.dock().controller()).stream().filter(p->p.index()==candidate.dock().port()).findFirst();
         return port.isPresent()&&port.get().equals(candidate.port())
                 &&FluidConnections.endAt(level,port.get().neighbor(),port.get().side().getOpposite())==null
@@ -108,9 +124,14 @@ public final class RailPumpDock {
         return Math.max(0,Math.min(rate,Math.min(sourceAmount,capacity-targetAmount)));
     }
     public static double transfer(ServerLevel level,PumpBlockEntity pump) {
-        beginTick(level);double transferred=0;long tick=level.getGameTime();
-        for(Candidate candidate:CONNECTIONS.get(level).selected) {
-            if(candidate.pump()!=pump||!current(level,candidate))continue;
+        beginTick(level);double transferred=0;long tick=level.getGameTime();Connections connections=CONNECTIONS.get(level);
+        for(Candidate candidate:connections.selected) {
+            if(candidate.pump()!=pump)continue;
+            if(!current(level,candidate)) {
+                // Наблюденная runtime потеря окончательна даже при восстановлении в этом же тике.
+                connections.selected=connections.selected.stream().filter(c->c!=candidate).toList();connections.starts.remove(candidate);connections.firstTransfers.remove(candidate);continue;
+            }
+            if(candidate.owner().railClock()-connections.starts.get(candidate)<WARMUP_RAIL_TICKS)continue;
             var wagon=candidate.car().fluid().orElseThrow();var box=pump.box();double rate=pump.railBudget(tick);
             double amount;
             if(candidate.port().spec().kind()==PortKind.OUTPUT) {
@@ -125,6 +146,7 @@ public final class RailPumpDock {
                 candidate.car().extractFluid(accepted);amount=accepted;
             } else continue;
             pump.recordRailTransfer(tick,amount);pump.fluidChanged();transferred+=amount;
+            connections.firstTransfers.putIfAbsent(candidate,candidate.owner().railClock());
         }
         return transferred;
     }

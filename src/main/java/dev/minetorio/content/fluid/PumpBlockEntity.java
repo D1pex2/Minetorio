@@ -36,6 +36,7 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
     private FluidGauge clientGauge = FluidGauge.EMPTY;
     private long railTransferTick=Long.MIN_VALUE;
     private double railTransferred;
+    private long railConnectionEpoch;
 
     public PumpBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PUMP.get(), pos, state);
@@ -46,6 +47,7 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
     public FluidBox box() { return box; }
 
     public double satisfaction() { return power.satisfaction(); }
+    public long railConnectionEpoch() { return railConnectionEpoch; }
 
     /** Общий бюджет обоих железнодорожных портов за один Minecraft tick. Чтение чистое. */
     public double railBudget(long tick) {
@@ -78,6 +80,7 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
 
     @Override
     public void onLoad() {
+        railConnectionEpoch++;
         super.onLoad();
         fluids.onLoad();
         power.onLoad();
@@ -85,6 +88,7 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
 
     @Override
     public void setRemoved() {
+        railConnectionEpoch++;
         super.setRemoved();
         fluids.onRemoved();
         power.onRemoved();
@@ -92,6 +96,7 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
 
     @Override
     public void onChunkUnloaded() {
+        railConnectionEpoch++;
         super.onChunkUnloaded();
         fluids.onRemoved();
         power.onRemoved();
@@ -105,6 +110,8 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        // Перезагрузка подключения не возвращает уже потраченный бюджет текущего тика.
+        railConnectionEpoch++;
         super.loadAdditional(tag, registries);
         if (tag.contains(KEY_BOX)) CoreNbt.loadFluidInto(box, tag.getCompound(KEY_BOX));
         clientGauge = FluidNode.readGauge(tag, clientGauge);

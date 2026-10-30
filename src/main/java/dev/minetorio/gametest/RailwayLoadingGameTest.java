@@ -150,10 +150,11 @@ public final class RailwayLoadingGameTest {
     }
 
     private static void cardinalNozzles(GameTestHelper h,int rotation,boolean mirrored) {
-        var f=new Fixture(h,StockKind.FLUID,true,rotation,mirrored);
+        var f=new Fixture(h,StockKind.FLUID,true,rotation,mirrored,rotation==3);PumpBlockEntity[] active={null};List<PumpBlockEntity> pumps=new ArrayList<>();
         h.startSequence().thenWaitUntil(f::assertArrived).thenExecute(()->{
             for(int side:new int[]{-1,1})for(int connector=-1;connector<=1;connector++) {
-                var pump=f.pump(side,connector);var port=FluidPorts.ports(h.getLevel(),pump.getBlockPos()).get(1);
+                var pump=f.pump(side,connector,0);pumps.add(pump);if(side==1&&connector==1)active[0]=pump;
+                var port=FluidPorts.ports(h.getLevel(),pump.getBlockPos()).get(1);
                 RailDir dir=RailDir.valueOf(port.side().name().substring(0,1));
                 var point=new Point(port.cell().getX(),port.cell().getY(),port.cell().getZ());
                 h.assertTrue(RailDockGeometry.matches(f.pose(),side,connector,point,dir),"Actual station/pump для rotation="+rotation+", mirror="+mirrored+", side="+side+", connector="+connector);
@@ -163,6 +164,11 @@ public final class RailwayLoadingGameTest {
                     h.assertTrue(RailDockGeometry.matches(moved,side,connector,point,dir)==(dy<=.0625),"Общая nozzle geometry сохраняет вертикальную границу у реального port");
                 }
             }
+            TestPower.powerAt(h,relative(h,active[0].getBlockPos().above(2)));active[0].box().insert("water",600);
+        }).thenIdle(30).thenExecute(()->{
+            var dock=connection(f,active[0]);h.assertTrue(dock.dock().side()==1&&dock.dock().connector()==1&&dock.dock().port()==1,"Actual selected connector дляcardinal/reversed");
+            h.assertTrue(f.car.fluid().orElseThrow().amount()==600&&pumps.stream().mapToDouble(p->p.box().amount()).sum()==0,"Actual cardinal pump передала600 в canonical owner без потери");
+            h.assertTrue(dock.firstTransferRailClock().orElseThrow()-dock.firstPoweredRailClock()>=64,"Cardinal transfer после warmup");
         }).thenSucceed();
     }
     @GameTest(template="rail48wide",batch="railway_loading_cardinal",timeoutTicks=300)
@@ -193,7 +199,7 @@ public final class RailwayLoadingGameTest {
         var f=new Fixture(h,StockKind.FLUID,true);PumpBlockEntity[] pump={null};
         h.startSequence().thenWaitUntil(f::assertArrived).thenExecute(()->{
             pump[0]=f.pump();pump[0].box().insert("water",600);
-        }).thenIdle(20).thenExecute(()->{
+        }).thenIdle(30).thenExecute(()->{
             h.assertTrue(pump[0].satisfaction()>.99,"Настоящая сеть питает помпу");
             h.assertTrue(f.car.fluid().orElseThrow().amount()==600,
                     "Actual FluidNetworkManager wagon RED: wagon="+f.car.fluid().orElseThrow().amount()+", pump="+pump[0].box().amount()+", satisfaction="+pump[0].satisfaction());
@@ -574,6 +580,155 @@ public final class RailwayLoadingGameTest {
         h.assertTrue(FluidAccess.segmentAt(h.getLevel(),tank).insert(fluid,amount)==amount,"Реальный tank/pipe source заполнен");
         return tank;
     }
+    private static RailPumpDock.Connection connection(Fixture f,PumpBlockEntity pump) {
+        var found=RailPumpDock.committedConnections(f.h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())&&c.dock().controller().equals(pump.getBlockPos())).findFirst();
+        f.h.assertTrue(found.isPresent(),"Ожидается подтвержденное runtime подключение конкретной помпы");return found.orElseThrow();
+    }
+    @GameTest(template="rail48wide",batch="railway_loading_warmup",timeoutTicks=80)
+    public static void actualFreshPumpWaits64RailTicksFromPoweredRuntimeSelection(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);var pump=f.pump();var tank=sourceTank(h,pump,5000,"water");
+        long[] start={-1},startTick={-1},firstPower={-1},firstFlow={-1},firstFlowTick={-1},lastClock={-1},lastTick={-1};String[] violation={null};
+        h.assertTrue(RailPumpDock.committedConnections(h.getLevel()).stream().noneMatch(c->c.dock().car().equals(f.car.id())),"Preview не создал runtime start");
+        h.onEachTick(()->{
+            if(f.closed)return;
+            if(pump.satisfaction()>0&&firstPower[0]<0)firstPower[0]=f.state.railClock();
+            var connection=RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())).findFirst();
+            if(connection.isPresent()&&start[0]<0){start[0]=connection.get().firstPoweredRailClock();startTick[0]=h.getLevel().getGameTime();}
+            long clock=f.state.railClock();double wagon=f.car.fluid().orElseThrow().amount();
+            if(start[0]>=0&&firstFlow[0]<0&&lastClock[0]>=0&&clock-lastClock[0]!=3*(h.getLevel().getGameTime()-lastTick[0])&&violation[0]==null)violation[0]="Нештатная cadence в изолированном timing batch";
+            lastClock[0]=clock;lastTick[0]=h.getLevel().getGameTime();
+            if(start[0]>=0&&clock-start[0]<64&&wagon!=0&&violation[0]==null)violation[0]="Early flow="+wagon+", elapsed="+(clock-start[0]);
+            if(connection.isPresent()&&connection.get().firstTransferRailClock().isPresent()&&firstFlow[0]<0){firstFlow[0]=connection.get().firstTransferRailClock().getAsLong();firstFlowTick[0]=h.getLevel().getGameTime();}
+            double total=wagon+pump.box().amount()+FluidAccess.segmentAt(h.getLevel(),tank).amount();
+            if(Math.abs(total-5000)>1e-6&&violation[0]==null)violation[0]="Warmup conservation="+total;
+        });
+        h.runAfterDelay(40,()->{
+            h.assertTrue(firstPower[0]>=0&&start[0]>=firstPower[0]&&pump.satisfaction()>.99,"Захвачены отдельно actual power discovery и committed start: power="+firstPower[0]+", start="+start[0]);
+            h.assertTrue(violation[0]==null,"Каждый tick до64 не переносил: "+violation[0]);
+            h.assertTrue(firstFlow[0]-start[0]==66,"Первая дискретная возможность после64 railticks: actual="+(firstFlow[0]-start[0]));
+            h.assertTrue(firstFlowTick[0]-startTick[0]==22,"Нормальная cadence дает22 Minecraft ticks");
+            h.assertTrue(f.car.fluid().orElseThrow().amount()>0,"После ready настоящий tank/pipe/pump заполнил wagon");h.succeed();
+        });
+    }
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_retained",timeoutTicks=70)
+    public static void retainedWarmupSurvivesPoseGraphRevisionAndPreviewSpam(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);var pump=f.pump();sourceTank(h,pump,5000,"water");long[] start={-1};
+        h.runAfterDelay(5,()->{
+            var before=connection(f,pump);start[0]=before.firstPoweredRailClock();var data=RailwaySavedData.get(h.getLevel());data.setDirty(false);
+            long clock=f.state.railClock();for(int i=0;i<100;i++)RailPumpDock.selection(h.getLevel());
+            h.assertTrue(connection(f,pump).equals(before)&&clock==f.state.railClock()&&!data.isDirty(),"Preview не пишет timer/clock/dirty");
+            moveHead(f,1.03);f.state.replaceRails(f.state.rails());
+            for(int i=0;i<20;i++)h.assertTrue(RailPumpDock.transfer(h.getLevel(),pump)==0,"Повторные вызовы не ускоряют warmup");
+            h.assertTrue(connection(f,pump).firstPoweredRailClock()==start[0],"Сдвиг внутри того же anchor сохраняет start в том же tick");
+        });
+        h.runAfterDelay(35,()->{
+            var current=connection(f,pump);
+            h.assertTrue(current.firstPoweredRailClock()==start[0]&&current.firstTransferRailClock().orElseThrow()-start[0]==66,"Pose/motion и unrelated graph revision не перезапустили warmup");
+            h.assertTrue(f.car.fluid().orElseThrow().amount()>0,"Сохраненный claim действительно передавал");h.succeed();
+        });
+    }
+
+    private static void warmupReset(GameTestHelper h,String cause) {
+        var f=new Fixture(h,StockKind.FLUID,cause.equals("consist"));if(cause.equals("consist"))f.state.dispatcher().setMode(f.train,Mode.MANUAL);
+        RailwayState.Car[] wagon={f.car};wagon[0].insertFluid("water",25000);PumpBlockEntity[] pump={f.pump()};pump[0].box().insert("water",600);
+        long[] oldStart={-1},resetClock={-1};
+        h.startSequence().thenIdle(30).thenExecute(()->{
+            var old=connection(f,pump[0]);oldStart[0]=old.firstPoweredRailClock();resetClock[0]=f.state.railClock();
+            h.assertTrue(resetClock[0]-oldStart[0]>=64&&old.firstTransferRailClock().isEmpty(),"Full target сохранил готовое подключение без flow");
+            long tick=h.getLevel().getGameTime();
+            switch(cause) {
+                case "eligibility" -> {f.state.dispatcher().setMode(f.train,Mode.AUTOMATIC);h.assertTrue(f.state.trains().get(f.train).status()==Status.NO_SCHEDULE,"Реальный NO_SCHEDULE");RailPumpDock.transfer(h.getLevel(),pump[0]);f.state.dispatcher().setMode(f.train,Mode.MANUAL);}
+                case "gap" -> {moveHead(f,1.25);RailPumpDock.transfer(h.getLevel(),pump[0]);moveHead(f,1);}
+                case "anchor" -> {moveHead(f,1.5);h.assertTrue(RailPumpDock.selection(h.getLevel()).stream().anyMatch(d->d.car().equals(f.car.id())&&d.anchor()!=old.dock().anchor()),"Новый допустимый anchor без наблюдения промежуточного gap");RailPumpDock.transfer(h.getLevel(),pump[0]);}
+                case "nbt" -> {var tag=pump[0].saveWithoutMetadata(h.getLevel().registryAccess());pump[0].loadWithComponents(tag,h.getLevel().registryAccess());RailPumpDock.transfer(h.getLevel(),pump[0]);}
+                case "lifecycle" -> {pump[0].onChunkUnloaded();RailPumpDock.transfer(h.getLevel(),pump[0]);pump[0].onLoad();}
+                case "replacement" -> {var oldPump=pump[0];var tag=oldPump.saveWithoutMetadata(h.getLevel().registryAccess());var pos=oldPump.getBlockPos();oldPump.onChunkUnloaded();h.getLevel().removeBlockEntity(pos);pump[0]=new PumpBlockEntity(pos,h.getLevel().getBlockState(pos));pump[0].loadWithComponents(tag,h.getLevel().registryAccess());h.getLevel().setBlockEntity(pump[0]);pump[0].onLoad();h.assertTrue(RailPumpDock.transfer(h.getLevel(),oldPump)==0,"Старый supplier недействителен");}
+                case "car" -> {var train=f.state.trains().get(f.train);f.state.removeCar(f.car.id(),true);wagon[0]=f.state.createCar(f.car.id(),StockKind.FLUID,false);wagon[0].insertFluid("water",25000);f.state.createTrain(train);RailPumpDock.transfer(h.getLevel(),pump[0]);}
+                case "consist" -> {h.assertTrue(TrainCoupling.split(f.state,f.car.id(),TrainCoupling.End.BACK).isPresent(),"Настоящий split при прежней pose");RailPumpDock.transfer(h.getLevel(),pump[0]);}
+                default -> throw new IllegalArgumentException(cause);
+            }
+            wagon[0].extractFluid(600);
+            h.assertTrue(RailPumpDock.transfer(h.getLevel(),pump[0])==0&&h.getLevel().getGameTime()==tick,"Invalid/restore в одном tick не воскресил старую готовность: "+cause);
+            h.assertTrue(wagon[0].fluid().orElseThrow().amount()+pump[0].box().amount()==25000,"Сохранность после явного снятия600 из полного target");
+        }).thenIdle(10).thenExecute(()->{
+            var next=connection(f,pump[0]);h.assertTrue(next.firstPoweredRailClock()>=resetClock[0]&&next.firstPoweredRailClock()!=oldStart[0],"Новый start после "+cause);
+            h.assertTrue(next.firstTransferRailClock().isEmpty()&&wagon[0].fluid().orElseThrow().amount()==24400&&pump[0].box().amount()==600,"Новый полный warmup еще не окончен: "+cause);
+        }).thenIdle(20).thenExecute(()->{
+            var next=connection(f,pump[0]);h.assertTrue(next.firstTransferRailClock().orElseThrow()-next.firstPoweredRailClock()>=64,"Новый перенос только после64: "+cause);
+            h.assertTrue(wagon[0].fluid().orElseThrow().amount()==25000&&pump[0].box().amount()==0,"Новый claim перенес сохраненные600: "+cause);h.succeed();
+        });
+    }
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterSameTickEligibilityLoss(GameTestHelper h){warmupReset(h,"eligibility");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterSameTickGapAndReturn(GameTestHelper h){warmupReset(h,"gap");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterAnchorChanges(GameTestHelper h){warmupReset(h,"anchor");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterSameBlockEntityNbtLoad(GameTestHelper h){warmupReset(h,"nbt");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterLifecycleUnloadAndLoad(GameTestHelper h){warmupReset(h,"lifecycle");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterBlockEntityReplacement(GameTestHelper h){warmupReset(h,"replacement");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterCanonicalCarReplacement(GameTestHelper h){warmupReset(h,"car");}
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_reset",timeoutTicks=90)
+    public static void warmupResetsAfterConsistSplit(GameTestHelper h){warmupReset(h,"consist");}
+
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_power",timeoutTicks=100)
+    public static void actualPowerLossRestartsFullWarmup(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);f.car.insertFluid("water",25000);var pump=f.pump();pump.box().insert("water",600);long[] old={-1},restore={-1};
+        h.startSequence().thenIdle(30).thenExecute(()->{old[0]=connection(f,pump).firstPoweredRailClock();h.getLevel().setBlockAndUpdate(pump.getBlockPos().above(2),Blocks.AIR.defaultBlockState());})
+                .thenIdle(5).thenExecute(()->{
+                    h.assertTrue(pump.satisfaction()==0&&RailPumpDock.committedConnections(h.getLevel()).stream().noneMatch(c->c.dock().car().equals(f.car.id())),"Настоящая grid power0 освободила подключение");
+                    restore[0]=f.state.railClock();TestPower.powerAt(h,relative(h,pump.getBlockPos().above(2)));f.car.extractFluid(600);
+                }).thenIdle(10).thenExecute(()->{
+                    var next=connection(f,pump);h.assertTrue(next.firstPoweredRailClock()>=restore[0]&&next.firstPoweredRailClock()!=old[0]&&next.firstTransferRailClock().isEmpty(),"После питания начат новый полный интервал");
+                    h.assertTrue(f.car.fluid().orElseThrow().amount()==24400&&pump.box().amount()==600,"Восстановление питания не воскресило старую готовность");
+                }).thenIdle(20).thenExecute(()->{h.assertTrue(f.car.fluid().orElseThrow().amount()==25000&&pump.box().amount()==0,"После нового warmup сохраненные600 переданы");}).thenSucceed();
+    }
+
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_budget",timeoutTicks=70)
+    public static void sameEntityNbtEpochDoesNotRefundSpentTickBudget(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);f.car.insertFluid("water",25000);var pump=f.pump();pump.box().insert("water",600);
+        h.runAfterDelay(30,()->{
+            h.assertTrue(f.state.railClock()-connection(f,pump).firstPoweredRailClock()>=64,"Помпа действительно ready");
+            f.car.extractFluid(600);h.assertTrue(RailPumpDock.transfer(h.getLevel(),pump)==600,"Настоящий transfer израсходовал600 текущего tick");
+            long tick=h.getLevel().getGameTime(),epoch=pump.railConnectionEpoch();var tag=pump.saveWithoutMetadata(h.getLevel().registryAccess());
+            pump.loadWithComponents(tag,h.getLevel().registryAccess());
+            h.assertTrue(pump.railConnectionEpoch()!=epoch&&pump.railBudget(tick)==0,"Epoch NBT load не возвращает spent600 budget");
+            h.assertTrue(RailPumpDock.transfer(h.getLevel(),pump)==0,"Reload также аннулирует готовое подключение");h.succeed();
+        });
+    }
+    @GameTest(template="rail48wide",batch="railway_loading_warmup_owner_reload",timeoutTicks=90)
+    public static void savedDataOwnerReloadAndSameTickRestoreRestartWarmup(GameTestHelper h) {
+        var original=RailwaySavedData.get(h.getLevel());var f=new Fixture(h,StockKind.FLUID,false);
+        f.car.insertFluid("water",25000);var pump=f.pump();pump.box().insert("water",600);long[] reset={-1},oldStart={-1};
+        h.startSequence().thenIdle(30).thenExecute(()->{
+            oldStart[0]=connection(f,pump).firstPoweredRailClock();reset[0]=f.state.railClock();
+            h.assertTrue(reset[0]-oldStart[0]>=64,"Старый owner имел готовое подключение");
+            java.nio.file.Path folder=null,file=null;
+            try {
+                folder=java.nio.file.Files.createTempDirectory(h.getLevel().getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT),"rail-fluid-owner-");file=folder.resolve(RailwaySavedData.NAME+".dat");
+                var tag=new net.minecraft.nbt.CompoundTag();tag.put("data",original.save(new net.minecraft.nbt.CompoundTag(),h.getLevel().registryAccess()));net.minecraft.nbt.NbtIo.writeCompressed(tag,file);
+                var storage=new net.minecraft.world.level.storage.DimensionDataStorage(folder.toFile(),net.minecraft.util.datafix.DataFixers.getDataFixer(),h.getLevel().registryAccess());
+                var loaded=RailwaySavedData.get(storage,folder,h.getLevel().registryAccess());h.getLevel().getDataStorage().set(RailwaySavedData.NAME,loaded);
+                h.assertTrue(loaded.state()!=f.state&&loaded.state().cars().get(f.car.id())!=f.car,"Disk load заменил canonical owner и car identity");
+                h.assertTrue(RailPumpDock.transfer(h.getLevel(),pump)==0,"Старый claim недействителен в новом owner");
+            } catch(java.io.IOException e) {throw new IllegalStateException(e);}
+            finally {
+                h.getLevel().getDataStorage().set(RailwaySavedData.NAME,original);
+                try {if(file!=null)java.nio.file.Files.deleteIfExists(file);if(folder!=null)java.nio.file.Files.deleteIfExists(folder);}catch(java.io.IOException e){throw new IllegalStateException(e);}
+            }
+            f.car.extractFluid(600);h.assertTrue(RailPumpDock.transfer(h.getLevel(),pump)==0,"Same-tick restore owner не воскресил готовый claim");
+        }).thenIdle(10).thenExecute(()->{
+            var c=connection(f,pump);h.assertTrue(c.firstPoweredRailClock()>=reset[0]&&c.firstPoweredRailClock()!=oldStart[0]&&c.firstTransferRailClock().isEmpty(),"После owner reload новый полный warmup");
+            h.assertTrue(f.car.fluid().orElseThrow().amount()==24400&&pump.box().amount()==600,"Сохранность до готовности нового claim");
+        }).thenIdle(20).thenExecute(()->{
+            var c=connection(f,pump);h.assertTrue(c.firstTransferRailClock().orElseThrow()-c.firstPoweredRailClock()>=64,"Owner reload выдержал64 rail ticks");
+            h.assertTrue(f.car.fluid().orElseThrow().amount()==25000&&pump.box().amount()==0,"После warmup transferred600 без потери");
+        }).thenSucceed();
+    }
     private static void moveHead(Fixture f,double distance) {
         var train=f.state.trains().get(f.train);
         f.h.assertTrue(f.state.commitMotion(train,f.state.graph().revision(),new MotionUpdate(Optional.of(new Cursor(train.head().orElseThrow().traversal(),distance)),train.headIndex(),train.tape(),0,train.status())),"Изменена настоящая координата owner на текущей rail occurrence");
@@ -584,14 +739,17 @@ public final class RailwayLoadingGameTest {
         RailwaySavedData.get(h.getLevel()).removeStop(f.station);
         f.state.dispatcher().setSchedule(f.train,new TrainSchedule(List.of(new TrainSchedule.Stop(Optional.empty(),Optional.of(new TrainSchedule.RailTarget(stop,false)),true,
                 List.of(new TrainSchedule.Wait(TrainSchedule.Type.TIME,TrainSchedule.Join.AND,999999,Optional.empty())))),0));
-        PumpBlockEntity[] pump={null};long[] activity={0};
+        PumpBlockEntity[] pump={null};long[] activity={0},emptyStart={-1},filledAt={-1};
         h.startSequence().thenWaitUntil(f::assertArrived).thenExecute(()->{
             h.assertTrue(f.state.dispatcher().runtime(f.train).stoppedStation().isEmpty(),"Temporary owner не имеет станции");
             pump[0]=f.pump();activity[0]=f.state.dispatcher().runtime(f.train).activityTick().orElseThrow();
-        }).thenIdle(10).thenExecute(()->{
-            h.assertTrue(f.state.dispatcher().runtime(f.train).activityTick().orElseThrow()==activity[0],"Пустая помпа и selection не сбрасывают inactivity");
-            RailPumpDock.selection(h.getLevel());pump[0].box().insert("water",600);
         }).thenIdle(30).thenExecute(()->{
+            h.assertTrue(f.state.dispatcher().runtime(f.train).activityTick().orElseThrow()==activity[0],"Пустая помпа и selection не сбрасывают inactivity");
+            var c=connection(f,pump[0]);emptyStart[0]=c.firstPoweredRailClock();filledAt[0]=f.state.railClock();
+            h.assertTrue(filledAt[0]-emptyStart[0]>=64&&c.firstTransferRailClock().isEmpty(),"Пустой source сохраняет ready claim без flow");
+            RailPumpDock.selection(h.getLevel());pump[0].box().insert("water",600);
+        }).thenIdle(3).thenExecute(()->{
+            var c=connection(f,pump[0]);h.assertTrue(c.firstPoweredRailClock()==emptyStart[0]&&c.firstTransferRailClock().orElseThrow()-filledAt[0]<=3,"Наполнение ready source не запускает новую задержку");
             h.assertTrue(f.car.fluid().orElseThrow().amount()==600,"Fresh temporary pump реально передала600 без станции");
             h.assertTrue(f.state.dispatcher().runtime(f.train).activityTick().orElseThrow()>activity[0],"Только actual transfer сбросил inactivity");
             f.state.dispatcher().setSchedule(f.train,new TrainSchedule(List.of(),0));pump[0].box().insert("water",600);
@@ -631,7 +789,7 @@ public final class RailwayLoadingGameTest {
         f.rails.add(curve);var tape=new ArrayList<>(old.tape().subList(0,11));tape.add(new Traversal(curve.id(),true));
         var current=f.state.trains().get(f.train);
         h.assertTrue(f.state.commitMotion(current,f.state.graph().revision(),new MotionUpdate(Optional.of(new Cursor(tape.get(10),1)),10,tape,0,Status.MANUAL_CONTROL_STOP)),"Owner частично на curve");
-        RailwayManager.reconcileViews(h.getLevel());var pump=f.pump();pump.box().insert("water",600);
+        RailwayManager.reconcileViews(h.getLevel());PumpBlockEntity[] pump={f.pump()};pump[0].box().insert("water",600);
         h.assertTrue(RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),1).isEmpty(),"Передний connector находится на curve");
         h.assertTrue(RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),0).isPresent(),"Средний connector остался straight");
         h.startSequence().thenIdle(30).thenExecute(()->{
@@ -639,8 +797,110 @@ public final class RailwayLoadingGameTest {
             var t=f.state.trains().get(f.train);
             h.assertTrue(f.state.commitMotion(t,f.state.graph().revision(),new MotionUpdate(Optional.of(new Cursor(tape.get(11),.05)),11,tape,0,Status.MANUAL_CONTROL_STOP)),"Owner в cardinal lead-in curve");
             h.assertTrue(f.pose().tangent().x()==0&&RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),0).isEmpty(),"Cardinal tangent внутри CURVE не допускается");
-            pump.box().insert("water",600);
-        }).thenIdle(30).thenExecute(()->h.assertTrue(f.car.fluid().orElseThrow().amount()==600,"Curve connector не переносит жидкость")).thenSucceed();
+            h.getLevel().setBlockAndUpdate(pump[0].getBlockPos(),Blocks.AIR.defaultBlockState());pump[0]=f.pump();pump[0].box().insert("water",600);
+            var port=FluidPorts.ports(h.getLevel(),pump[0].getBlockPos()).get(1);var cell=port.cell();
+            h.assertTrue(RailDockGeometry.matches(f.pose(),1,0,new Point(cell.getX(),cell.getY(),cell.getZ()),RailDir.W),"Новый реальный nozzle совпадает даже на cardinal lead-in CURVE");
+        }).thenIdle(30).thenExecute(()->{
+            h.assertTrue(pump[0].satisfaction()>.99&&pump[0].box().amount()==600&&f.car.fluid().orElseThrow().amount()==600,"Совпадающий powered nozzle отвергнут именно по CURVE occurrence");
+            h.assertTrue(RailPumpDock.selection(h.getLevel()).stream().noneMatch(d->d.car().equals(f.car.id())),"CURVE отсутствует в selection");
+        }).thenSucceed();
+    }
+    @GameTest(template="rail48wide",batch="railway_loading_diagonal_fluid",timeoutTicks=70)
+    public static void coincidentPoweredDiagonalNozzleIsRejectedByOccurrenceShape(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);var base=f.rails.get(10).origin();List<Piece> diagonal=new ArrayList<>();List<Traversal> tape=new ArrayList<>();
+        for(int i=0;i<16;i++) {
+            int x=base.x()+i,z=base.z()+1-i;boolean forward=i%2==0;
+            var p=new Piece(UUID.randomUUID(),new Point(forward?x:x+1,base.y(),forward?z-1:z),Shape.DIAGONAL,forward?0:2,false);
+            diagonal.add(p);tape.add(new Traversal(p.id(),forward));
+        }
+        var oldIds=f.rails.stream().map(Piece::id).collect(java.util.stream.Collectors.toSet());var rails=new ArrayList<>(f.state.rails().stream().filter(p->!oldIds.contains(p.id())).toList());rails.addAll(diagonal);f.state.replaceRails(rails);f.rails.addAll(diagonal);
+        var train=f.state.trains().get(f.train);h.assertTrue(f.state.commitMotion(train,f.state.graph().revision(),new MotionUpdate(Optional.of(new Cursor(tape.get(8),Math.sqrt(2)/4)),8,tape,0,Status.MANUAL_CONTROL_STOP)),"Настоящий DIAGONAL owner");
+        var at=diagonal.get(8).origin();var controller=new BlockPos(at.x()+2,at.y(),at.z()+1);
+        BeltGameTest.place(h,ModItems.PUMP.get(),relative(h,controller),Direction.WEST);TestPower.powerAt(h,relative(h,controller.above(2)));
+        var pump=(PumpBlockEntity)h.getLevel().getBlockEntity(controller);pump.box().insert("water",600);
+        var port=FluidPorts.ports(h.getLevel(),controller).get(1);var cell=port.cell();
+        h.assertTrue(RailDockGeometry.matches(f.pose(),1,0,new Point(cell.getX(),cell.getY(),cell.getZ()),RailDir.W),"Представимая diagonal pose имеет nozzle distance0.06066<0.0625");
+        h.assertTrue(RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),0).isEmpty(),"Underlying occurrence DIAGONAL");
+        h.runAfterDelay(30,()->{h.assertTrue(pump.satisfaction()>.99&&pump.box().amount()==600&&f.car.fluid().orElseThrow().amount()==0&&RailPumpDock.selection(h.getLevel()).stream().noneMatch(d->d.car().equals(f.car.id())),"Совпавший powered diagonal nozzle не выбран и не переносит");h.succeed();});
+    }
+
+    @GameTest(template="rail48wide",batch="railway_loading_fluid_modes",timeoutTicks=100)
+    public static void actualNoPathRefusesAlignedPoweredFluidPump(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,true);f.state.dispatcher().setMode(f.train,Mode.MANUAL);var pose=f.pose();var pump=f.pump();pump.box().insert("water",600);
+        var portCell=FluidPorts.ports(h.getLevel(),pump.getBlockPos()).get(1).cell();h.assertTrue(RailDockGeometry.matches(pose,1,0,new Point(portCell.getX(),portCell.getY(),portCell.getZ()),RailDir.W),"Настоящий nozzle подходит до смены режима");
+        f.state.dispatcher().setSchedule(f.train,new TrainSchedule(List.of(new TrainSchedule.Stop(Optional.of("missing-fluid-"+f.train),Optional.empty(),false,List.of())),0));f.state.dispatcher().setMode(f.train,Mode.AUTOMATIC);
+        h.runAfterDelay(35,()->{
+            h.assertTrue(f.state.trains().get(f.train).status()==Status.NO_PATH&&f.pose().equals(pose),"Настоящий NO_PATH с прежней геометрией");
+            h.assertTrue(RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),0).isPresent()&&pump.satisfaction()>.99,"Поза на straight и питание сохранны");
+            h.assertTrue(RailPumpDock.selection(h.getLevel()).stream().noneMatch(d->d.car().equals(f.car.id()))&&pump.box().amount()==600&&f.car.fluid().orElseThrow().amount()==0,"NO_PATH отказывает bridge после полного возможного warmup");h.succeed();
+        });
+    }
+    @GameTest(template="rail48wide",batch="railway_loading_fluid_signal",timeoutTicks=180)
+    public static void actualSignalWaitRefusesAlignedPoweredFluidPump(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,true);var tape=f.state.trains().get(f.train).tape();var blocker=f.state.createCar(UUID.randomUUID(),StockKind.CARGO,false);
+        f.state.createTrain(new Train(UUID.randomUUID(),List.of(blocker.id()),Optional.of(new Cursor(tape.get(17),0)),17,tape,0,Mode.MANUAL,Status.MANUAL_CONTROL_STOP,0,0,0));
+        var signal=new RailSignals.Signal(UUID.randomUUID(),new Port(f.rails.get(13).id(),End.A),true,RailSignals.Kind.REGULAR);
+        RailwaySavedData.get(h.getLevel()).putSignal(new RailwaySavedData.WorldSignal(signal.id(),RailPlacement.signalPosition(f.state,signal),f.rails.get(13),End.A,true,RailSignals.Kind.REGULAR));f.signals.add(signal.id());RailwayManager.reconcileViews(h.getLevel());PumpBlockEntity[] pump={null};
+        h.startSequence().thenWaitUntil(()->h.assertTrue(f.state.trains().get(f.train).status()==Status.WAIT_SIGNAL,"Настоящий fluid WAIT_SIGNAL: "+f.diagnostic())).thenExecute(()->{
+            pump[0]=f.pump();pump[0].box().insert("water",600);var cell=FluidPorts.ports(h.getLevel(),pump[0].getBlockPos()).get(1).cell();
+            h.assertTrue(RailDockGeometry.matches(f.pose(),1,0,new Point(cell.getX(),cell.getY(),cell.getZ()),RailDir.W),"Nozzle точно совпадает у signal wait");
+        }).thenIdle(30).thenExecute(()->{
+            h.assertTrue(f.state.trains().get(f.train).status()==Status.WAIT_SIGNAL&&pump[0].satisfaction()>.99,"Сохранился настоящий signal wait и power");
+            h.assertTrue(RailPumpDock.selection(h.getLevel()).stream().noneMatch(d->d.car().equals(f.car.id()))&&pump[0].box().amount()==600&&f.car.fluid().orElseThrow().amount()==0,"WAIT_SIGNAL не дает fluid selection/flow");
+        }).thenSucceed();
+    }
+
+    @GameTest(template="rail48wide",batch="railway_loading_fluid_selection",timeoutTicks=70)
+    public static void twoEligibleFluidCarsCompeteForExactlyOnePumpPort(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);var original=f.state.trains().get(f.train);var other=f.state.createCar(UUID.randomUUID(),StockKind.FLUID,true);
+        var second=f.state.createTrain(new Train(UUID.randomUUID(),List.of(other.id()),original.head(),original.headIndex(),original.tape(),0,Mode.MANUAL,Status.MANUAL_CONTROL_STOP,0,0,0));
+        var pump=f.pump();pump.box().insert("water",600);UUID[] selected={null};
+        h.runAfterDelay(10,()->{
+            h.assertTrue(RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),0).isPresent()&&RailDockGeometry.connectorFrame(f.state,second.id(),other.id(),0).isPresent(),"Оба canonical car одновременно подходят по geometry");
+            var cell=FluidPorts.ports(h.getLevel(),pump.getBlockPos()).get(1).cell();var point=new Point(cell.getX(),cell.getY(),cell.getZ());
+            h.assertTrue(RailDockGeometry.matches(f.pose(),1,0,point,RailDir.W)&&RailDockGeometry.matches(TrainMotion.carPoses(f.state,second.id()).get(other.id()),-1,0,point,RailDir.W),"Оба nozzle совпадают с тем же actual port");
+            var docks=RailPumpDock.selection(h.getLevel()).stream().filter(d->d.controller().equals(pump.getBlockPos())&&d.port()==1).toList();
+            h.assertTrue(docks.size()==1,"Один physical port выбрал ровноодного car");selected[0]=docks.getFirst().car();
+            h.assertTrue(f.car.fluid().orElseThrow().amount()+other.fluid().orElseThrow().amount()==0,"Warming claim уже эксклюзивен");
+        });
+        h.runAfterDelay(35,()->{
+            var chosen=f.state.cars().get(selected[0]);var rejected=selected[0].equals(f.car.id())?other:f.car;
+            h.assertTrue(chosen.fluid().orElseThrow().amount()==600&&rejected.fluid().orElseThrow().amount()==0&&pump.box().amount()==0,"Дельта600 появилась только у выбранного canonical car");h.succeed();
+        });
+    }
+
+    @GameTest(template="rail48wide",batch="railway_loading_stationary_priority",timeoutTicks=110)
+    public static void syntheticRailPipeOverlapGivesStationaryPortPriorityAndKeepsOppositePort(GameTestHelper h) {
+        var f=new Fixture(h,StockKind.FLUID,false);var shifted=f.rails.stream().map(p->new Piece(UUID.randomUUID(),new Point(p.origin().x()+4,p.origin().y(),p.origin().z()),p.shape(),p.quarterTurns(),p.mirrored())).toList();
+        var all=new ArrayList<>(f.state.rails());all.addAll(shifted);f.state.replaceRails(all);f.rails.addAll(shifted);
+        var source=f.state.createCar(UUID.randomUUID(),StockKind.FLUID,true);source.insertFluid("water",25000);var tape=shifted.stream().map(p->new Traversal(p.id(),true)).toList();
+        f.state.createTrain(new Train(UUID.randomUUID(),List.of(source.id()),Optional.of(new Cursor(tape.get(10),1)),10,tape,0,Mode.MANUAL,Status.MANUAL_CONTROL_STOP,0,0,0));
+        var pump=f.pump();var output=FluidPorts.ports(h.getLevel(),pump.getBlockPos()).get(1);var pipe=output.neighbor();
+        // Только fixture: logical rail под настоящей pipe. Это не разрешение survival placement.
+        var rails=List.copyOf(f.state.rails());var train=f.state.trains().get(f.train);
+        h.getLevel().setBlockAndUpdate(pipe,Blocks.AIR.defaultBlockState());BeltGameTest.place(h,ModItems.PIPE.get(),relative(h,pipe),Direction.NORTH);
+        f.state.replaceRails(rails);var current=f.state.trains().get(f.train);
+        h.assertTrue(f.state.commitMotion(current,f.state.graph().revision(),new MotionUpdate(train.head(),train.headIndex(),train.tape(),0,Status.MANUAL_CONTROL_STOP)),"Synthetic owner восстановлен под pipe");
+        var cell=output.cell();h.assertTrue(FluidConnections.endAt(h.getLevel(),pipe,output.side().getOpposite())!=null&&RailDockGeometry.connectorFrame(f.state,f.train,f.car.id(),0).isPresent()
+                &&RailDockGeometry.matches(f.pose(),1,0,new Point(cell.getX(),cell.getY(),cell.getZ()),RailDir.W),"Оба кандидата действительно существуют: stationary endpoint и coincident eligible wagon");
+        boolean[] pipePresent={true};String[] violation={null};long[] removedAt={-1},inputStart={-1};
+        h.onEachTick(()->{
+            if(f.closed)return;double total=f.car.fluid().orElseThrow().amount()+source.fluid().orElseThrow().amount()+pump.box().amount()+(pipePresent[0]?FluidAccess.segmentAt(h.getLevel(),pipe).amount():0);
+            if(Math.abs(total-25000)>1e-6&&violation[0]==null)violation[0]="Priority conservation="+total;
+        });
+        h.startSequence().thenIdle(35).thenExecute(()->{
+            var selected=RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().controller().equals(pump.getBlockPos())).toList();
+            h.assertTrue(selected.size()==1&&selected.getFirst().dock().car().equals(source.id())&&selected.getFirst().dock().port()==0,"Stationary endpoint занял output, opposite input подключен к source wagon");
+            inputStart[0]=selected.getFirst().firstPoweredRailClock();
+            h.assertTrue(f.car.fluid().orElseThrow().amount()==0&&source.fluid().orElseThrow().amount()<25000&&FluidAccess.segmentAt(h.getLevel(),pipe).amount()>0,"Обычный pipe output работает, совпадающий wagon не получает жидкость");
+            var segment=FluidAccess.segmentAt(h.getLevel(),pipe);double reclaimed=segment.extract(segment.amount());h.assertTrue(source.insertFluid("water",reclaimed)==reclaimed,"Содержимое pipe возвращено owner до удаления тестового endpoint");
+            pipePresent[0]=false;removedAt[0]=f.state.railClock();h.getLevel().setBlockAndUpdate(pipe,Blocks.AIR.defaultBlockState());RailwayManager.reconcileViews(h.getLevel());
+        }).thenIdle(30).thenExecute(()->{
+            var outputClaim=connection(f,pump);h.assertTrue(outputClaim.firstPoweredRailClock()>=removedAt[0]&&outputClaim.firstTransferRailClock().orElseThrow()-outputClaim.firstPoweredRailClock()>=64,"После освобождения port новый wagon claim прошел полный warmup");
+            var input=RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(source.id())&&c.dock().controller().equals(pump.getBlockPos())).findFirst().orElseThrow();
+            h.assertTrue(input.firstPoweredRailClock()==inputStart[0]&&f.car.fluid().orElseThrow().amount()>0,"Противоположное подключение сохранено, освобожденное действительно передает");
+            h.assertTrue(violation[0]==null,"Непрерывная сохранность synthetic priority: "+violation[0]);
+        }).thenSucceed();
     }
     @GameTest(template="rail48wide",batch="railway_loading_fluid",timeoutTicks=240)
     public static void actualPumpTankWagonAndBackConserve25000EveryTick(GameTestHelper h) {
@@ -680,6 +940,7 @@ public final class RailwayLoadingGameTest {
         h.runAfterDelay(30,()->{
             h.assertTrue(Math.abs(pump.satisfaction()-.5)<1e-9&&maximum[0]>299.999,"Реальная power grid выдала0.5 и observed transfer300");
             h.assertTrue(violation[0]==null,"Все ticks соблюдали лимит: "+violation[0]);
+            var c=connection(f,pump);h.assertTrue(c.firstTransferRailClock().orElseThrow()-c.firstPoweredRailClock()==66,"Half power использует тот же fixed64 adapter");
             double first=RailPumpDock.transfer(h.getLevel(),pump),second=RailPumpDock.transfer(h.getLevel(),pump);
             h.assertTrue(first+second<=300&&second==0,"Повторный вызов того же tick не получает второй бюджет");h.succeed();
         });
@@ -694,15 +955,16 @@ public final class RailwayLoadingGameTest {
             pump.box().extract(600);pump.box().insert("crude_oil",600);f.car.insertFluid("water",100);
             TestPower.powerAt(h,relative(h,pump.getBlockPos().above(2)));
         });
-        h.runAfterDelay(20,()->{
+        h.runAfterDelay(40,()->{
             h.assertTrue(pump.satisfaction()>.99&&pump.box().amount()==600&&f.car.fluid().orElseThrow().amount()==100,"Несовместимые реальные жидкости не смешаны и не списаны");
+            h.assertTrue(f.state.railClock()-connection(f,pump).firstPoweredRailClock()>=64,"No-mix проверяется после warmup");
             pump.box().extract(600);pump.box().insert("",600);
         });
-        h.runAfterDelay(30,()->{
+        h.runAfterDelay(50,()->{
             h.assertTrue(pump.box().fluid().isEmpty()&&pump.box().amount()==600&&f.car.fluid().orElseThrow().amount()==100,"Пустой source id отвергнут до extract");
             pump.box().extract(600);pump.box().insert("unknown",600);
         });
-        h.runAfterDelay(40,()->{
+        h.runAfterDelay(60,()->{
             h.assertTrue(pump.box().amount()==600&&f.car.fluid().orElseThrow().amount()==100,"Неизвестный source id отвергнут до extract");
             for(double invalid:new double[]{-1,Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY}) {
                 h.assertTrue(RailPumpDock.transferAmount("water",invalid,null,0,25000,600)==0,"Invalid source amount");
@@ -717,7 +979,7 @@ public final class RailwayLoadingGameTest {
     public static void pumpLifecycleReloadKeepsFluidAndRejectsStaleSupplier(GameTestHelper h) {
         var f=new Fixture(h,StockKind.FLUID,false);f.car.insertFluid("water",25000);var original=f.pump();original.box().insert("water",600);
         PumpBlockEntity[] restored={null};
-        h.startSequence().thenIdle(10).thenExecute(()->{
+        h.startSequence().thenIdle(30).thenExecute(()->{
             h.assertTrue(original.satisfaction()>.99&&original.box().amount()==600,"Полная цистерна не потребляет source");
             var registries=h.getLevel().registryAccess();var tag=original.saveWithoutMetadata(registries);
             var restoredOwner=RailwayNbt.read(RailwayNbt.write(f.state,registries),registries);
@@ -771,7 +1033,7 @@ public final class RailwayLoadingGameTest {
         BeltGameTest.place(h,ModItems.PUMP.get(),relative(h,duplicateAt),Direction.WEST);
         var duplicate=(PumpBlockEntity)h.getLevel().getBlockEntity(duplicateAt);duplicate.box().insert("water",600);pumps.add(duplicate);
         TestPower.powerAt(h,relative(h,duplicateAt.above(2)));rightPower.add(duplicateAt.above(2));
-        String[] violation={null};List<Set<BlockPos>> poweredAfter=new ArrayList<>();
+        String[] violation={null};List<Set<BlockPos>> poweredAfter=new ArrayList<>();List<Map<BlockPos,Long>> timerSnapshots=new ArrayList<>();
         h.onEachTick(()->{
             if(f.closed)return;
             double total=f.car.fluid().orElseThrow().amount()+pumps.stream().mapToDouble(p->p.box().amount()).sum();
@@ -780,24 +1042,36 @@ public final class RailwayLoadingGameTest {
             if(selected.size()>3&&violation[0]==null)violation[0]="Больше трех подключений";
             if(selected.stream().map(d->d.side()+":"+d.connector()).distinct().count()!=selected.size()&&violation[0]==null)violation[0]="Duplicate connector получил второй канал";
         });
-        h.runAfterDelay(15,()->{
+        h.runAfterDelay(10,()->{
+            var pending=RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())).toList();
+            h.assertTrue(pending.size()==3&&pending.stream().allMatch(c->c.firstTransferRailClock().isEmpty())&&f.car.fluid().orElseThrow().amount()==0,"Три warming claims уже занимают общую quota");
+            timerSnapshots.add(pending.stream().collect(java.util.stream.Collectors.toMap(c->c.dock().controller(),RailPumpDock.Connection::firstPoweredRailClock)));
+        });
+        h.runAfterDelay(30,()->{
             var selected=RailPumpDock.selection(h.getLevel()).stream().filter(d->d.car().equals(f.car.id())).toList();
             h.assertTrue(selected.size()==3&&f.car.fluid().orElseThrow().amount()==1800,"Три из семи геометрически допустимых помп передали ровно3x600");
             h.assertTrue(selected.stream().anyMatch(d->d.side()==1)&&selected.stream().anyMatch(d->d.side()==-1),"Cap3 действительно общий для обоих бортов");
+            h.assertTrue(timerSnapshots.getFirst().equals(RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())).collect(java.util.stream.Collectors.toMap(c->c.dock().controller(),RailPumpDock.Connection::firstPoweredRailClock))),"Готовность тех же claims не перезапускалась");
             var data=RailwaySavedData.get(h.getLevel());data.setDirty(false);var before=f.car.fluid();
             h.assertTrue(selected.equals(RailPumpDock.selection(h.getLevel()).stream().filter(d->d.car().equals(f.car.id())).toList())&&!data.isDirty()&&before.equals(f.car.fluid()),"Preview не меняет claims, owner илиdirty");
             rightPower.forEach(pos->h.getLevel().setBlockAndUpdate(pos,Blocks.AIR.defaultBlockState()));
         });
-        h.runAfterDelay(30,()->{
+        h.runAfterDelay(40,()->{
+            var pending=RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())).toList();
+            h.assertTrue(pending.size()==3&&pending.stream().allMatch(c->c.dock().side()==-1)&&pending.stream().anyMatch(c->c.firstTransferRailClock().isEmpty()),"Освобожденные места заняты новыми warming claims");
+        });
+        h.runAfterDelay(60,()->{
             h.assertTrue(pumps.stream().filter(p->rightPower.contains(p.getBlockPos().above(2))).allMatch(p->p.satisfaction()==0),"Фактическая сеть перестала питать правый борт");
             var selected=RailPumpDock.selection(h.getLevel()).stream().filter(d->d.car().equals(f.car.id())).toList();
             h.assertTrue(selected.size()==3&&selected.stream().allMatch(d->d.side()==-1),"Power0 освободил quota для остальных подходящих помп");
             poweredAfter.add(selected.stream().map(RailPumpDock.Dock::controller).collect(java.util.stream.Collectors.toSet()));
+            timerSnapshots.add(RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())).collect(java.util.stream.Collectors.toMap(c->c.dock().controller(),RailPumpDock.Connection::firstPoweredRailClock)));
             TestPower.powerAt(h,relative(h,rightPower.getFirst()));
         });
-        h.runAfterDelay(45,()->{
+        h.runAfterDelay(90,()->{
             var selected=RailPumpDock.selection(h.getLevel()).stream().filter(d->d.car().equals(f.car.id())).map(RailPumpDock.Dock::controller).collect(java.util.stream.Collectors.toSet());
             h.assertTrue(selected.equals(poweredAfter.getFirst()),"Восстановление питания не вытесняет три сохраненных валидных подключения");
+            h.assertTrue(timerSnapshots.getLast().equals(RailPumpDock.committedConnections(h.getLevel()).stream().filter(c->c.dock().car().equals(f.car.id())).collect(java.util.stream.Collectors.toMap(c->c.dock().controller(),RailPumpDock.Connection::firstPoweredRailClock))),"Восстановившийся конкурент не сбросил retained timers");
             h.assertTrue(violation[0]==null,"Непрерывная сохранность quota: "+violation[0]);h.succeed();
         });
     }
