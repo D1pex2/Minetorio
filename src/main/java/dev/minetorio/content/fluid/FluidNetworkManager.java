@@ -89,7 +89,10 @@ public final class FluidNetworkManager {
     }
 
     private static void onLevelUnload(LevelEvent.Unload event) {
-        if (event.getLevel() instanceof ServerLevel server) MANAGERS.remove(server);
+        if (event.getLevel() instanceof ServerLevel server) {
+            MANAGERS.remove(server);
+            dev.minetorio.content.rail.RailPumpDock.forget(server);
+        }
     }
 
     /** Chunks holding nodes are saved with every level save: the shares change without the block entities knowing. */
@@ -111,6 +114,14 @@ public final class FluidNetworkManager {
     }
 
     public FluidNetwork network() { return network; }
+
+    /** Тот же реестр загруженных машин, который обслуживает обычную сеть жидкостей. */
+    public List<PumpBlockEntity> loadedPumps() {
+        List<PumpBlockEntity> result=new ArrayList<>();
+        for(BlockPos pos:machines)if(level.isLoaded(pos)&&level.getBlockEntity(pos) instanceof PumpBlockEntity pump&&!pump.isRemoved())result.add(pump);
+        result.sort(java.util.Comparator.comparing(PumpBlockEntity::getBlockPos));
+        return List.copyOf(result);
+    }
 
     // --- registration --------------------------------------------------------------------------------
 
@@ -218,6 +229,8 @@ public final class FluidNetworkManager {
         flush();
         if (attachDirty) rebuildAttachments();
         network.tick();
+        dev.minetorio.content.rail.RailPumpDock.beginTick(level);
+        for(PumpBlockEntity pump:loadedPumps())dev.minetorio.content.rail.RailPumpDock.transfer(level,pump);
         long time = level.getGameTime();
         if (time % AltSync.PERIOD == 0) syncGauges();
         if (time % AltSync.PERIOD == 5) hover(time);

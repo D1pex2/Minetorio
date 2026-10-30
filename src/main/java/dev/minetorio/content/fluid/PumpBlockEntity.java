@@ -34,6 +34,8 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
             () -> ElectricConsumerHelper.box(MultiblockShape.PUMP.footprint(worldPosition, facing())));
     private final DoubleSupplier rate = () -> FluidData.PUMP_RATE_PER_TICK * power.satisfaction();
     private FluidGauge clientGauge = FluidGauge.EMPTY;
+    private long railTransferTick=Long.MIN_VALUE;
+    private double railTransferred;
 
     public PumpBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PUMP.get(), pos, state);
@@ -44,6 +46,16 @@ public class PumpBlockEntity extends MultiblockControllerBlockEntity implements 
     public FluidBox box() { return box; }
 
     public double satisfaction() { return power.satisfaction(); }
+
+    /** Общий бюджет обоих железнодорожных портов за один Minecraft tick. Чтение чистое. */
+    public double railBudget(long tick) {
+        double rate=FluidData.PUMP_RATE_PER_TICK*satisfaction();
+        return Double.isFinite(rate)&&rate>0?Math.max(0,rate-(railTransferTick==tick?railTransferred:0)):0;
+    }
+    public void recordRailTransfer(long tick,double amount) {
+        if(railTransferTick!=tick){railTransferTick=tick;railTransferred=0;}
+        railTransferred+=amount;
+    }
 
     @Override
     public FluidBox fluidBox(int port) { return box; }

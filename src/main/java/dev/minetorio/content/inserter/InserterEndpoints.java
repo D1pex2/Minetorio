@@ -70,7 +70,7 @@ public final class InserterEndpoints {
         if (machine != null) return machine.asSource();
         if (level.getBlockEntity(pos) instanceof BeltBlockEntity belt) return beltSource(belt);
         IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, from);
-        return handler == null ? null : handlerSource(handler, level.registryAccess());
+        return handler == null ? dev.minetorio.content.rail.RailCargoAccess.source(level, pos, from) : handlerSource(handler, level.registryAccess());
     }
 
     /**
@@ -84,7 +84,7 @@ public final class InserterEndpoints {
         if (machine != null) return machine.asTarget();
         if (level.getBlockEntity(pos) instanceof BeltBlockEntity belt) return beltTarget(belt, from);
         IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, from);
-        return handler == null ? null : handlerTarget(handler, level.registryAccess());
+        return handler == null ? dev.minetorio.content.rail.RailCargoAccess.target(level, pos, from) : handlerTarget(handler, level.registryAccess());
     }
 
     /** The machine at {@code pos}: its own block entity or, for a multiblock part, its controller. */
