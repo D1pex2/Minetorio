@@ -132,6 +132,7 @@ public final class DemoBuilder {
      */
     private void build() {
         BoundingBox area = area(origin);
+        RailDemoBuilder.clear(level, area);
         clear(area);
         floor();
         field(OreType.IRON, IRON_X, IRON_Z, IRON_RADIUS);
@@ -149,6 +150,7 @@ public final class DemoBuilder {
         radar();
         OilDemoBuilder.build(level, origin.offset(4, 0, 64));
         discardBlockers(AABB.of(area).inflate(0, 2, 0)); // any that became visible during the build
+        RailDemoBuilder.build(level, origin, pending);
         DemoSavedData data = DemoSavedData.get(level);
         data.removeIn(area);
         for (Consumer<DemoSavedData> entry : pending) entry.accept(data);

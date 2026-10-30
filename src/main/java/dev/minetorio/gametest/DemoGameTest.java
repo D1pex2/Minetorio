@@ -69,6 +69,7 @@ public class DemoGameTest {
         ResearchSavedData.get(level.getServer()).restore(Set.of(), null, Map.of());
         if (origin == null) return;
         DemoBuilder.Layout layout = DemoBuilder.layout(origin);
+        dev.minetorio.content.demo.RailDemoBuilder.clear(level, layout.area());
         for (ChunkPos c : chunks(layout.area())) level.setChunkForced(c.x, c.z, false);
         origin = null;
     }
@@ -149,6 +150,17 @@ public class DemoGameTest {
         int result = server.getCommands().getDispatcher().execute(
                 "minetorio demo " + feet.getX() + " " + feet.getY() + " " + feet.getZ(), server.createCommandSourceStack().withSuppressedOutput());
         h.assertTrue(result == 1, "command returned " + result);
+        var railway = dev.minetorio.content.rail.RailwaySavedData.get(level).state();
+        var demoTrains = railway.trains().values().stream().filter(t ->
+                dev.minetorio.core.rail.TrainMotion.carPoses(railway, t.id()).values().stream().anyMatch(p ->
+                        layout.area().isInside(BlockPos.containing(p.position().x(), p.position().y(), p.position().z())))).toList();
+        h.assertTrue(demoTrains.size() == 1, "Демо должно содержать настоящий canonical поезд, найдено " + demoTrains.size());
+        var demoTrain = demoTrains.getFirst();
+        h.assertTrue(demoTrain.cars().size() == 4 && demoTrain.mode() == dev.minetorio.core.rail.RailwayState.Mode.AUTOMATIC,
+                "Демо: два встречных локомотива, грузовой вагон и цистерна в AUTO");
+        h.assertTrue(railway.dispatcher().runtime(demoTrain.id()).schedule().stops().size() == 2,
+                "Демо: две настоящие остановки в расписании");
+
         h.assertTrue(level.getBlockState(outsideLeaf).isAir(), "boundary tree left an exterior crown");
         h.assertTrue(level.getBlockState(exteriorBuilding).is(Blocks.IRON_BLOCK), "boundary tree cleanup removed an exterior building");
         h.assertTrue(level.getEntitiesOfClass(Animal.class, AABB.of(layout.area())).isEmpty(), "animals left in the area");
@@ -182,6 +194,13 @@ public class DemoGameTest {
         h.assertTrue(state.current().map(t -> t.id().equals("automation")).orElse(false), "research " + state.current());
 
         h.runAtTickTime(600, () -> {
+            var railLayout = dev.minetorio.content.demo.RailDemoBuilder.layout(o);
+            h.assertTrue(count(level, railLayout.output(), ModItems.IRON_PLATE.get()) > 0,
+                    "Челнок должен выгрузить пластины через настоящий манипулятор: " + railway.trains().get(demoTrain.id()).status());
+            var railTank = (dev.minetorio.content.fluid.StorageTankBlockEntity) level.getBlockEntity(railLayout.tank());
+            h.assertTrue(railTank.fluidNode().amount() > 0, "Челнок должен выгрузить воду через настоящую помпу, tank=" + railTank.fluidNode().amount());
+            h.assertTrue(count(level, railLayout.weapons(), dev.minetorio.content.combat.CombatRegistry.PISTOL.get()) == 1,
+                    "Оружие первого боя доступно в сундуке");
             int plates = count(level, layout.smeltingOutput(), ModItems.IRON_PLATE.get());
             h.assertTrue(plates > 0, "no plates in the smelting output");
             AssemblerBlockEntity gearAsm = (AssemblerBlockEntity) level.getBlockEntity(layout.gearAssembler());
@@ -198,7 +217,7 @@ public class DemoGameTest {
                 consumers++;
                 h.assertTrue(s >= 0.99, be.getType() + " at " + be.getBlockPos().subtract(o) + " has satisfaction " + s);
             }
-            h.assertTrue(consumers == 25, "electric consumers, including the oil showcase inserters: " + consumers);
+            h.assertTrue(consumers == 27, "electric consumers, including the oil showcase inserters: " + consumers);
             for (BlockPos e : layout.engines()) {
                 SteamEngineBlockEntity engine = (SteamEngineBlockEntity) level.getBlockEntity(e);
                 h.assertTrue(engine.isWorking(), "engine at " + e.subtract(o) + " not working");
@@ -217,6 +236,20 @@ public class DemoGameTest {
             h.assertTrue(plates <= DemoBuilder.OUTPUT_KEEP, "output chest not trimmed: " + plates);
 
             h.assertTrue(count(level, layout.coalField().offset(1, 1, -1), BaseMaterials.COAL.get()) > 0, "coal drill mined nothing");
+
+            // Повтор команды не оставляет исчезнувшие проекции с живыми canonical владельцами.
+            var previousCars = List.copyOf(demoTrain.cars());
+            var previousRails = railway.rails().stream().filter(r -> layout.area().isInside(
+                    dev.minetorio.content.rail.RailPlacement.block(r.origin()))).map(r -> r.id()).toList();
+            var other = railway.createCar(java.util.UUID.randomUUID(), dev.minetorio.core.data.RailData.StockKind.CARGO, false);
+            DemoBuilder.build(level, o);
+            h.assertTrue(previousCars.stream().noneMatch(railway.cars()::containsKey)
+                            && previousRails.stream().noneMatch(id -> railway.graph().piece(id).isPresent()),
+                    "Повторная постройка должна удалить старые canonical машины и рельсы");
+            h.assertTrue(railway.cars().containsKey(other.id()), "Перестройка демо не удаляет посторонний owner");
+            railway.removeCar(other.id(), true);
+            h.assertTrue(railway.cars().values().stream().filter(c -> !previousCars.contains(c.id())).count() >= 4,
+                    "После перестройки остаются новые четыре вагона");
 
             // demo off: no entries, no autopilot, the fields turned into dirt
             try {
